@@ -1,0 +1,164 @@
+---
+title: "Proyecto 2"
+author: "Rodrigo Mansilla, Javier Chen"
+date: "2025-02-25"
+output: 
+  pdf_document:
+      latex_engine: xelatex
+---
+
+```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(rmarkdown)
+library(xfun)
+library(tidyverse)      # Manipulación de datos y piping
+library(tidyverse)
+library(hopkins)
+library(fpc)
+library(factoextra)
+library(parallelDist)
+library(ggrepel)
+library(GGally)
+library(flexclust)
+library(data.table)
+library(dplyr)
+library(cluster)
+library(ggplot2)
+library(tidyverse)      # Manipulación de datos y piping
+library(tidyverse)
+library(hopkins)
+library(fpc)
+library(factoextra)
+library(parallelDist)
+library(ggrepel)
+library(GGally)
+library(flexclust)
+library(data.table)
+library(dplyr)
+library(cluster)
+library(ggplot2)
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%"
+)
+
+
+
+```
+
+# Introducción
+
+# Metodología
+
+## Exploración inicial  de Datos
+```{r rd, echo = FALSE, warning = FALSE}
+
+# Cargar el dataset (ajusta la ruta si es necesario)
+datos <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/raw/train.csv", stringsAsFactors = FALSE)
+```
+
+### Dimensiones del Dataset
+```{r dims, echo = FALSE, warning = FALSE}
+
+num_filas <- nrow(datos)
+num_columnas <- ncol(datos)
+
+# Crear un data frame con las métricas
+dimensiones <- data.frame(
+  Métrica = c("Número de filas", "Número de columnas"),
+  Valor = c(num_filas, num_columnas)
+)
+
+# Mostrar la tabla de dimensiones usando kable
+library(knitr)
+kable(dimensiones, caption = "Dimensiones del Dataset")
+
+
+
+```
+### Primeras filas
+```{r head, echo=FALSE, warning=FALSE}
+
+# Seleccionar un subconjunto de columnas (por ejemplo, las primeras 5)
+datos_subset <- datos[, 1:10]
+
+# Mostrar las primeras 6 filas
+kable(
+  head(datos_subset, 6),
+  caption = "Primeras 6 filas (5 columnas)"
+)%>%
+kable_styling(latex_options = "scale_down")
+
+```
+
+### Ultimas filas
+
+```{r tail, echo=FALSE, warning=FALSE}
+library(knitr)
+# Mostrar las últimas 6 filas
+kable(
+  tail(datos_subset, 6),
+  caption = "Últimas 6 filas (5 columnas)"
+) %>%
+  kable_styling(latex_options = "scale_down")
+```
+Observamos que el dataset contiene una complejidad adecuada y es necesaria la limpieza y transformación de datos para poder detectar relaciones, outliers y patrones en los datos.
+
+
+
+## Análisis descriptivo y Exploración de Variables
+### Estadísticas Descriptivas de variables numéricas
+```{r descriptivas, echo = FALSE, warning = FALSE}
+
+library(knitr)
+
+# Seleccionar las columnas numéricas del dataset 'datos'
+numeric_cols <- datos[sapply(datos, is.numeric)]
+
+# Función para calcular las estadísticas descriptivas
+calc_stats <- function(x) {
+  c(
+    count = sum(!is.na(x)),
+    mean  = mean(x, na.rm = TRUE),
+    std   = sd(x, na.rm = TRUE),
+    min   = min(x, na.rm = TRUE),
+    "25%" = quantile(x, 0.25, na.rm = TRUE),
+    "50%" = quantile(x, 0.50, na.rm = TRUE),  # Este valor es la mediana
+    "75%" = quantile(x, 0.75, na.rm = TRUE),
+    max   = max(x, na.rm = TRUE),
+    mediana = median(x, na.rm = TRUE)
+  )
+}
+
+# Aplicar la función a cada columna numérica y transponer el resultado
+resumen_estadistico <- t(sapply(numeric_cols, calc_stats))
+resumen_estadistico <- as.data.frame(resumen_estadistico)
+
+# Redondear los valores para mejorar la legibilidad
+resumen_estadistico[] <- lapply(resumen_estadistico, function(x) round(x, 2))
+
+# Mostrar el resumen estadístico con kable
+kable(resumen_estadistico, caption = "Resumen Estadístico de Variables Numéricas")
+
+```
+
+
+
+## Ingeniería de Características y Transformación de Datos
+
+
+## Análisis de Correlaciones y Selección de Variables
+
+
+
+# Análisis de Grupos
+
+# Modelado
+
+# Discusión y Conclusiones

@@ -1,0 +1,1408 @@
+---
+title: "Entrega 2. Proyecto Cinevision"
+author: "Rodrigo Mansillam 22611 | Javier Chen 22153"
+date: "2025-02-16"
+output: pdf_document
+---
+
+```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(rmarkdown)
+library(xfun)
+library(tidyverse)      # Manipulación de datos y piping
+library(tidyverse)
+library(hopkins)
+library(fpc)
+library(factoextra)
+library(parallelDist)
+library(ggrepel)
+library(GGally)
+library(flexclust)
+library(data.table)
+library(dplyr)
+library(cluster)
+library(ggplot2)
+library(tidyverse)      # Manipulación de datos y piping
+library(tidyverse)
+library(hopkins)
+library(fpc)
+library(factoextra)
+library(parallelDist)
+library(ggrepel)
+library(GGally)
+library(flexclust)
+library(data.table)
+library(dplyr)
+library(cluster)
+library(ggplot2)
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%"
+)
+```
+
+## 1. Preprocesamiento de datos
+
+### 1.2 Objetivos
+
+-   **Eliminar variables irrelevantes:**\
+    Se descartan columnas identificativas o textuales que no aportan información cuantitativa (p. ej., *id*, *originalTitle*, *title*, *homePage*, *productionCompany*, *genres*, *director*, *actors*, *actorsCharacter*).
+
+-   **Limpiar columnas numéricas problemáticas:**
+
+-   **Imputar valores faltantes:**\
+    Reemplazar los NA en las variables numéricas relevantes usando la mediana.
+
+-   **Escalar variables numéricas:**\
+    Aplicar normalización (Z-score) para homogeneizar la escala de las variables usadas en el clustering para comparar y combinar las variables de forma equitativa.
+
+### 1.3 Metodología
+
+#### 1.3.1 Dataset Original:
+
+```{r initconfig , echo = FALSE, warning = FALSE}
+
+# Lectura del dataset original
+movies <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/movies.csv", 
+                  stringsAsFactors = FALSE)
+
+# Análisis de valores faltantes
+original_na <- colSums(is.na(movies))
+original_summary <- tibble(
+  Variable = names(movies),
+  `Valores NA` = original_na
+)
+
+# Dimensiones del dataset
+output_text <- paste0("**Dimensiones del dataset original:**\n\n",
+                      "- Observaciones: ", nrow(movies), "\n",
+                      "- Variables: ", ncol(movies), "\n\n")
+knitr::asis_output(output_text)
+
+
+# Tabla de valores faltantes con formato mejorado
+kable(original_summary,
+      caption = "Tabla 1: Análisis de Valores Faltantes en el Dataset Original",
+      col.names = c("Variable", "Cantidad de NA"),
+      align = c('l', 'r'),
+      digits = 0,
+      format.args = list(big.mark = ","))%>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+#### 1.3.2 Dataset Preprocesado:
+
+```{r prerpocs, echo = FALSE, warning = FALSE, results = "asis"}
+# Lectura del dataset preprocesado
+movies_clean_transformed <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/movies_clean_transformed.csv",
+                              stringsAsFactors = FALSE)
+
+# Análisis de valores faltantes en datos preprocesados
+preprocessed_na <- colSums(is.na(movies_clean_transformed))
+preprocessed_summary <- tibble(
+  Variable = names(movies_clean_transformed),
+  `Valores NA` = preprocessed_na
+)
+
+# Dimensiones del dataset preprocesado
+output_text <- paste0("**Dimensiones del dataset Preprocesado:**\n\n",
+                      "- Observaciones: ", nrow(movies_clean_transformed), "\n",
+                      "- Variables: ", ncol(movies_clean_transformed), "\n\n")
+knitr::asis_output(output_text)
+
+# Tabla de valores faltantes con formato mejorado
+kable(preprocessed_summary,
+      caption = "Tabla 2: Análisis de Valores Faltantes en el Dataset Preprocesado",
+      col.names = c("Variable", "Cantidad de NA"),
+      align = c('l', 'r'),
+      digits = 0,
+      format.args = list(big.mark = ","))%>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+#### 1.3.3 Transformaciones de Fecha:
+
+```{r date , echo = FALSE, warning = FALSE}
+
+
+# Crear resumen estadístico del año de lanzamiento
+release_summary <- movies_clean_transformed %>%
+  select(releaseYear) %>%
+  summarise(
+    Mínimo = min(releaseYear, na.rm = TRUE),
+    `Primer Cuartil` = quantile(releaseYear, 0.25, na.rm = TRUE),
+    Mediana = median(releaseYear, na.rm = TRUE),
+    Media = mean(releaseYear, na.rm = TRUE),
+    `Tercer Cuartil` = quantile(releaseYear, 0.75, na.rm = TRUE),
+    Máximo = max(releaseYear, na.rm = TRUE),
+    `Desviación Estándar` = sd(releaseYear, na.rm = TRUE)
+  ) %>%
+  pivot_longer(everything(), 
+               names_to = "Estadístico",
+               values_to = "Valor")
+
+# Crear tabla con formato mejorado
+kable(release_summary,
+      caption = "Tabla 4: Análisis Estadístico del Año de Lanzamiento",
+      col.names = c("Estadístico", "Año"),
+      align = c('l', 'r'),
+      digits = 2,
+      format.args = list(big.mark = ","))%>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+#### 1.3.4 Comparaciones finales:
+
+```{r Dimens  , echo = FALSE, warning = FALSE}
+comparison <- tibble(
+  Dataset = c("Original", "Preprocesado"),
+  Observaciones = c(nrow(movies), nrow(movies_clean_transformed)),
+  Variables = c(ncol(movies), ncol(movies_clean_transformed))
+)
+kable(comparison, caption = "Comparación de dimensiones: dataset original vs preprocesado")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"))%>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+## 2. Clustering
+
+### 2.1 Análisis de Variables
+
+#### Variables No Relevantes
+
+Las variables a eliminar son aquellas que no permiten establecer relacuiones cuantitativas o probabilisticas con la estructura del grupo. Dentro de las variables que no aportan al analisis de clusters se encuentran los siguientes:
+
+**Identificadores y Titulos**
+
+-   ***id***: No contiene información descriptiva para agrupar
+
+-   ***originalTitle y title***: Son textos que no contribuyen a la discriminación cuantitativa
+
+**Información de URLs y Nombres**
+
+-   ***homePage*** : Al ser un url, es irrelevante para la segmentación
+
+-   ***productionCompany*** : Es texto con muchos niveles, por lo que aporta poco al perfil númerico.
+
+**Datos textuales de Personas**
+
+-   ***director,actors, y actorsCharacter***: es información que no se puede usar en el clustering sin alguna transformación.
+
+#### **Variables de Géneros**
+
+-   ***genre1,2,3,4,5*** : Esta información se resume en *genresAmount*, tomando en cuenta solo la cantidad de géneros.
+
+#### Variables Relevantes
+
+Se mantienen las variables que capturan el perfil cuantitativo de la película y se generan variables derivadas que sintetizan información similar, reduciendo redundancia. A continuación se detalla las variables relevantes al estudio.
+
+#### **Variables númericas**
+
+-   ***popularity, budget, revenue, runtime,voteCount,voteAvg***: Son indicadores de rendimiento , finanzas y aceptación.
+
+-   ***genresAmount***: Número de generos que caracterizan la película.
+
+-   ***productionCoAmount, productionCountriesAmount***: Participación de compañías y países.
+
+#### Variables Procesadas:
+
+-   $releaseDate\rightarrow releaseYear$ **:** Se asume que el año de estreno puede influir en el comportamiento
+
+-   ***actorPopularity:*** Se calcula la popularidad promedio del elenco para sintetizar las variables de popuaridad.
+
+##### Variables a considerar:
+
+-   ***originalLanguafe,video, productionCompanyCountry, productionCountry***: Pese a ser cualitativas, se pueden transformar si es que aportan al perfil posteriormente.
+
+### 2.2 Formación de Grupos
+
+Los grupos para el analisis se formaran con las siguientes variables, dado que estan escaladas, no poseen valores faltantes y permiten que cada dimensión tenga el mismo peso ,evitando que variables con rangos mayores dominen las medidas de similitud. Se mantienen variables categoricas para complementar sin embargo no se usaran directamente en el algoritmo de clustering.
+
+-   **budget**: Presupuesto de la película.
+
+-   **revenue**: Ingresos generados por la película.
+
+-   **runtime**: Duración de la película.
+
+-   **popularity**: Índice de popularidad.
+
+-   **voteAvg**: Promedio de votos.
+
+-   **voteCount**: Cantidad de votos.
+
+-   **genresAmount**: Número de géneros asignados a la película.
+
+-   **productionCoAmount**: Cantidad de compañías productoras involucradas.
+
+-   **productionCountriesAmount**: Cantidad de países en los que se produjo la película.
+
+-   **actorsPopularity**: Promedio de la popularidad del elenco.
+
+-   **actorsAmount**: Cantidad de actores.
+
+-   **releaseYear**: Año de estreno (extraído de *releaseDate*).
+
+### 2.2.1 Transformaciones Posteriores
+
+```{r structure, echo = FALSE, warning = FALSE, include=FALSE}
+movies_clean_transformed <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/movies_clean_scaled.csv", 
+                                     stringsAsFactors = FALSE)
+# Seleccionar las variables relevantes para clustering:
+# Estas variables están escaladas, sin valores faltantes y permiten que cada dimensión tenga el mismo peso.
+df_numeric <- movies_clean_transformed %>% 
+  select(budget, revenue, runtime, popularity, voteAvg, voteCount,
+         genresAmount, productionCoAmount, productionCountriesAmount,
+         actorsPopularity, actorsAmount, releaseYear)
+df_numeric <- scale(df_numeric)
+
+# Función para crear un dataframe resumido de min, Q1, median, mean, Q3, max para un vector numérico
+quick_summary <- function(x) {
+  x_no_na <- x[!is.na(x)]
+  data.frame(
+    Min    = round(min(x_no_na), 3),
+    Q1     = round(quantile(x_no_na, 0.25), 3),
+    Median = round(median(x_no_na), 3),
+    Mean   = round(mean(x_no_na), 3),
+    Q3     = round(quantile(x_no_na, 0.75), 3),
+    Max    = round(max(x_no_na), 3)
+  )
+}
+
+# Función para winsorizar (tratar outliers) con percentiles 5% y 95% por defecto
+winsorize <- function(x, lower = 0.05, upper = 0.95) {
+  qnt <- quantile(x, probs = c(lower, upper), na.rm = TRUE)
+  x[x < qnt[1]] <- qnt[1]
+  x[x > qnt[2]] <- qnt[2]
+  return(x)
+}
+
+```
+
+#### Transformación de Variables Financieras
+
+```{r transfFin, echo = FALSE, warning = FALSE}
+# Creamos columnas logarítmicas
+movies_clean_transformed <- movies_clean_transformed %>% 
+  mutate(
+    budget_log = log(budget + 1),
+    revenue_log = log(revenue + 1)
+  )
+
+# Creamos un mini-dataframe de antes y después (para budget y revenue)
+log_fin_df <- rbind(
+  cbind(Variable="budget", quick_summary(movies_clean_transformed$budget)),
+  cbind(Variable="budget_log", quick_summary(movies_clean_transformed$budget_log)),
+  cbind(Variable="revenue", quick_summary(movies_clean_transformed$revenue)),
+  cbind(Variable="revenue_log", quick_summary(movies_clean_transformed$revenue_log))
+)
+
+# Mostrarlo como tabla bonita
+kable(log_fin_df, caption = "Resumen de Transformación Logarítmica (Budget/Revenue)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+#### Transformación de Variables de Popularidad y Votos
+
+```{r transfPop, echo = FALSE, warning = FALSE}
+movies_clean_transformed <- movies_clean_transformed %>% 
+  mutate(
+    popularity_log = log(popularity + 1),
+    voteCount_log = log(voteCount + 1),
+    actorsPopularity_log = log(actorsPopularity + 1) # Si quieres esta variable log
+  )
+
+# Crear mini-dataframe con resúmenes de popularity, voteCount y actorsPopularity
+log_pop_df <- rbind(
+  cbind(Variable="popularity", quick_summary(movies_clean_transformed$popularity)),
+  cbind(Variable="popularity_log", quick_summary(movies_clean_transformed$popularity_log)),
+  cbind(Variable="voteCount", quick_summary(movies_clean_transformed$voteCount)),
+  cbind(Variable="voteCount_log", quick_summary(movies_clean_transformed$voteCount_log)),
+  cbind(Variable="actorsPopularity", quick_summary(movies_clean_transformed$actorsPopularity)),
+  cbind(Variable="actorsPopularity_log", quick_summary(movies_clean_transformed$actorsPopularity_log))
+)
+
+kable(log_pop_df, caption = "Resumen de Transformación Logarítmica (Popularidad y Votos)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+#### Tratamiento de Outliers a variables de conteo
+
+```{r transfOut, echo = FALSE, warning = FALSE}
+# Aplicar winsorización a variables de conteo
+movies_clean_transformed <- movies_clean_transformed %>% 
+  mutate(
+    genresAmount_w = winsorize(genresAmount),
+    productionCoAmount_w = winsorize(productionCoAmount),
+    productionCountriesAmount_w = winsorize(productionCountriesAmount),
+    actorsAmount_w = winsorize(actorsAmount)
+  )
+
+# Crear mini-dataframe con resúmenes de antes y después
+outliers_df <- rbind(
+  cbind(Variable="genresAmount", quick_summary(movies_clean_transformed$genresAmount)),
+  cbind(Variable="genresAmount_w", quick_summary(movies_clean_transformed$genresAmount_w)),
+  cbind(Variable="productionCoAmount", quick_summary(movies_clean_transformed$productionCoAmount)),
+  cbind(Variable="productionCoAmount_w", quick_summary(movies_clean_transformed$productionCoAmount_w)),
+  cbind(Variable="productionCountriesAmount", quick_summary(movies_clean_transformed$productionCountriesAmount)),
+  cbind(Variable="productionCountriesAmount_w", quick_summary(movies_clean_transformed$productionCountriesAmount_w)),
+  cbind(Variable="actorsAmount", quick_summary(movies_clean_transformed$actorsAmount)),
+  cbind(Variable="actorsAmount_w", quick_summary(movies_clean_transformed$actorsAmount_w))
+)
+
+kable(outliers_df, caption = "Tratamiento de Outliers (Winsorización) en Variables de Conteo") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+```{r newdf, echo = FALSE, warning = FALSE, include=FALSE}
+# Seleccionamos variables finales
+final_cluster_data <- movies_clean_transformed %>%
+  select(
+    budget_log, revenue_log, popularity_log, voteCount_log, actorsPopularity_log,
+    runtime, voteAvg,
+    genresAmount_w, productionCoAmount_w, productionCountriesAmount_w, actorsAmount_w,
+    releaseYear
+  )
+
+# Escalamos
+final_cluster_data_scaled <- scale(final_cluster_data)
+
+# Convertimos a data.frame para evitar problemas con librerías que no trabajan con tibble
+final_cluster_data_scaled <- as.data.frame(final_cluster_data_scaled)
+
+# Guardamos el nuevo dataset para clustering
+write.csv(final_cluster_data_scaled, "C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", row.names = FALSE)
+
+# Seleccionamos variables finales
+final_cluster_data <- movies_clean_transformed %>%
+  select(
+    budget_log, revenue_log, popularity_log, voteCount_log, actorsPopularity_log,
+    runtime, voteAvg,
+    genresAmount_w, productionCoAmount_w, productionCountriesAmount_w, actorsAmount_w,
+    releaseYear
+  )
+
+
+```
+
+### 2.3 Tendencia al Agrupamiento
+
+#### 2.3.1 Estadístico de Hopkins
+
+```{r hopkins , echo = FALSE, warning = FALSE}
+library(hopkins)
+library(dplyr)
+
+# Leer el dataset final (solo variables numéricas ya escaladas)
+final_cluster_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", 
+                               stringsAsFactors = FALSE)
+
+# Seleccionar todas las variables numéricas (o un subconjunto, si lo prefieres)
+df_numeric_all <- final_cluster_data %>% select_if(is.numeric)
+
+# Convertir a data frame y eliminar filas con NA, NaN o Inf
+df_numeric_all <- as.data.frame(df_numeric_all)
+df_numeric_all <- df_numeric_all %>% 
+  filter_all(all_vars(!is.na(.))) %>% 
+  filter_all(all_vars(is.finite(.)))
+
+
+
+# Tomar una muestra aleatoria (por ejemplo, 3500 observaciones)
+set.seed(123)
+n_sample <- min(1120, nrow(df_numeric_all))
+df_sample_all <- sample_n(df_numeric_all, n_sample)
+
+# Calcular el estadístico de Hopkins usando el paquete hopkins
+hopkins_stat_all <- hopkins(df_sample_all)  # Devuelve directamente el valor numérico
+hopkins_value_all <- sprintf("%.20f", hopkins_stat_all)
+
+# Crear un dataframe con el resultado
+hopkins_df <- data.frame("Hopkins Statistic" = hopkins_value_all)
+
+# Imprimir el resultado con kable
+kable(hopkins_df, caption = "Estadístico de Hopkins") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+#### 2.3.2 VAT(Visual Assessment of cluster Tendency)
+
+```{r vat, echo = FALSE, warning = FALSE}
+
+library(dplyr)
+library(factoextra)
+library(ggplot2)
+library(scales)
+
+# Leer el dataset final (ya escalado y con variables seleccionadas) 
+final_cluster_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", 
+                               stringsAsFactors = FALSE)
+
+# Seleccionar todas las variables numéricas (se asume que final_cluster_data ya es numérico)
+df_numeric <- final_cluster_data
+
+# Tomar una muestra de 1120 observaciones (o menos si el dataset tiene menos filas)
+set.seed(123)
+n_sample <- min(1120, nrow(df_numeric))
+df_sample <- df_numeric %>% sample_n(n_sample)
+
+# Convertir a matriz para el cálculo de distancias
+df_sample_matrix <- as.matrix(df_sample)
+
+# Calcular la matriz de distancias Euclídea
+datos_dist_sample <- dist(df_sample_matrix, method = "euclidean")
+
+# Normalizar la matriz de distancias (Min-Max)
+datos_dist_sample <- (datos_dist_sample - min(datos_dist_sample)) / (max(datos_dist_sample) - min(datos_dist_sample))
+
+
+# Visualizar la matriz de distancias con fviz_dist (VAT)
+plot_vat_sample <- fviz_dist(datos_dist_sample, 
+                             show_labels = FALSE,
+                             gradient = list(low = "#005D8F",    
+                                             mid2 = "#5CC6FF",    
+                                             mid3 = "#FFFFFF",     
+                                             mid4 = "#E01522",    
+                                             high = "#780000")) +  
+  ggtitle("VAT sobre muestra de 1120 observaciones") +
+  theme_minimal() +
+  scale_fill_gradientn(
+    colors = c("#005D8F", "#5CC6FF", "#FFFFFF", "#E01522", "#780000"),
+    values = rescale(c(
+      quantile(datos_dist_sample, 0.01),  
+      quantile(datos_dist_sample, 0.25),  
+      quantile(datos_dist_sample, 0.75),  
+      quantile(datos_dist_sample, 0.99)
+    )),
+    name = "Distancia"
+  ) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "right"
+  )
+
+print(plot_vat_sample)
+
+
+```
+
+#### 2.3.3 Hallazgos
+
+Dentro de los hallazgos preliminares, los cuales determinan si es necesaria la agrupación y la existencia de patrones inherentes en el conjunto de datos, se encontró un estadístico de Hopkins de alrededor de 0.99, lo cual podría indicar una alta tendencia a la formación de clusters. Por otro lado, la gráfica VAT (Visual Assessment of Cluster Tendency) muestra una segmentación difusa, en la que no se observan grupos bien definidos. Sin embargo, para confirmar estas observaciones, realizaremos más cálculos.
+
+### 2.4 Determinacion de Número de Clusters
+
+```{r clstsetup, echo = FALSE, warning = FALSE, include=FALSE}
+final_cluster_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", 
+                               stringsAsFactors = FALSE)
+
+# Seleccionamos todas las variables numéricas (o un subconjunto si se requiere)
+df_numeric_all <- final_cluster_data %>% select_if(is.numeric)
+
+# Convertir a data frame y eliminar filas con NA, NaN o Inf
+df_numeric_all <- as.data.frame(df_numeric_all)
+df_numeric_all <- df_numeric_all %>% 
+  filter_all(all_vars(!is.na(.))) %>% 
+  filter_all(all_vars(is.finite(.)))
+
+```
+
+#### 2.4.1 Método del Codo
+
+Para determinar la cantidad óptima de clusters, se utiliza el método del codo, que consiste en graficar la suma de las distancias al cuadrado de cada punto al centroide más cercano en función del número de clusters. Se busca el punto de inflexión en la curva, donde la disminución de la inercia se vuelve menos pronunciada.
+
+```{r elbowfviz, echo = FALSE, warning = FALSE}
+# Asegúrate de que el dataset 'final_cluster_data_scaled.csv' contenga solo variables numéricas
+
+set.seed(123)
+n_sample <- min(1120, nrow(df_numeric_all))
+df_sample <- df_numeric_all %>% sample_n(n_sample)
+
+# Calcular el método del codo (WSS) utilizando la muestra
+elbow_plot <- fviz_nbclust(df_sample, kmeans, method = "wss") +
+  labs(subtitle = "Método del Codo (Muestra n=1120)")
+print(elbow_plot)
+
+```
+
+A simple vista, el “codo” se aprecia alrededor de k = 4, porque ahí se ve una transición clara de una fuerte reducción en la suma de cuadrados dentro de los grupos (WSS) a una disminución más gradual.
+
+### 2.5 K-means
+
+```{r kmeans, echo = FALSE, warning = FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Leer el dataset final escalado
+final_cluster_data_scaled <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", 
+                                       stringsAsFactors = FALSE)
+final_cluster_data_scaled <- as.data.frame(final_cluster_data_scaled)
+
+# Eliminar filas con NA, NaN o Inf
+final_cluster_data_scaled <- final_cluster_data_scaled %>% 
+  filter_all(all_vars(is.finite(.))) %>%
+  na.omit()
+
+# Aplicar K-means con k = 4
+set.seed(123)
+km <- kmeans(final_cluster_data_scaled, centers = 4, iter.max = 100, nstart = 25)
+
+# Agregar la asignación de clusters al dataframe
+final_cluster_data_scaled$Cluster <- km$cluster
+
+### Resumen del Modelo K-means
+km_summary <- data.frame(
+  `Número de Clusters` = length(km$size),
+  `Suma Cuadrados` = round(km$totss, 3),
+  `Suma Entre Grupos` = round(km$betweenss, 3),
+  `Suma Intra-grupo` = round(sum(km$withinss), 3)
+)
+
+kable(km_summary, caption = "Resumen General del Modelo K-means") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+### Tamaño de cada cluster y WithinSS
+km_sizes <- data.frame(Cluster = 1:length(km$size), Size = km$size, WithinSS = round(km$withinss, 3))
+
+kable(km_sizes, caption = "Tamaño y Suma de Cuadrados Intra-grupo por Cluster") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+
+# Convertir los centros de los clusters a data frame y redondear a 3 decimales
+km_centers <- as.data.frame(round(km$centers, 3))
+km_centers$Cluster <- rownames(km_centers)
+
+# Parámetro para definir cuántas columnas se incluyen por tabla
+cols_per_table <- 6  # Ajusta este número según sea necesario
+
+# Número total de columnas
+num_cols <- ncol(km_centers)
+
+# Lista de tablas segmentadas
+split_tables <- split(seq_len(num_cols), ceiling(seq_along(seq_len(num_cols)) / cols_per_table))
+
+# Generar múltiples tablas divididas
+for (i in seq_along(split_tables)) {
+  table_part <- km_centers[, split_tables[[i]], drop = FALSE]
+  kable(table_part, caption = paste("Centros de los Clusters - Parte", i)) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+}
+
+```
+
+#### 2.5.1 Visualización de clusters
+
+```{r plotclst , echo = FALSE, warning = FALSE}
+# Seleccionar una muestra de 85 observaciones para graficar
+set.seed(123)
+n_sample <- min(85, nrow(final_cluster_data_scaled))  # Ajustar si hay menos observaciones
+idx <- sample(seq_len(nrow(final_cluster_data_scaled)), n_sample)
+df_sub <- final_cluster_data_scaled[idx, ]
+clusters_sub <- km$cluster[idx]
+
+# Crear la gráfica de clusters
+plotcluster(as.matrix(df_sub), 
+            clusters_sub, 
+            method = "dc", 
+            clnum = TRUE, 
+            main = "Ubicación de los Clusters")
+
+
+```
+
+```{r plotclst2 , echo = FALSE, warning = FALSE}
+# 1. Seleccionar una muestra de 85 observaciones
+set.seed(123)
+n_sample <- min(125, nrow(final_cluster_data_scaled))  # Asegurar que la muestra no exceda el tamaño del dataset
+idx <- sample(seq_len(nrow(final_cluster_data_scaled)), n_sample)
+df_sub <- final_cluster_data_scaled[idx, ]
+
+# 2. Aplicar K-means a la muestra
+km_sub <- kmeans(df_sub, centers = 4, nstart = 25)
+
+# 3. Visualizar los clusters con fviz_cluster
+cluster_plot <- fviz_cluster(km_sub,
+             data = df_sub,
+             geom = "point",         # Representar cada punto
+             ellipse.type = "norm",  # Elipses basadas en la varianza de cada cluster
+             main = "Visualización de Clusters (Muestra de 85 Puntos)")
+
+# Mostrar la gráfica
+print(cluster_plot)
+
+# 4. Agregar descripción en el reporte
+knitr::asis_output("\n### Visualización de Clusters (Muestra de 85 Puntos)\n\nEsta gráfica muestra la distribución de clusters basada en una muestra de 125 observaciones utilizando el método de K-means con 4 clusters.\n")
+
+```
+
+Vemos que los clusters están bien definidos y separados, lo que indica que el algoritmo de K-means ha sido efectivo en la segmentación de las observaciones. \#### 2.5.2 Analisis de los grupos
+
+```{r clstsize, echo = FALSE, warning = FALSE}
+# Aplicar K-means al dataset
+set.seed(123)
+km <- kmeans(final_cluster_data_scaled, centers = 4, iter.max = 100, nstart = 25)
+
+# Crear dataframe con los tamaños de cada cluster
+cluster_sizes <- data.frame(
+  Cluster = seq_along(km$size),
+  Size = km$size
+)
+
+# Crear dataframe con la suma de cuadrados intra-grupo
+cluster_withinss <- data.frame(
+  Cluster = seq_along(km$withinss),
+  WithinSS = round(km$withinss, 3)
+)
+
+# Imprimir las tablas con formato mejorado
+knitr::asis_output("### Tamaño de cada Cluster\n")
+kable(cluster_sizes, caption = "Número de Observaciones en cada Cluster") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+knitr::asis_output("\n### Suma de Cuadrados Intra-Grupo por Cluster\n")
+kable(cluster_withinss, caption = "Suma de Cuadrados Intra-Grupo por Cluster") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+```{r cardnal, echo = FALSE, warning = FALSE}
+library(ggplot2)
+library(ggrepel)
+
+# Crear un data frame con la cardinalidad (size) y la magnitud (withinss)
+m <- data.frame(
+  withinss = km$withinss,
+  size     = km$size,
+  cluster  = factor(seq_along(km$size))  # Identificar el número de cluster
+)
+
+# Generar la gráfica de Cardinalidad vs. Magnitud
+ggplot(m, aes(x = size, y = withinss)) +
+  geom_point(size = 3, color = "red") +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  geom_text_repel(aes(label = cluster), color = "black") +
+  labs(
+    x = "Cardinalidad (size)",
+    y = "Magnitud (withinss)",
+    title = "Cardinalidad vs. Magnitud de los Clusters"
+  ) +
+  theme_minimal()
+
+
+```
+
+Podemos observar que por la gráfica de Cardinalidad vs. Magnitud, el cluster 4 es el que tiene la mayor cantidad de observaciones y la menor magnitud de la suma de cuadrados intra-grupo, lo que indica que es el cluster más homogéneo. Por otro lado, el cluster 2 es el que tiene la menor cantidad de observaciones y la mayor magnitud de la suma de cuadrados intra-grupo, lo que indica que es el cluster más heterogéneo.
+
+## Importancia de variables
+
+```{r varimp, echo = FALSE, warning = FALSE}
+library(GGally)
+library(ggplot2)
+
+# Convertimos los clusters en factor para la visualización
+final_cluster_data_scaled$Cluster <- as.factor(km$cluster)
+
+# Seleccionamos algunas variables clave para la visualización
+selected_vars <- c("budget_log", "revenue_log", "popularity_log", "voteCount_log", "runtime", "Cluster")
+
+# Graficamos con ggpairs
+ggpairs(final_cluster_data_scaled[, selected_vars], 
+        aes(color = Cluster),
+        progress = FALSE)
+
+```
+
+Se observa que las variables *budget_log*, *revenue_log*, *popularity_log* y *voteCount_log* son las que más diferencian los clusters, ya que presentan una mayor variabilidad entre los grupos. Por otro lado, las variables *runtime* y *voteAvg* no parecen ser tan relevantes para la segmentación de los clusters.
+
+```{r varimp2, echo = FALSE, warning = FALSE}
+library(ggplot2)
+
+# Crear scatter plot con budget_log y revenue_log
+ggplot(final_cluster_data_scaled, aes(x = budget_log, y = revenue_log, color = as.factor(km$cluster))) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Clusters en función de Budget vs Revenue",
+       x = "Log(Budget)", 
+       y = "Log(Revenue)",
+       color = "Cluster") +
+  theme_minimal()
+
+```
+
+En el gráfico de dispersión de *Budget* vs. *Revenue*, se observa que los clusters están claramente diferenciados, lo que indica que estas variables son importantes para la segmentación de los grupos.
+
+```{r varimp3, echo = FALSE, warning = FALSE}
+
+ggplot(final_cluster_data_scaled, aes(x = as.factor(km$cluster), fill = as.factor(km$cluster))) +
+  geom_bar() +
+  labs(title = "Distribución de Observaciones por Cluster",
+       x = "Cluster", 
+       y = "Cantidad de Películas") +
+  theme_minimal()
+
+```
+
+En la distribución de observaciones por cluster, se observa que el cluster 4 es el que tiene la mayor cantidad de películas, mientras que el cluster 2 es el que tiene la menor cantidad de películas.
+
+#### 2.5.3 Método de Silueta
+
+```{r silueta, echo = FALSE, warning = FALSE}
+library(cluster)
+library(ggplot2)
+library(dplyr)
+library(factoextra)
+
+#  Seleccionar una muestra aleatoria del dataset
+set.seed(123)
+n_sample <- min(85, nrow(final_cluster_data_scaled))  
+df_sample <- final_cluster_data_scaled %>% sample_n(n_sample)
+
+#  Aplicar K-means sobre la muestra
+km_sample <- kmeans(df_sample, centers = 4, iter.max = 100, nstart = 25)
+
+#  Calcular la silueta en la muestra
+silkm_sample <- silhouette(km_sample$cluster, dist(df_sample))
+silhouette_promedio_sample <- mean(silkm_sample[, 3])
+
+#Crear un dataframe con la media de la silueta
+silhouette_df_sample <- data.frame("Índice de Silueta Promedio" = round(silhouette_promedio_sample, 4))
+
+#  Imprimir el resultado con kable
+knitr::asis_output("\n### Índice de Silueta Promedio en Muestra\n\n")
+kable(silhouette_df_sample, caption = "Valor Promedio del Índice de Silueta en Muestra") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Graficar la distribución de la silueta
+fviz_silhouette(silkm_sample) +
+  ggtitle("Gráfico de Silueta para Clustering en Muestra") +
+  theme_minimal()
+
+```
+
+### 2.6 Clustering Jerárquico
+
+```{r hierarquico, echo = FALSE, warning = FALSE, include=FALSE}
+set.seed(123)
+n_sample <- min(85, nrow(final_cluster_data_scaled))  # Asegurar que la muestra no exceda el tamaño del dataset
+df_sample <- final_cluster_data_scaled %>% sample_n(n_sample)
+
+
+```
+
+```{r hierarquico2, echo = FALSE, warning = FALSE}
+# Calcular la matriz de distancias usando la métrica Euclidiana
+datos_dist <- dist(df_sample, method = "euclidean")
+hc <- hclust(datos_dist, method = "ward.D2")
+
+
+```
+
+```{r hierarquico3, echo = FALSE, warning = FALSE}
+# Visualizar el dendrograma jerárquico
+plot(hc, main = "Dendrograma - Clustering Jerárquico", xlab = "", sub = "", cex = 0.6)
+# Dibujar el corte en el dendrograma (por ejemplo, para 3 grupos)
+rect.hclust(hc, k = 4, border = "red")
+fviz_dend(hc, k = 4, rect = TRUE, cex = 0.5)
+
+```
+
+#### Cortes en el Dendrograma
+
+```{r hierarquico4, echo = FALSE, warning = FALSE}
+groups_hc <- cutree(hc, k = 4)
+# Agregar la asignación de grupos al dataset de la muestra
+df_sample$grupo_hc <- groups_hc
+# Mostrar la tabla de frecuencias de los grupos
+table(df_sample$grupo_hc)
+# media de cada grupo
+aggregate(df_sample, by = list(grupo_hc = groups_hc), FUN = mean)
+fviz_dend(hc, k = 4, horiz = TRUE, cex = 0.5)
+```
+
+#### Variaciones del dendrograma
+
+##### Radial
+
+```{r hierarquico5, echo = FALSE, warning = FALSE}
+
+set.seed(123)
+fviz_dend(hc, k = 4, cex = 0.4, type = "circular", color_labels_by_k = TRUE)
+```
+
+##### Filogenético
+
+```{r hierarquico6, echo = FALSE, warning = FALSE}
+fviz_dend(hc, k = 4, cex = 0.7, type = "phylogenic", color_labels_by_k = TRUE,repel = T)
+
+```
+
+### Silueta en Clustering Jerárquico
+
+```{r hierarquico7, echo = FALSE, warning = FALSE}
+silhc <- silhouette(groups_hc, datos_dist)
+silhouette_promedio_hc <- mean(silhc[, 3])
+
+# Crear un dataframe con el índice de silueta promedio
+silhouette_df_hc <- data.frame("Índice de Silueta Promedio" = round(silhouette_promedio_hc, 4))
+
+# Imprimir el resultado con knitr
+knitr::asis_output("\n### Índice de Silueta Promedio - Clustering Jerárquico\n\n")
+kable(silhouette_df_hc, caption = "Valor Promedio del Índice de Silueta (Jerárquico)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r hierarquico8, echo = FALSE, warning = FALSE}
+
+fviz_silhouette(silhc) +
+  ggtitle("Gráfico de Silueta - Clustering Jerárquico") +
+  theme_minimal()
+```
+
+### 2.7 Calidad del Agrupamiento
+
+Los resultados obtenidos con el método de la silueta furon los siguientes:
+
+-   **K-means:** 0.2271
+
+-   **Clustering Jerarquico:** 0.214
+
+Ambos se consideran pobres, lo cual en base a la métrica de agrupación muestra un mál agrupamiento. Dentro de los fáctores que influencian los resultados están la presencia de outliers a pesar de las transformaciones o la existencia de patrones o subgrupos que , en dimensiones altas no se evidencian de manera clara.
+
+### 2.8 Interpretación de los Grupos
+
+#### 2.8.1 Medidas de Tendencia Central por Cluster
+
+```{r central_tendency, echo = FALSE, warning = FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Calcular medidas de tendencia central y transponer el resultado
+cluster_summary_transposed <- final_cluster_data_scaled %>%
+  mutate(Cluster = as.factor(km$cluster)) %>%
+  group_by(Cluster) %>%
+  summarise(across(where(is.numeric), list(
+    Media = ~ mean(.),
+    Mediana = ~ median(.),
+    Min = ~ min(.),
+    Max = ~ max(.)
+  ), .names = "{.col}_{.fn}")) %>%
+  pivot_longer(-Cluster, names_to = "Variable", values_to = "Valor") %>%
+  pivot_wider(names_from = Cluster, values_from = Valor)
+
+# Imprimir la tabla con formato transpuesto
+kable(cluster_summary_transposed, caption = "Medidas de Tendencia Central por Cluster (Transpuesta)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+#### 2.8.2 Análisis de Variables Catégoricas
+
+```{r clstcat, echo = FALSE, warning = FALSE}
+final_cluster_data_scaled$Cluster <- as.factor(km$cluster)
+
+# Calcular la frecuencia de observaciones en cada cluster
+cluster_freq <- as.data.frame(table(final_cluster_data_scaled$Cluster))
+colnames(cluster_freq) <- c("Cluster", "Frecuencia")
+
+# Imprimir tabla con knitr
+kable(cluster_freq, caption = "Frecuencia de Observaciones en Cada Cluster") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+#### 2.8.3 Análisis de Distribuciones
+
+```{r clstdist, echo = FALSE, warning = FALSE}
+library(ggplot2)
+
+# Variables a graficar
+selected_vars <- c("budget_log", "revenue_log", "popularity_log", "voteCount_log", "runtime")
+
+# Graficar distribuciones de variables clave por cluster
+for (var in selected_vars) {
+  p <- ggplot(final_cluster_data_scaled, aes(x = Cluster, y = .data[[var]], fill = Cluster)) +
+    geom_boxplot(alpha = 0.6) +
+    labs(title = paste("Distribución de", var, "por Cluster"),
+         x = "Cluster", y = var) +
+    theme_minimal()
+  print(p)
+}
+
+```
+
+#### 2.8.4 Interpretación de Resultados
+
+Analizando los grupos por separado y con medidas de tendencia central, encontramos las siguientes conclusiones:
+
+```{r clstinterp, echo = FALSE, warning = FALSE}
+# Resumen interpretativo de los clusters
+cluster_insights <- data.frame(
+  Cluster = c(1, 2, 3, 4),
+  Descripción = c(
+    "Películas con alto presupuesto y alto revenue, muy populares.",
+    "Películas con bajo presupuesto pero revenue moderado, nicho específico.",
+    "Películas de bajo presupuesto con poca popularidad y bajos ingresos.",
+    "Producciones mixtas con rango amplio en popularidad y finanzas."
+  )
+)
+
+# Imprimir con knitr
+kable(cluster_insights, caption = "Interpretación de los Clusters") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+Es importante destacar, que por el método de la silueta , la validación retorna una estructura que no es altamente marcada, sin embargo emergen diferencias entre presupuesto, recaudación y popularidad.
+
+## 3. Análisis de Componentes Principales
+
+En el caso de PCA, se busca reducir la dimensionalidad del dataset, manteniendo la mayor cantidad de varianza posible. Para ello, se aplicará el método de PCA a las variables numéricas del dataset, con el objetivo de identificar patrones y relaciones entre las variables.
+
+### 3.1 Fáctibilidad de PCA
+
+```{r initpca, echo = FALSE, warning = FALSE}
+# 1. Cargar el dataset preprocesado
+# (Ajuste la ruta según la ubicación del archivo)
+movies_clean_transformed <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/movies_clean_transformed.csv", 
+                                     stringsAsFactors = FALSE)
+
+# Variables categóricas y lógicas que podrían considerarse para otros análisis o transformación
+vars_categoricas <- c("productionCompanyCountry", "productionCountry", "originalLanguage", "video")
+movies_categoricas <- movies_clean_transformed[, vars_categoricas]
+```
+
+#### Exploración de variables categóricas
+
+```{r initpca2, echo = FALSE, warning = FALSE}
+
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Obtener el conteo de niveles para 'video' y 'originalLanguage'
+video_counts <- as.data.frame(table(movies_categoricas$video))
+colnames(video_counts) <- c("Valor", "Frecuencia")
+
+language_counts <- as.data.frame(table(movies_categoricas$originalLanguage))
+colnames(language_counts) <- c("Idioma", "Frecuencia")
+
+# Mostrar los resultados en tablas con estilo
+kable(video_counts, caption = "Frecuencia de la Variable 'Video'") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(language_counts, caption = "Frecuencia de la Variable 'Original Language'") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r corrpca, echo = FALSE, warning = FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Leer el dataset escalado
+final_cluster_data_scaled <- read.csv("C:/Users/rodri/Documents/Data-Mining/Proyecto 1/data/final_cluster_data_scaled.csv", 
+                                      stringsAsFactors = FALSE)
+
+# Convertir a data.frame y limpiar valores faltantes
+final_cluster_data_scaled <- as.data.frame(final_cluster_data_scaled) %>%
+  filter_all(all_vars(is.finite(.))) %>%
+  na.omit()
+
+# Escalar los datos nuevamente por seguridad
+pca_data <- scale(final_cluster_data_scaled)
+
+# Redondear valores para mejorar la presentación
+pca_data <- round(pca_data, 3)
+
+# Definir el número máximo de columnas por tabla para evitar desbordes
+num_cols <- ncol(pca_data)
+cols_per_table <- 6  # Ajustar según necesidad
+
+# Dividir la tabla en múltiples partes si hay muchas columnas
+split_tables <- split(seq_len(num_cols), ceiling(seq_along(seq_len(num_cols)) / cols_per_table))
+
+# Generar tablas divididas
+for (i in seq_along(split_tables)) {
+  table_part <- pca_data[, split_tables[[i]], drop = FALSE]
+  
+  kable(head(table_part), caption = paste("Primeras Filas del Dataset Escalado para PCA - Parte", i)) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+}
+
+```
+
+#### 3.1.1 Matriz de Correlación
+
+```{r corrpca2, echo = FALSE, warning = FALSE}
+
+library(knitr)
+library(kableExtra)
+
+# Calcular la matriz de correlación
+cor_matrix <- cor(final_cluster_data_scaled, use = "pairwise.complete.obs")
+
+# Calcular el determinante de la matriz de correlación
+det_val <- det(cor_matrix)
+
+
+
+# Imprimir el determinante de la matriz
+knitr::asis_output(paste("\n### Determinante de la Matriz de Correlación: ", round(det_val, 5), "\n"))
+
+
+```
+
+```{r corrpca3, echo = FALSE, warning = FALSE}
+
+# Cargar librerías necesarias
+library(corrplot)
+
+# Calcular la matriz de correlación usando nuestro dataset final
+cor_matrix <- cor(final_cluster_data_scaled, use = "pairwise.complete.obs")
+
+# Generar la gráfica de correlación
+corrplot(cor_matrix)
+
+```
+
+Observervamos que el determinante de la matriz de correlación es cercano a 0, lo que indica que las variables están altamente correlacionadas, lo cual es un requisito para aplicar PCA. Sin embargo, se puede notar un grado de correlaci[on, lo cual puede afectar al análisis de PCA.
+
+Por otro lado, la gráfica de correlación muestra la correlación alta entre varias variables financieras y de popularidad indica que existen patrones de comportamiento en la industria del cine. El análisis de PCA permitirá condensar esta información en componentes principales que resuman la varianza de las variables.
+
+#### 3.1.2 Indice KMO
+
+```{r kmo, echo = FALSE, warning = FALSE}
+library(psych)  # Cargar la librería necesaria
+
+# Seleccionar solo variables numéricas del dataset escalado
+pca_data <- final_cluster_data_scaled %>% select_if(is.numeric)
+
+# Calcular el índice KMO
+kmo_result <- KMO(pca_data)
+
+# Imprimir el resultado con mejor formato
+kmo_df <- data.frame(
+  `Índice KMO Global` = round(kmo_result$MSA, 4)
+)
+
+kable(kmo_df, caption = "Índice de Kaiser-Meyer-Olkin (KMO) Global") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+
+```
+
+El indice de KMO indica unamuy buena viabilidad para aplicar PCA, lo cual es un buen indicador para proceder con el análisis.
+
+#### 3.1.3 Test de esfericidad de Bartlett
+
+```{r bartlett, echo = FALSE, warning = FALSE}
+
+library(psych)  # Cargar la librería necesaria
+
+# Seleccionar solo variables numéricas del dataset escalado
+pca_data <- final_cluster_data_scaled %>% select_if(is.numeric)
+
+# Aplicar el test de Bartlett
+bartlett_result <- cortest.bartlett(pca_data)
+
+# Formatear la salida como tabla
+bartlett_df <- data.frame(
+  `Chi-cuadrado` = round(bartlett_result$chisq, 4),
+  `Grados de Libertad` = bartlett_result$df,
+  `p-valor` = round(bartlett_result$p.value, 10)
+)
+
+kable(bartlett_df, caption = "Test de Esfericidad de Bartlett") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+El valor de p-valor es 0, por lo que rechazamos la hipótesis nula de que la matriz de correlación sea una matriz identidad, lo cual es un buen indicador para proceder con el análisis de PCA. Las variables estan lo suficientemente relacionadas para efectuar un análisis de componentes principales.
+
+### 3.2 Analisis PCA
+
+```{r stppca, echo = FALSE, warning = FALSE}
+# Aplicar PCA sobre el dataset numérico escalado
+compPrincipal <- prcomp(final_cluster_data_scaled, scale = TRUE)
+
+# Obtener el resumen del PCA
+pca_summary <- summary(compPrincipal)
+
+# Extraer la proporción de varianza explicada por cada componente
+pca_var <- data.frame(
+  Componente = paste0("PC", seq_along(pca_summary$importance[2,])),
+  Proporción_Varianza = round(pca_summary$importance[2,] * 100, 2),  # Convertir a porcentaje
+  Varianza_Acumulada = round(pca_summary$importance[3,] * 100, 2)  # Convertir a porcentaje
+)
+
+# Imprimir tabla con knitr
+knitr::kable(pca_var, caption = "Proporción de Varianza Explicada por Componente") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+
+
+```
+
+#### 3.1 Regla de Kaiser
+
+```{r kaiser, echo = FALSE, warning = FALSE}
+
+
+# Calcular los valores propios del PCA
+valores_propios <- compPrincipal$sdev^2
+
+# Crear un dataframe con los valores propios
+valores_propios_df <- data.frame(
+  Componente = paste0("PC", seq_along(valores_propios)),
+  Valor_Propio = round(valores_propios, 4)  # Redondeamos para mejor visualización
+)
+
+# Imprimir tabla con knitr
+knitr::kable(valores_propios_df, caption = "Valores Propios de Cada Componente Principal") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+
+```
+
+La regla de Kaiser indica que se deben retener los componentes principales con valores propios mayores a 1. En este caso, los primeros 5 componentes principales cumplen con este criterio, por lo que se retendrán para el análisis.
+
+#### 3.2 Regla de Sedimentación
+
+```{r sedimentacion, echo = FALSE, warning = FALSE}
+library(factoextra)
+
+# Scree Plot con porcentaje de varianza explicada
+fviz_eig(compPrincipal, addlabels = TRUE, ylim = c(0, 80)) +
+  ggtitle("Scree Plot - Porcentaje de Varianza Explicada")
+
+# Scree Plot con valores propios (Eigenvalues)
+fviz_eig(compPrincipal, addlabels = TRUE, ylim = c(0, 4), choice = "eigenvalue") +
+  ggtitle("Scree Plot - Valores Propios")
+
+
+
+```
+
+Los primeros componentes , en especifico los primeros 3, son los que explican la mayor cantidad de varianza en el dataset. Esto indica que se puede captar grán parte de la información en pocas dimensiones. Sin embargo, a pesar no se evidencia un codo pronunciado en la gráfica, si se distingue que los primeros ejes son los más relevantes.
+
+#### 3.3 Análisis de Paralelismo
+
+```{r paralelismo, echo = FALSE, warning = FALSE}
+
+library(paran)
+
+# Aplicar el análisis de paralelismo
+paran_result <- paran(final_cluster_data_scaled, graph = TRUE, centile = 95)
+
+# Agregar título a la gráfica
+title("Análisis de Paralelismo - Evaluación de Componentes Principales")
+
+```
+
+-   El análisis de paralelismo sugiere que solamente las primeras 2–3 componentes aportan varianza significativa y deberían retenerse para el análisis posterior.
+
+#### 3.4 Carga Factorial
+
+```{r carga, echo = FALSE, warning = FALSE}
+
+# Instalar y cargar factoextra si es necesario
+if(!require(factoextra)) install.packages("factoextra", dependencies = TRUE)
+library(factoextra)
+
+# Visualizar la importancia de las variables en los componentes principales
+fviz_pca_var(compPrincipal, 
+             col.var = "cos2",  # Colorear según calidad de representación
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE)  # Evitar superposición de etiquetas
+
+
+```
+
+Las variables budget_log, revenue_log y voteCount_log apuntan claramente en una dirección similar sobre Dim1, lo que sugiere que están fuertemente correlacionadas entre sí (y tienen una gran influencia en la primera componente).
+
+Por otro lado, releaseYear, actorsPopularity_log, etc., se orientan hacia otra zona del gráfico, indicando que aportan información distinta en relación con la segunda componente.
+
+Finalmente, las variables más cercanas al centro tienen menor aporte a las dos primeras dimensiones y, por lo tanto, su variabilidad no queda tan bien capturada en este plano bidimensional.
+
+#### Contribución de Variables en las primeras dimensiones
+
+```{r contrib, echo = FALSE, warning = FALSE}
+fviz_contrib(compPrincipal, choice = "var", axes = 1, top = 10)
+
+
+```
+
+```{r contrib2, echo = FALSE, warning = FALSE}
+fviz_contrib(compPrincipal, choice = "var", axes = 2, top = 10)
+
+
+
+```
+
+```{r contrib3, echo = FALSE, warning = FALSE}
+
+fviz_contrib(compPrincipal, choice = "var", axes = 3, top = 10)
+
+```
+
+```{r contrib4, echo = FALSE, warning = FALSE}
+
+fviz_contrib(compPrincipal, choice = "var", axes = 4, top = 10)
+
+
+```
+
+```{r contrib5, echo = FALSE, warning = FALSE}
+# Instalar y cargar corrplot si es necesario
+if(!require(corrplot)) install.packages("corrplot", dependencies = TRUE)
+library(corrplot)
+
+# Obtener la matriz de cos² de las variables en el PCA
+var <- get_pca_var(compPrincipal)
+
+# Visualizar la matriz de cos²
+corrplot(var$cos2, is.corr = FALSE, 
+         col = colorRampPalette(c("white", "#00AFBB", "#E7B800", "#FC4E07"))(200),
+         tl.col = "black", tl.srt = 45, 
+         title = "Calidad de Representación de Variables (cos²)", 
+         mar = c(1, 1, 2, 1))
+
+
+```
+
+-   Observamos que las variables budget_log, revenue_log y voteCount_log tienen una alta calidad de representación en la primera dimensión, lo que indica que estos indicadores económicos/de popularidad están principalmente capturados por la primera componente.
+
+-   voteAvg sobresale más en la Dim.2, sugiriendo que esta componente refleja, la variación en la valoración promedio.
+
+-   releaseYear parece estar mejor reflejada en la Dim.1 o Dim.2 , indicando cierta correlación moderada con esos ejes.
+
+-   El resto de variables (muestran cos² más repartidos en varias dimensiones, por lo que su información se “dispersa” a lo largo de varios ejes en lugar de concentrarse en uno solo.
+
+### 3.3 Interpretación de Resultados
+
+-   **Varianza explicada y número de componentes**
+
+    -   El *Scree Plot* y el *Análisis de Paralelismo* indican que las dos o tres primeras dimensiones explican buena parte de la variabilidad de los datos, mientras que el resto aportan menos información.
+
+-   **Contribución de las variables (cos² y gráfico biplot)**
+
+    -   El primer componente (Dim.1) está fuertemente asociado a variables como *budget_log*, *revenue_log*, *popularity_log* y *voteCount_log*. Es decir, reúne principalmente la dimensión de “éxito financiero/popularidad” de las películas.
+
+    -   El segundo componente (Dim.2) capta de manera más notable *voteAvg* (la valoración media), junto con algo de *releaseYear*. Esto sugiere una dimensión distinta, posiblemente ligada a la apreciación crítica o la época de estreno.
+
+    -   Otras variables (p. ej., *genresAmount_w*, *productionCountriesAmount_w*, *actorsAmount_w*) quedan más repartidas entre el segundo y/o componentes posteriores, reflejando aspectos de “complejidad” o “dimensión de producción” que no están tan concentrados en una sola dimensión.
+
+-   **Conclusión sobre la estructura de los datos**
+
+    -   Aunque el primer y segundo ejes recogen factores claros (financieros/populares vs. valoración/período), no se observa una separación de grupos nítida en base a la *clusterización*. De hecho, el análisis previo (*VAT* y estadístico Hopkins) sugiere que los datos **no** forman conglomerados muy definidos.
+
+    -   Aun así, la PCA sí permite reducir la dimensionalidad y distinguir, en gran medida, una “dimensión de éxito económico” y otra de “calidad/percepción” de las películas, lo cual puede ser útil para la interpretación o posteriores análisis exploratorios.
+
+## 4. Reglas de Asociación y A- Priori
+
+```{r reglas, echo = FALSE, warning = FALSE}
+
+library(knitr)
+library(kableExtra)
+
+rules_df <- data.frame(
+  Regla = c(
+    "['productionCompanyCountry_US'] → ['originalLanguage_en']",
+    "['productionCompanyCountry_US|US'] → ['originalLanguage_en']",
+    "['originalLanguage_en'] → ['productionCountry_United States of America']",
+    "['productionCountry_United States of America'] → ['originalLanguage_en']",
+    "['originalLanguage_ja'] → ['productionCountry_Japan']"
+  ),
+  Soporte = c(0.101629, 0.078433, 0.495846, 0.495846, 0.061064),
+  Confianza = c(0.991579, 1.000000, 0.638511, 0.998046, 0.944908),
+  Lift = c(1.276875, 1.287719, 1.285202, 1.285202, 15.338623)
+)
+
+kable(rules_df, caption = "Top 5 Reglas de Asociación Descubiertas") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "responsive")) %>%
+  column_spec(1, width = "35em") %>%  # Ajustar ancho de la columna de reglas
+  column_spec(2:4, width = "10em")    # Ajustar las demás columnas
+
+```
+
+El output muestra un conjunto de reglas de asociación extraídas del dataset con los siguientes aspectos destacados:
+
+-   Soporte y Confianza:
+
+La regla 0 indica que aproximadamente el 10.16% de las transacciones contienen tanto el antecedente como el consecuente, y cuando se cumple el antecedente (['productionCompanyCountry_US']), casi el 99.16% de las veces también se cumple el consecuente.
+
+-   La regla 1 tiene una confianza del 100%, lo que sugiere que, en todas las transacciones en las que aparece el antecedente, se observa el consecuente, aunque su soporte es menor (7.84%). Lift:
+
+-   La mayoría de las reglas tienen un lift cercano a 1.28, lo que indica una asociación moderada. Sin embargo, la regla 4 destaca con un lift de 15.34, lo que significa que la ocurrencia conjunta de esos ítems es 15 veces más frecuente de lo esperado si fueran independientes. Esto sugiere una relación fuerte que podría tener implicaciones importantes para la estrategia de segmentación o marketing.
+
+## 5. Hallazgos y Conclusiones
+
+-   **Estructura de la Variabilidad en los Datos (PCA):**
+
+    -   El análisis de componentes principales mostró que los dos primeros componentes capturan gran parte de la varianza del conjunto de datos.
+
+    -   El primer componente se asocia fuertemente a variables económicas y de popularidad (como *budget_log*, *revenue_log*, *voteCount_log* y *popularity_log*), sugiriendo que estas variables comparten información común sobre el “éxito” de las películas.
+
+    -   El segundo componente parece relacionarse más con la valoración del público (*voteAvg*) y, posiblemente, aspectos temporales (como el *releaseYear*).
+
+    -   Aunque visualmente se percibe que los dos primeros ejes resumen bien la variabilidad, el análisis de paralelismo (Horn) recomienda retener hasta 4 componentes, lo que indica que hay matices adicionales en componentes posteriores.
+
+-   **Relaciones y Correlaciones:**
+
+    -   La matriz de correlación y el corrplot revelan relaciones fuertes entre variables clave, especialmente aquellas vinculadas a la dimensión económica y de popularidad.
+
+    -   La presencia de alta correlación entre estas variables refuerza la estructura encontrada en el PCA, ya que los elementos fuertemente correlacionados tienden a agruparse en el mismo componente.
+
+-   **Tendencia a la Clusterización:**
+
+    -   Tanto el análisis visual (VAT) como el estadístico de Hopkins sugieren que los datos no presentan una fuerte tendencia a formar grupos claramente diferenciados.
+
+    -   Esto indica que, en lugar de existir conglomerados bien definidos, la variabilidad se distribuye de manera más continua, lo que podría explicar la ausencia de estructuras de clusterización nítidas.
+
+-   **Reglas de Asociación:**
+
+    -   Los resultados actuales ofrecen insights importantes que pueden ser aprovechados por CineVision Studios. Sin embargo, se reconoce que, en futuros trabajos, se podrán:
+
+        -   Experimentar con diferentes combinaciones de soporte y confianza.
+
+        -   Aplicar métodos para filtrar o eliminar variables muy frecuentes que puedan estar "ocultando" reglas menos evidentes.
+
+        -   Realizar un análisis comparativo para determinar qué configuración ofrece las reglas más útiles desde el punto de vista del negocio.
+
+-   **Conclusión Global:**
+
+    -   El proyecto permite entender que el éxito financiero y la popularidad de las películas son las dimensiones que mayor variabilidad explican en el conjunto de datos, seguidas por aspectos relacionados con la valoración del público y el tiempo de estreno.
+
+    -   La reducción de la dimensionalidad mediante PCA ofrece una visión simplificada pero poderosa de la estructura subyacente, facilitando la interpretación y la toma de decisiones.
+
+    -   Sin embargo, la falta de una tendencia clara a la clusterización sugiere que, en este contexto, las películas se distribuyen a lo largo de un espectro continuo de características y desempeño, en lugar de formar grupos discretos.
+
+### Enlaces
+
+-   <https://github.com/Rodrimansidub14/DM-Proyecto1.git>
