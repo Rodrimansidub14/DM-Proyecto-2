@@ -1,11 +1,10 @@
-dplyr
-ggplot2
-readr
-reticulate
 tidyverse
+ggplot2
 tibble
 tidyr
+readr
 purrr
+dplyr
 stringr
 forcats
 lubridate
@@ -24,3 +23,4 @@ modeltools
 flexclust
 data.table
 cluster
+nortest

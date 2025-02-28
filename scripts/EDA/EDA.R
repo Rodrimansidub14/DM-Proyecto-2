@@ -4,114 +4,182 @@ library(dplyr)
 library(ggplot2)
 library(corrplot)
 library(GGally)
+library(gridExtra)
+
+
+
 # Cargar el dataset (ajusta la ruta si es necesario)
 datos <- read.csv("data/raw/train.csv", stringsAsFactors = FALSE)
 
 # 1. Revisión de la Estructura y Estadísticas Básicas
-cat("Cantidad de filas:", nrow(datos), "\n")
-cat("Cantidad de columnas:", ncol(datos), "\n")
-cat("\nEstructura del dataset:\n")
+cat("Número de filas:", nrow(datos), "\n")
+cat("Número de columnas:", ncol(datos), "\n")
+
+
 str(datos)
 
 cat("\nPrimeras 3 filas:\n")
-print(head(datos, 3))
+print(head(datos, 6))
 
 cat("\nÚltimas 3 filas:\n")
-print(tail(datos, 3))
+print(tail(datos, 6))
 
 cat("\nVisualización de las primeras 5 columnas:\n")
 print(head(datos[, 1:5]))
 
-# 2. Análisis de Valores Faltantes
-faltantes <- sapply(datos, function(x) sum(is.na(x)))
-cat("\nCantidad de valores faltantes por variable:\n")
-print(faltantes)
 
-missing_percent <- sapply(datos, function(x) sum(is.na(x)) / nrow(datos))
-cat("\nPorcentaje de valores faltantes por variable:\n")
-print(missing_percent)
+# 2. Análisis descriptivo
 
-# 3. Identificación de Registros Duplicados
-duplicados <- datos[duplicated(datos), ]
-cat("\nRegistros duplicados:\n")
-print(duplicados)
+library(knitr)
 
-# 4. Detección Preliminar de Outliers
-# Función para detectar índices de outliers usando el método IQR
-detectar_outliers <- function(x) {
-  if (is.numeric(x)) {
-    q <- quantile(x, probs = c(0.25, 0.75), na.rm = TRUE)
-    iqr <- q[2] - q[1]
-    li <- q[1] - 1.5 * iqr
-    ls <- q[2] + 1.5 * iqr
-    return(which(x < li | x > ls))
-  } else {
-    return(NULL)
-  }
+# Seleccionar las columnas numéricas del dataset 'datos'
+numeric_cols <- datos[sapply(datos, is.numeric)]
+
+# Función para calcular las estadísticas descriptivas
+calc_stats <- function(x) {
+  c(
+    count = sum(!is.na(x)),
+    mean  = mean(x, na.rm = TRUE),
+    std   = sd(x, na.rm = TRUE),
+    min   = min(x, na.rm = TRUE),
+    "25%" = quantile(x, 0.25, na.rm = TRUE),
+    "50%" = quantile(x, 0.50, na.rm = TRUE),  # Este valor es la mediana
+    "75%" = quantile(x, 0.75, na.rm = TRUE),
+    max   = max(x, na.rm = TRUE),
+    mediana = median(x, na.rm = TRUE)
+  )
 }
 
-# Selecciona algunas variables clave para revisar outliers (puedes ajustar la selección)
-vars_outliers <- c("MSSubClass", "LotFrontage", "LotArea", "GrLivArea", "SalePrice")
-for (var in vars_outliers) {
-  if (var %in% names(datos)) {
-    indices <- detectar_outliers(datos[[var]])
-    cat(paste("\nNúmero de outliers en", var, ":", length(indices), "\n"))
-    if (length(indices) > 0) {
-      cat("Índices de outliers en", var, ":", indices, "\n")
-    }
+# Aplicar la función a cada columna numérica y transponer el resultado
+resumen_estadistico <- t(sapply(numeric_cols, calc_stats))
+resumen_estadistico <- as.data.frame(resumen_estadistico)
+
+# Redondear los valores para mejorar la legibilidad
+resumen_estadistico[] <- lapply(resumen_estadistico, function(x) round(x, 2))
+
+# Mostrar el resumen estadístico con kable
+cat("Resumen estadístico de variables numéricas:\n\n")
+kable(resumen_estadistico, caption = "Resumen Estadístico de Variables Numéricas")
+
+
+
+# Variables categóricas
+
+
+
+# Seleccionar las variables categóricas: asumimos que son de tipo character o factor
+vars_categoricas <- names(datos)[sapply(datos, function(x) is.character(x) || is.factor(x))]
+
+# Imprimir un mensaje para indicar el inicio del análisis general de variables categóricas
+cat("Análisis general de variables categóricas\n")
+cat("=========================================\n\n")
+
+# Loop para cada variable categórica
+for (var in vars_categoricas) {
+  cat("Analizando variable:", var, "\n")
+  
+  # Generar tabla de frecuencias
+  freq_table <- table(datos[[var]])
+  print(freq_table)
+  
+  # Gráfico de barras de la distribución de frecuencias
+  p1 <- ggplot(datos, aes_string(x = var)) +
+    geom_bar(fill = "steelblue") +
+    labs(title = paste("Frecuencia de", var),
+         x = var,
+         y = "Conteo") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  print(p1)
+  
+  # Si existe la variable objetivo SalePrice, generar boxplot para analizar la relación
+  if ("SalePrice" %in% names(datos)) {
+    p2 <- ggplot(datos, aes_string(x = var, y = "SalePrice")) +
+      geom_boxplot(outlier.colour = "red", fill = "lightblue") +
+      labs(title = paste("Distribución de SalePrice por", var),
+           x = var,
+           y = "SalePrice") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(p2)
   }
+  
+  cat("\n-----------------------------------------\n\n")
 }
 
-# 5. Visualizaciones Básicas
+# Ejemplo de análisis de relaciones cruzadas entre dos variables categóricas:
+# Aquí se usa "Neighborhood" y "HouseStyle" como ejemplo. Asegúrate de que existan en tu dataset.
+if (all(c("Neighborhood", "HouseStyle") %in% names(datos))) {
+  cat("Tabla de contingencia entre Neighborhood y HouseStyle:\n")
+  tabla_cruzada <- table(datos$Neighborhood, datos$HouseStyle)
+  print(tabla_cruzada)
+  
+  # Generar un mosaic plot para visualizar la relación
+  mosaicplot(tabla_cruzada, main = "Mosaic Plot: Neighborhood vs HouseStyle",
+             color = TRUE, las = 2)
+}
+# ------------------------------------------------------
+# SCRIPT DE IDENTIFICACIÓN DE PROBLEMAS EN EL DATASET
+# ------------------------------------------------------
 
-# Histograma y Boxplot para algunas variables numéricas clave
-# Supongamos que ya tienes cargado el dataset en 'datos'
-# 1. Seleccionar las variables numéricas
-datos_num <- datos %>% select_if(is.numeric)
+# Cargar librerías necesarias
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(dplyr)) install.packages("dplyr")
+library(ggplot2)
+library(dplyr)
 
-# 2. Opcional: reducir el número de variables
-#    Por ejemplo, elegimos algunas de interés o las más correlacionadas con SalePrice
-#    Aquí muestro un ejemplo con variables típicas:
-vars_interes <- c("SalePrice", "GrLivArea", "LotFrontage", "LotArea", 
-                  "OverallQual", "YearBuilt", "GarageCars")
+# Leer el dataset (ajusta la ruta según corresponda)
+datos <- read.csv("data/raw/train.csv", stringsAsFactors = FALSE)
 
-# Filtramos el data frame para quedarnos solo con esas columnas
-datos_sub <- datos_num[, vars_interes]
+# 1. IDENTIFICACIÓN DE VALORES FALTANTES Y ERRORES DE CODIFICACIÓN
+cat("### Análisis de Valores Faltantes y Errores de Codificación ###\n\n")
 
-# 3. Generar la matriz de gráficos con ggpairs
-#    Esto mostrará histogramas en la diagonal, scatter plots en la parte superior/inferior, 
-#    y la correlación entre variables.
-ggpairs(datos_num,
-        title = "Matriz de Gráficos con ggpairs (subset de variables)",
-        upper = list(continuous = wrap("cor", size = 4)),  # Muestra correlación en la parte superior
-        lower = list(continuous = "smooth"),               # Ajusta una línea de regresión
-        diag = list(continuous = "barDiag"))               # Histogramas en la diagonal
+# Variables de interés: LotFrontage, Alley, PoolQC, Fence, MiscFeature
+vars_missing <- c("LotFrontage", "Alley", "PoolQC", "Fence", "MiscFeature")
 
+for (var in vars_missing) {
+  cat("Variable:", var, "\n")
+  
+  # Calcular el número y porcentaje de valores faltantes
+  missing_count <- sum(is.na(datos[[var]]))
+  missing_percent <- (missing_count / nrow(datos)) * 100
+  cat("  Valores faltantes:", missing_count, "(", round(missing_percent, 2), "% )\n")
+  
+  # Mostrar los valores únicos para detectar posibles errores o codificaciones extrañas
+  unique_vals <- unique(datos[[var]])
+  cat("  Valores únicos:", paste(unique_vals, collapse = ", "), "\n\n")
+}
 
-datos_num_long <- datos_num %>%
-  pivot_longer(cols = everything(),
-               names_to = "variable",
-               values_to = "valor")
+# 2. IDENTIFICACIÓN DE OUTLIERS Y NECESIDAD DE TRANSFORMACIÓN
+cat("### Análisis de Outliers y Posibles Transformaciones ###\n\n")
 
-ggplot(datos_num_long, aes(x = valor)) +
-  geom_histogram(bins = 30, fill = "cornflowerblue", color = "black") +
-  facet_wrap(~ variable, scales = "free_x") +
-  theme_minimal() +
-  labs(title = "Histogramas de Variables Numéricas",
-       x = "Valor",
-       y = "Frecuencia")
+# Variables de interés para evaluar outliers y transformaciones
+vars_outlier <- c("SalePrice", "GrLivArea", "LotArea", "X1stFlrSF", "TotalBsmtSF", "MasVnrArea", "GarageArea")
 
-pr
-
-
-ggplot(datos_num_long, aes(y = valor)) +
-  geom_boxplot(fill = "orange", outlier.color = "red") +
-  facet_wrap(~ variable, scales = "free") +
-  theme_minimal() +
-  labs(title = "Boxplots de Variables Numéricas",
-       y = "Valor")
-
-
-
-
-
+for (var in vars_outlier) {
+  cat("Variable:", var, "\n")
+  
+  # Mostrar resumen estadístico básico
+  print(summary(datos[[var]]))
+  
+  # Calcular cuantiles importantes
+  quantiles <- quantile(datos[[var]], probs = c(0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99), na.rm = TRUE)
+  cat("  Cuantiles (1%, 5%, 25%, 50%, 75%, 95%, 99%):\n")
+  print(quantiles)
+  
+  # Graficar histograma para visualizar la distribución
+  p_hist <- ggplot(datos, aes_string(x = var)) +
+    geom_histogram(fill = "skyblue", color = "black", bins = 30) +
+    labs(title = paste("Histograma de", var), x = var, y = "Frecuencia") +
+    theme_minimal()
+  print(p_hist)
+  
+  # Graficar boxplot para detectar outliers
+  p_box <- ggplot(datos, aes_string(y = var)) +
+    geom_boxplot(fill = "orange", outlier.colour = "red", outlier.shape = 16) +
+    labs(title = paste("Boxplot de", var), y = var) +
+    theme_minimal()
+  print(p_box)
+  
+  cat("\n-----------------------------------------\n\n")
+}

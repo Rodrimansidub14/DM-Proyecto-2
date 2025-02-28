@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  28 FEB 2025 00:47
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  28 FEB 2025 14:37
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -807,121 +807,430 @@ Overfull \hbox (31.295pt too wide) in alignment at lines 125--138
  [] [] [] [] [] [] [] [] [] [] 
  []
 
+
+Overfull \hbox (74.125pt too wide) in alignment at lines 142--155
+ [] [] [] [] [] [] [] [] [] [] [] 
+ []
+
 [1
 
 ]
-Overfull \hbox (3.2623pt too wide) in paragraph at lines 192--193
- []\TU/lmr/m/n/10 50%.50%
+Overfull \hbox (0.58328pt too wide) in paragraph at lines 182--183
+ []\TU/lmr/m/n/10 count
  []
 
 
-Overfull \hbox (3.2623pt too wide) in paragraph at lines 215--216
- []\TU/lmr/m/n/10 50%.50%
+Overfull \hbox (10.35469pt too wide) in paragraph at lines 192--193
+ []\TU/lmr/m/n/10 Median.50%
  []
 
 
-Overfull \hbox (1.85382pt too wide) in paragraph at lines 234--234
+Overfull \hbox (1.2927pt too wide) in paragraph at lines 198--199
+ []\TU/lmr/m/n/10 mediana
+ []
+
+
+Overfull \hbox (0.58328pt too wide) in paragraph at lines 205--206
+ []\TU/lmr/m/n/10 count
+ []
+
+
+Overfull \hbox (10.35469pt too wide) in paragraph at lines 215--216
+ []\TU/lmr/m/n/10 Median.50%
+ []
+
+
+Overfull \hbox (1.2927pt too wide) in paragraph at lines 221--222
+ []\TU/lmr/m/n/10 mediana
+ []
+
+
+Overfull \hbox (2.47205pt too wide) in paragraph at lines 234--234
  []|\TU/lmr/m/n/10 215245|
  []
 
 
-Overfull \hbox (13.05315pt too wide) in paragraph at lines 239--239
+Overfull \hbox (14.27856pt too wide) in paragraph at lines 239--239
 []|\TU/lmr/m/n/10 YearRemodAdd|  
  []
 
 
-Overfull \hbox (1.82315pt too wide) in paragraph at lines 249--249
+Overfull \hbox (3.04857pt too wide) in paragraph at lines 249--249
 []|\TU/lmr/m/n/10 TotalBsmtSF|  
  []
 
 
-Overfull \hbox (9.98315pt too wide) in paragraph at lines 255--255
+Overfull \hbox (11.20857pt too wide) in paragraph at lines 255--255
 []|\TU/lmr/m/n/10 LowQualFinSF|  
  []
 
 
-Overfull \hbox (5.02315pt too wide) in paragraph at lines 259--259
+Overfull \hbox (6.24857pt too wide) in paragraph at lines 259--259
 []|\TU/lmr/m/n/10 BsmtFullBath|  
  []
 
 
-Overfull \hbox (6.54315pt too wide) in paragraph at lines 260--260
+Overfull \hbox (7.76857pt too wide) in paragraph at lines 260--260
 []|\TU/lmr/m/n/10 BsmtHalfBath|  
  []
 
 
-Overfull \hbox (13.15315pt too wide) in paragraph at lines 263--263
+Overfull \hbox (14.37857pt too wide) in paragraph at lines 263--263
 []|\TU/lmr/m/n/10 BedroomAbvGr|  
  []
 
 
-Overfull \hbox (7.71315pt too wide) in paragraph at lines 264--264
+Overfull \hbox (8.93857pt too wide) in paragraph at lines 264--264
 []|\TU/lmr/m/n/10 KitchenAbvGr|  
  []
 
 
-Overfull \hbox (14.01315pt too wide) in paragraph at lines 265--265
+Overfull \hbox (15.23857pt too wide) in paragraph at lines 265--265
 []|\TU/lmr/m/n/10 TotRmsAbvGrd|  
  []
 
 
-Overfull \hbox (2.89316pt too wide) in paragraph at lines 272--272
+Overfull \hbox (4.11858pt too wide) in paragraph at lines 272--272
 []|\TU/lmr/m/n/10 WoodDeckSF|  
  []
 
 
-Overfull \hbox (4.59315pt too wide) in paragraph at lines 274--274
+Overfull \hbox (5.81857pt too wide) in paragraph at lines 274--274
 []|\TU/lmr/m/n/10 OpenPorchSF|  
  []
 
 
-Overfull \hbox (7.41315pt too wide) in paragraph at lines 276--276
+Overfull \hbox (8.63857pt too wide) in paragraph at lines 276--276
 []|\TU/lmr/m/n/10 EnclosedPorch|  
  []
 
 
-Overfull \hbox (2.5893pt too wide) in paragraph at lines 286--286
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 286--286
  []|\TU/lmr/m/n/10 180921.20|
  []
 
 
-Overfull \hbox (1.6023pt too wide) in paragraph at lines 286--286
+Overfull \hbox (2.4027pt too wide) in paragraph at lines 286--286
  []|\TU/lmr/m/n/10 79442.50|
  []
 
 
-Overfull \hbox (0.87233pt too wide) in paragraph at lines 286--286
+Overfull \hbox (1.41328pt too wide) in paragraph at lines 286--286
  []|\TU/lmr/m/n/10 34900|
  []
 
 
-Overfull \hbox (2.5893pt too wide) in paragraph at lines 286--286
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 286--286
  []|\TU/lmr/m/n/10 129975.00|
  []
 
 
-Overfull \hbox (1.6023pt too wide) in paragraph at lines 286--286
- []|\TU/lmr/m/n/10 163000.0|
- []
-
-
-Overfull \hbox (2.5893pt too wide) in paragraph at lines 287--287
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 287--287
  []|\TU/lmr/m/n/10 214000.00|
  []
 
 
-Overfull \hbox (1.85382pt too wide) in paragraph at lines 287--287
+Overfull \hbox (2.47205pt too wide) in paragraph at lines 287--287
  []|\TU/lmr/m/n/10 755000|
  []
 
 
-Overfull \hbox (1.6023pt too wide) in paragraph at lines 287--288
+Overfull \hbox (2.4027pt too wide) in paragraph at lines 287--288
  []|\TU/lmr/m/n/10 163000.0|
  []
 
 [2]
+File: ../figures/varscat/frecuencia_BldgType.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BldgType.png>
+File: ../figures/varscat/frecuencia_HouseStyle.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_HouseStyle.png>
 
-[3] (./p2test.aux)
+
+[3]
+File: ../figures/varscat/frecuencia_RoofStyle.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_RoofStyle.png>
+File: ../figures/varscat/frecuencia_RoofMatl.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_RoofMatl.png>
+File: ../figures/varscat/frecuencia_Foundation.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Foundation.png>
+
+
+[4]
+File: ../figures/varscat/frecuencia_ExterCond.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_ExterCond.png>
+File: ../figures/varscat/frecuencia_ExterQual.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_ExterQual.png>
+
+
+[5]
+File: ../figures/varscat/frecuencia_Exterior1st.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Exterior1st.png>
+File: ../figures/varscat/frecuencia_MasVnrType.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_MasVnrType.png>
+
+
+[6]
+File: ../figures/varscat/frecuencia_BsmtCond.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BsmtCond.png>
+File: ../figures/varscat/frecuencia_BsmtQual.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BsmtQual.png>
+File: ../figures/varscat/frecuencia_BsmtExposure.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BsmtExposure.png>
+
+
+[7]
+File: ../figures/varscat/frecuencia_BsmtFinType1.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BsmtFinType1.png>
+File: ../figures/varscat/frecuencia_BsmtFinType2.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_BsmtFinType2.png>
+
+
+[8]
+File: ../figures/varscat/frecuencia_GarageType.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_GarageType.png>
+File: ../figures/varscat/frecuencia_GarageFinish.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_GarageFinish.png>
+File: ../figures/varscat/frecuencia_GarageCond.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_GarageCond.png>
+
+
+[9]
+File: ../figures/varscat/frecuencia_GarageQual.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_GarageQual.png>
+File: ../figures/varscat/frecuencia_Heating.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Heating.png>
+
+
+[10]
+File: ../figures/varscat/frecuencia_HeatingQC.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_HeatingQC.png>
+File: ../figures/varscat/frecuencia_Electrical.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Electrical.png>
+File: ../figures/varscat/frecuencia_CentralAir.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_CentralAir.png>
+
+
+[11]
+File: ../figures/varscat/frecuencia_LandContour.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_LandContour.png>
+File: ../figures/varscat/frecuencia_LandSlope.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_LandSlope.png>
+
+
+[12]
+File: ../figures/varscat/frecuencia_LotConfig.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_LotConfig.png>
+File: ../figures/varscat/frecuencia_LotShape.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_LotShape.png>
+
+
+[13]
+File: ../figures/varscat/frecuencia_Alley.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Alley.png>
+File: ../figures/varscat/frecuencia_Neighborhood.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Neighborhood.png>
+File: ../figures/varscat/frecuencia_Street.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Street.png>
+
+
+[14]
+File: ../figures/varscat/frecuencia_PavedDrive.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_PavedDrive.png>
+File: ../figures/varscat/frecuencia_SaleType.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_SaleType.png>
+
+
+[15]
+File: ../figures/varscat/frecuencia_SaleCondition.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_SaleCondition.png>
+File: ../figures/varscat/frecuencia_Functional.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Functional.png>
+File: ../figures/varscat/frecuencia_FireplaceQu.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_FireplaceQu.png>
+
+
+[16]
+File: ../figures/varscat/frecuencia_Fence.png Graphic file (type bmp)
+<../figures/varscat/frecuencia_Fence.png>
+File: ../figures/varsnum/distribucion_SalePrice.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_SalePrice.png>
+
+
+[17]
+File: ../figures/outliers/boxplot_SalePrice.png Graphic file (type bmp)
+<../figures/outliers/boxplot_SalePrice.png>
+
+
+[18]
+File: ../figures/varsnum/distribucion_GrLivArea.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_GrLivArea.png>
+File: ../figures/outliers/boxplot_GrLivArea.png Graphic file (type bmp)
+<../figures/outliers/boxplot_GrLivArea.png>
+File: ../figures/varsnum/distribucion_LotArea.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_LotArea.png>
+
+
+[19]
+File: ../figures/outliers/boxplot_LotArea.png Graphic file (type bmp)
+<../figures/outliers/boxplot_LotArea.png>
+File: ../figures/varsnum/distribucion_1stFlrSF.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_1stFlrSF.png>
+
+
+[20]
+File: ../figures/outliers/boxplot_1stFlrSF.png Graphic file (type bmp)
+<../figures/outliers/boxplot_1stFlrSF.png>
+File: ../figures/varsnum/distribucion_TotalBsmtSF.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_TotalBsmtSF.png>
+
+
+[21]
+File: ../figures/outliers/boxplot_TotalBsmtSF.png Graphic file (type bmp)
+<../figures/outliers/boxplot_TotalBsmtSF.png>
+File: ../figures/varsnum/distribucion_OverallQual.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_OverallQual.png>
+
+
+[22]
+File: ../figures/outliers/boxplot_OverallQual.png Graphic file (type bmp)
+<../figures/outliers/boxplot_OverallQual.png>
+File: ../figures/varsnum/distribucion_OverallCond.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_OverallCond.png>
+
+
+[23]
+File: ../figures/outliers/boxplot_OverallCond.png Graphic file (type bmp)
+<../figures/outliers/boxplot_OverallCond.png>
+File: ../figures/varsnum/distribucion_YearBuilt.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_YearBuilt.png>
+
+
+[24]
+File: ../figures/outliers/boxplot_YearBuilt.png Graphic file (type bmp)
+<../figures/outliers/boxplot_YearBuilt.png>
+File: ../figures/varsnum/distribucion_YearRemodAdd.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_YearRemodAdd.png>
+
+
+[25]
+File: ../figures/outliers/boxplot_YearRemodAdd.png Graphic file (type bmp)
+<../figures/outliers/boxplot_YearRemodAdd.png>
+File: ../figures/varsnum/distribucion_LotFrontage.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_LotFrontage.png>
+
+
+[26]
+File: ../figures/outliers/boxplot_LotFrontage.png Graphic file (type bmp)
+<../figures/outliers/boxplot_LotFrontage.png>
+File: ../figures/varsnum/distribucion_MasVnrArea.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_MasVnrArea.png>
+
+
+[27]
+File: ../figures/outliers/boxplot_MasVnrArea.png Graphic file (type bmp)
+<../figures/outliers/boxplot_MasVnrArea.png>
+File: ../figures/varsnum/distribucion_GarageArea.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_GarageArea.png>
+
+
+[28]
+File: ../figures/outliers/boxplot_GarageArea.png Graphic file (type bmp)
+<../figures/outliers/boxplot_GarageArea.png>
+File: ../figures/varsnum/distribucion_GarageCars.png Graphic file (type bmp)
+<../figures/varsnum/distribucion_GarageCars.png>
+
+
+[29]
+File: ../figures/outliers/boxplot_GarageCars.png Graphic file (type bmp)
+<../figures/outliers/boxplot_GarageCars.png>
+
+Overfull \hbox (1705.50504pt too wide) in alignment at lines 668--688
+ [] [] [] [] 
+ []
+
+
+
+[30]
+Overfull \hbox (1.41328pt too wide) in paragraph at lines 755--755
+ []|\TU/lmr/m/n/10 34900|
+ []
+
+
+Overfull \hbox (2.4027pt too wide) in paragraph at lines 755--755
+ []|\TU/lmr/m/n/10 61815.97|
+ []
+
+
+Overfull \hbox (2.4027pt too wide) in paragraph at lines 755--755
+ []|\TU/lmr/m/n/10 88000.00|
+ []
+
+
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 755--755
+ []|\TU/lmr/m/n/10 129975.00|
+ []
+
+
+Overfull \hbox (2.4027pt too wide) in paragraph at lines 755--755
+ []|\TU/lmr/m/n/10 163000.0|
+ []
+
+
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 756--756
+ []|\TU/lmr/m/n/10 214000.00|
+ []
+
+
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 756--756
+ []|\TU/lmr/m/n/10 326100.00|
+ []
+
+
+Overfull \hbox (3.45593pt too wide) in paragraph at lines 756--756
+ []|\TU/lmr/m/n/10 442567.01|
+ []
+
+
+Overfull \hbox (2.47205pt too wide) in paragraph at lines 756--757
+ []|\TU/lmr/m/n/10 755000|
+ []
+
+
+Overfull \hbox (2.47205pt too wide) in paragraph at lines 760--761
+ []|\TU/lmr/m/n/10 215245|
+ []
+
+
+Overfull \hbox (10.93657pt too wide) in paragraph at lines 763--763
+[]|\TU/lmr/m/n/10 TotalBsmtSF|  
+ []
+
+
+Overfull \hbox (7.94656pt too wide) in paragraph at lines 765--765
+[]|\TU/lmr/m/n/10 MasVnrArea|  
+ []
+
+
+Overfull \hbox (4.89658pt too wide) in paragraph at lines 767--767
+[]|\TU/lmr/m/n/10 GarageArea|  
+ []
+
+
+
+[31]
+
+[32]
+
+[33]
+Underfull \hbox (badness 1057) in paragraph at lines 968--970
+[]\TU/lmr/bx/n/10 ¿Qué impacto tienen los años de construcción y remodelación (YearBuilt, Year-
+ []
+
+
+
+[34]
+
+[35] (./p2test.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -931,12 +1240,12 @@ LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
  ) 
 Here is how much of TeX's memory you used:
- 18477 strings out of 475846
- 336537 string characters out of 5773211
- 947168 words of memory out of 5000000
- 41165 multiletter control sequences out of 15000+600000
- 562509 words of font info for 67 fonts, out of 8000000 for 9000
+ 19677 strings out of 475846
+ 392986 string characters out of 5773211
+ 949732 words of memory out of 5000000
+ 42298 multiletter control sequences out of 15000+600000
+ 562517 words of font info for 68 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,8n,114p,405b,476s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,8n,114p,405b,481s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on p2test.pdf (3 pages).
+Output written on p2test.pdf (35 pages).

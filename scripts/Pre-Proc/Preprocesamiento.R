@@ -86,3 +86,7 @@ corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7,
 # Diagrama de dispersión entre algunas variables clave
 pairs(~LotFrontage + LotArea + GrLivArea + SalePrice + , data = datos, 
       main = "Relación entre variables clave")
+
+
+
+

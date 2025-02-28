@@ -2,14 +2,19 @@
 title: "Proyecto 2"
 author: "Rodrigo Mansilla, Javier Chen"
 date: "2025-02-25"
-output: 
+output:
   pdf_document:
-      latex_engine: xelatex
+    latex_engine: xelatex
+
 ---
+
+
 
 ```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
 library(tidyverse)
 library(knitr)
+library(nortest)  # Para ad.test() y lillie.test()
+
 library(kableExtra)
 library(rmarkdown)
 library(xfun)
@@ -56,7 +61,8 @@ knitr::opts_chunk$set(
 
 # Metodología
 
-## Exploración inicial  de Datos
+## Exploración inicial de Datos
+
 ```{r rd, echo = FALSE, warning = FALSE}
 
 # Cargar el dataset (ajusta la ruta si es necesario)
@@ -64,6 +70,7 @@ datos <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/raw/t
 ```
 
 ### Dimensiones del Dataset
+
 ```{r dims, echo = FALSE, warning = FALSE}
 
 num_filas <- nrow(datos)
@@ -82,7 +89,9 @@ kable(dimensiones, caption = "Dimensiones del Dataset")
 
 
 ```
+
 ### Primeras filas
+
 ```{r head, echo=FALSE, warning=FALSE}
 
 # Seleccionar un subconjunto de columnas (por ejemplo, las primeras 5)
@@ -108,29 +117,31 @@ kable(
 ) %>%
   kable_styling(latex_options = "scale_down")
 ```
+
 Observamos que el dataset contiene una complejidad adecuada y es necesaria la limpieza y transformación de datos para poder detectar relaciones, outliers y patrones en los datos.
 
-
-
 ## Análisis descriptivo y Exploración de Variables
+
 ### Estadísticas Descriptivas de variables numéricas
+
 ```{r descriptivas, echo = FALSE, warning = FALSE}
 
+library(knitr)
 library(knitr)
 
 # Seleccionar las columnas numéricas del dataset 'datos'
 numeric_cols <- datos[sapply(datos, is.numeric)]
 
-# Función para calcular las estadísticas descriptivas
+# Función para calcular las estadísticas descriptivas con nombres de columnas sin "%"
 calc_stats <- function(x) {
   c(
     count = sum(!is.na(x)),
     mean  = mean(x, na.rm = TRUE),
     std   = sd(x, na.rm = TRUE),
     min   = min(x, na.rm = TRUE),
-    "25%" = quantile(x, 0.25, na.rm = TRUE),
-    "50%" = quantile(x, 0.50, na.rm = TRUE),  # Este valor es la mediana
-    "75%" = quantile(x, 0.75, na.rm = TRUE),
+    Q1    = quantile(x, 0.25, na.rm = TRUE),
+    Median= quantile(x, 0.50, na.rm = TRUE),  # Este valor es la mediana
+    Q3    = quantile(x, 0.75, na.rm = TRUE),
     max   = max(x, na.rm = TRUE),
     mediana = median(x, na.rm = TRUE)
   )
@@ -144,18 +155,722 @@ resumen_estadistico <- as.data.frame(resumen_estadistico)
 resumen_estadistico[] <- lapply(resumen_estadistico, function(x) round(x, 2))
 
 # Mostrar el resumen estadístico con kable
-kable(resumen_estadistico, caption = "Resumen Estadístico de Variables Numéricas")
+kable(resumen_estadistico, caption = "Resumen Estadístico de Variables Numéricas", escape = TRUE)
+
+```
+
+Estas estadísticas descriptivas nos permiten tener una idea general de la distribución de las variables numéricas en el dataset. A oartir de estos datos podemos explorar variables con gran variabilidad y outliers como:
+
+-   **SalePrice:** Es la variable objetivo; analizar su distribución es esencial para detectar sesgos o valores atípicos que puedan afectar modelos predictivos.
+
+-   **GrLivArea, LotArea, X1stFlrSF y TotalBsmtSF**: Estas variables relacionadas con áreas muestran amplios rangos y desviaciones estándar elevadas, lo que indica una variabilidad considerable. Evaluar su distribución ayudará a entender cómo influyen en el precio.
+
+-   **OverallQual y OverallCond**: Son escalas de calidad y condición que, a pesar de ser discretas, pueden tener un impacto directo en el precio.
+
+-   **YearBuilt y YearRemodAdd:** La antigüedad y el año de remodelación pueden explicar cambios en la valoración de las viviendas. Su distribución puede revelar tendencias históricas y patrones de renovación.
+
+-   **LotFrontage y MasVnrArea:** Aunque LotFrontage presenta datos faltantes, es relevante para entender la exposición del lote. MasVnrArea muestra muchos ceros y algunos valores altos, lo que sugiere la presencia de outliers que vale la pena investigar.
+
+-   **GarageArea y GarageCars:** Estas variables relacionadas con el garaje también presentan variabilidad notable y pueden influir en el precio, es útil evaluar si existen distribuciones sesgadas o valores extremos.
+
+### Exploración de variables categóricas
+
+#### Variables relacionadas con la construcción y estructura
+
+```{r catconst1, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BldgType.png")
+
+
+```
+```{r catconst2, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_HouseStyle.png")
+
+
+```
+```{r catconst3, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_RoofStyle.png")
+
+
+
+```
+```{r catconst4, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_RoofMatl.png")
+
+
+
+```
+
+
+```{r catconst5, echo = FALSE, warning = FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Foundation.png")
+
+
+
+```
+
+
+Este grupo de variables muestra una mayoría de casas unifamiliares, predominancia en casasde 2 y 1 piso, techos de tipo Gable y materiales de techos CompShg. La mayoría de las casas tienen cimientos de concreto y madera. Estos patrones pueden ser útiles para identificar características comunes en la construcción de las propiedades.
+
+#### Variables relacionadas con el exterior y materiales
+
+```{r catext1, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_ExterCond.png")
+
+```
+```{r catext2, echo = FALSE, warning = FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_ExterQual.png")
+
+```
+```{r catext3, echo = FALSE, warning = FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Exterior1st.png")
+
+
+```
+```{r catext4, echo = FALSE, warning = FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_MasVnrType.png")
+
+
+```
+
+La mayoría de las casas presentan una condición y calidad exterior promedio, con pocas en estado excelente o deficiente. En las cubiertas exteriores, domina “VinylSd” tanto en la primera como en la segunda capa, seguido a cierta distancia por “MetalSd”, “Wd Sdng” y “HdBoard”. La mampostería vista (MasVnrType) más frecuente es “BrkFace”, con “Stone” como segunda opción. Esto sugiere un mercado residencial donde predomina un nivel de acabado estándar y revestimientos vinílicos o de metal, con menos variedad en acabados de alta o baja calidad.
+
+#### Variables relacionadas con el sótano
+
+```{r catbsm1, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtCond.png")
+
+
+
+```
+```{r catbsm2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtQual.png")
+
+
+```
+```{r catbsm3, echo=FALSE, warning=FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtExposure.png")
+
+
+
+```
+```{r catbsm4, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtFinType1.png")
+
+
+
+```
+```{r catbsm5, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtFinType2.png")
+
+
+```
+
+La mayoría de los sótanos están en condición “TA” y calidad “TA” o “Gd”, con pocos casos “Ex” o “Fa”. La exposición del sótano suele ser “No” (sin exposición), aunque también hay un grupo con “Gd”, “Mn” y “Av”. Para la terminación del sótano, “GLQ” y “Unf” predominan en BsmtFinType1, mientras que “Unf” es casi absoluto en BsmtFinType2, indicando que muchos sótanos adicionales están sin terminar o tienen acabados básicos.
+
+#### Variables relacionadas con el garaje
+
+```{r catgrg1, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageType.png")
+
+
+
+```
+```{r catgrg2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageFinish.png")
+
+```
+```{r catgrg3, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageCond.png")
+
+```
+```{r catgrg4, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageQual.png")
 
 ```
 
 
 
-## Ingeniería de Características y Transformación de Datos
+La mayoría de las casas tienen garajes adjuntos, seguidos por garajes separados y sin garaje. En cuanto al acabado del garaje, predominan los garajes sin acabado o con acabado de calidad estándar. La calidad y condición del garaje tienden a ser promedio, con pocos casos en los extremos. Estos patrones sugieren que la mayoría de las propiedades tienen garajes estándar o básicos, lo que puede influir en el precio de venta.
+
+#### Variables relacionadas con calefacción y electricidad
+
+```{r catheat1, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Heating.png")
 
 
-## Análisis de Correlaciones y Selección de Variables
+```
+
+```{r catheat2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_HeatingQC.png")
 
 
+```
+
+```{r catheat3, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Electrical.png")
+
+
+```
+
+```{r catheat4, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_CentralAir.png")
+
+
+```
+
+
+
+La mayoría de las casas tienen calefacción estándar (GasA) y calidad promedio (TA). La electricidad es principalmente SBrkr, con algunos casos de FuseA y FuseF. La mayoría de las casas tienen aire acondicionado central, lo que sugiere un nivel de comodidad y eficiencia energética estándar en la mayoría de las propiedades.
+
+#### Variables relacionadas con la ubicación del terreno
+
+```{r catterr1, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LandContour.png")
+
+
+```
+```{r catterr2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LandSlope.png")
+
+
+```
+
+```{r catterr3, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LotConfig.png")
+
+
+```
+```{r catterr4, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LotShape.png")
+
+
+```
+
+La mayoría de las propiedades tienen terrenos planos o ligeramente inclinados, con configuraciones de lote internas y formas regulares. Estos patrones sugieren que la mayoría de las propiedades están en áreas urbanas o suburbanas, con lotes estándar y fácil acceso a servicios y vías de comunicación.
+
+#### Variables relacionadas con vecindario y accesibilidad
+
+```{r catnbhd1, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Alley.png")
+
+
+```
+
+
+```{r catnbhd2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Neighborhood.png")
+
+
+
+```
+
+
+```{r catnbhd3, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Street.png")
+
+
+```
+
+
+```{r catnbhd4, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_PavedDrive.png")
+
+
+
+```
+
+
+
+La mayoría de las propiedades tienen acceso por calle pavimentada y no tienen acceso a callejón. Los vecindarios más comunes son NAmes, CollgCr y OldTown, lo que sugiere una concentración en áreas urbanas o suburbanas. La mayoría de las propiedades tienen acceso pavimentado, lo que indica una buena accesibilidad a las vías principales.
+
+#### Variables relacionadas con seguridad y condiciones
+
+```{r catsafty1, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_SaleType.png")
+
+
+```
+
+
+
+```{r catsafty2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_SaleCondition.png")
+
+
+```
+
+```{r catsafty3, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Functional.png")
+
+```
+
+```{r catsafty4, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_FireplaceQu.png")
+
+
+```
+
+```{r catsafty5, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Fence.png")
+
+```
+
+
+
+La mayoría de las propiedades se venden bajo condiciones normales y tienen funcionalidad típica. La calidad de la chimenea es promedio, con pocos casos en los extremos. La mayoría de las propiedades no tienen cercas, lo que sugiere una baja preocupación por la seguridad o privacidad en el vecindario.
+
+### Visualización de Variables Numéricas
+
+```{r SalePrice, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_SalePrice.png")
+
+
+
+```
+
+```{r SalePrice2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_SalePrice.png")
+
+
+```
+Siendo esta la variable objetivo,observamos una distribución sesgada a la derecha, Esta asimetría puede afectar métodos estadísticos que asumen distribuciones normales. Observamos outliers en la parte superior de la distribución, lo que sugiere la presencia de propiedades muy caras que pueden afectar la predicción de precios.
+
+-   **Boxplot:** Se aprecia que la mayoría de los precios se concentran en un rango intercuartílico entre 130,000 y 210,000 dólares, pero existen varios puntos extremos en la cola superior. Esto indica la presencia de propiedades con precios significativamente más altos.
+
+-   **Histograma** **con curva de densidad**: La distribución se observa sesgada a la derecha, lo que se confirma por la diferencia entre la mediana y la media. Esto sugiere que, para algunos análisis o modelado, podría ser útil aplicar una transformación para aproximar una distribución normal.
+
+#### Variables Numéricas Relacionadas con Áreas y Calidad
+
+```{r GrLivArea, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_GrLivArea.png")
+
+
+```
+
+```{r GrLivArea2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_GrLivArea.png")
+
+
+```
+
+```{r LotArea, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_LotArea.png")
+
+
+```
+
+
+```{r LotArea2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_LotArea.png")
+
+
+```
+
+
+```{r X1stFlrSF, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_1stFlrSF.png")
+
+
+```
+```{r X1stFlrSF2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_1stFlrSF.png")
+
+
+```
+
+```{r TotalBsmtSF, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_TotalBsmtSF.png")
+
+
+```
+```{r TotalBsmtSF2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_TotalBsmtSF.png")
+
+
+```
+**GrLivArea, LotArea, X1stFlrSF y TotalBsmtSF:**
+
+Los gráficos confirman que las variables de área tienden a ser **altamente asimétricas** y presentan **outliers**. Esto será fundamental al momento de construir modelos predictivos y al realizar inferencias estadísticas, ya que puede ser necesario **transformar** o **estratificar** estas variables para obtener resultados más confiables.
+
+#### Variables Numéricas Relacionadas con Calidad y Años
+
+```{r OverallQual, echo=FALSE, warning=FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_OverallQual.png")
+
+
+```
+```{r OverallQual2, echo=FALSE, warning=FALSE}
+
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_OverallQual.png")
+
+
+```
+-   Valores entre 1 y 10.
+
+-   Mayoría entre 5 y 7.
+
+-   Pico alrededor de 5-6.
+
+-   Pocos valores en los extremos.
+
+```{r OverallCond, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_OverallCond.png")
+
+
+```
+```{r OverallCond2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_OverallCond.png")
+
+
+```
+-   Valores entre 1 y 9.
+
+-   Pico muy marcado en 5.
+
+-   Caja centrada en 5-6.
+
+-   Pocos casos en extremos (1, 9).
+
+```{r YearBuilt, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_YearBuilt.png")
+
+
+
+```
+```{r YearBuilt2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_YearBuilt.png")
+
+
+
+```
+-   Rango amplio (1870–2010).
+
+-   Incremento progresivo hasta 2000.
+
+-   Concentración alta en décadas recientes.
+
+-   Boxplot concentrado en 1950–2000.
+
+```{r YearRemodAdd, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_YearRemodAdd.png")
+
+
+```
+```{r YearRemodAdd2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_YearRemodAdd.png")
+
+
+```
+-   Rango 1950–2010.
+
+-   Mayor actividad de remodelación cerca de 1990 y 2010, 1950 presenta remodelaciones altas.
+
+-   Boxplot abarca 1960–2000.
+
+-   Pocos valores anteriores a 1960.
+
+#### Variables Numéricas Relacionadas con Áreas y Calidad
+
+```{r LotFrontage, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_LotFrontage.png")
+
+```
+```{r LotFrontage2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_LotFrontage.png")
+
+```
+
+-   Pico cercano a 60-70.
+
+-   Muchos valores faltantes.
+
+-   Cola derecha larga, outliers por encima de 150.
+
+```{r MasVnrArea, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_MasVnrArea.png")
+
+
+```
+```{r MasVnrArea2, echo=FALSE, warning=FALSE}
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_MasVnrArea.png")
+
+
+```
+-   Mayoría en 0 (sin acabado de mampostería).
+
+-   Fuerte sesgo a la derecha.
+
+-   Outliers hasta 1600.
+
+#### Variables Numéricas Relacionadas con el Garaje
+
+```{r GarageArea, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_GarageArea.png")
+
+
+```
+```{r GarageArea2, echo=FALSE, warning=FALSE}
+
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_GarageArea.png")
+
+
+```
+-   Mayoría entre 400–600.
+
+-   Distribución sesgada a la derecha.
+
+-   Outliers por encima de 1000.
+
+```{r GarageCars, echo=FALSE, warning=FALSE}
+# GarageCars: Capacidad de autos en el garaje
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_GarageCars.png")
+
+```
+```{r GarageCars2, echo=FALSE, warning=FALSE}
+# GarageCars: Capacidad de autos en el garaje
+knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_GarageCars.png")
+
+```
+-   Pico en 2 autos.
+
+-   Rango 0–4.
+
+-   Pocos outliers en 4.
+
+Las variables numéricas, como áreas y precios, se distribuyen con asimetría a la derecha y tienen outliers significativos. Las variables de calidad se concentran en rangos medios y se detectan datos faltantes en algunas. Esto indica que será necesario aplicar transformaciones , tratar outliers y profundizar en el análisis de las variables categóricas para extraer patrones relevantes en la valoración de propiedades
+
+
+## Identificación de faltantes y outliers
+
+```{r missing-info, echo=FALSE, warning=FALSE, results='asis'}
+# Variables de interés
+vars_missing <- c("LotFrontage", "Alley", "PoolQC", "Fence", "MiscFeature")
+
+# Crear la tabla con formato en la columna UniqueValues
+missing_info <- lapply(vars_missing, function(var) {
+  missing_count <- sum(is.na(datos[[var]]))
+  missing_percent <- (missing_count / nrow(datos)) * 100
+  unique_vals <- unique(datos[[var]])
+  # Convertir a cadena y aplicar salto de línea cada 50 caracteres
+  unique_vals_str <- paste(unique_vals, collapse = ", ")
+  unique_vals_str <- paste(strwrap(unique_vals_str, width = 50), collapse = "\n")
+  data.frame(
+    Variable = var,
+    MissingCount = missing_count,
+    MissingPercent = round(missing_percent, 2),
+    UniqueValues = unique_vals_str,
+    stringsAsFactors = FALSE
+  )
+})
+missing_info_df <- do.call(rbind, missing_info)
+
+# Mostrar la tabla con kable y kableExtra
+library(knitr)
+library(kableExtra)
+kable(missing_info_df, 
+      caption = "Resumen de Valores Faltantes en Variables Seleccionadas", 
+      row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+```
+
+## Análisis de Outliers
+
+```{r outliers1, echo=FALSE, warning=FALSE}
+
+vars_outlier <- c("SalePrice", "GrLivArea", "LotArea", "X1stFlrSF", "TotalBsmtSF", "MasVnrArea", "GarageArea")
+
+outlier_summary <- lapply(vars_outlier, function(var) {
+  s <- summary(datos[[var]])
+  quantiles <- quantile(datos[[var]], 
+                        probs = c(0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99), 
+                        na.rm = TRUE)
+  data.frame(
+    Variable = var,
+    Min = as.numeric(s["Min."]),
+    `1%` = round(as.numeric(quantiles["1%"]), 2),
+    `5%` = round(as.numeric(quantiles["5%"]), 2),
+    `25%` = round(as.numeric(quantiles["25%"]), 2),
+    Median = as.numeric(s["Median"]),
+    `75%` = round(as.numeric(quantiles["75%"]), 2),
+    `95%` = round(as.numeric(quantiles["95%"]), 2),
+    `99%` = round(as.numeric(quantiles["99%"]), 2),
+    Max = as.numeric(s["Max."]),
+    stringsAsFactors = FALSE
+  )
+})
+outlier_summary_df <- do.call(rbind, outlier_summary)
+library(knitr)
+kable(outlier_summary_df, caption = "Resumen Estadístico y Cuantiles para Análisis de Outliers", row.names = FALSE)
+
+
+```
+
+
+
+
+## Pruebas de Normalidad
+
+```{r normality, echo=FALSE, warning=FALSE}
+
+
+run_normality_tests <- function(x) {
+  x <- na.omit(x)  # Eliminar valores faltantes
+  if (length(x) < 3) {
+    return(data.frame(Test = NA, Statistic = NA, P.value = NA))
+  }
+  # Shapiro-Wilk
+  sw <- shapiro.test(x)
+  # Anderson-Darling
+  ad <- ad.test(x)
+  # Kolmogorov-Smirnov (comparado con la normal parametrizada)
+  ks <- ks.test(x, "pnorm", mean = mean(x), sd = sd(x))
+  # Lilliefors
+  li <- lillie.test(x)
+  
+  # Crear data frame con los resultados
+  results_df <- data.frame(
+    Test = c("Shapiro-Wilk", "Anderson-Darling", "Kolmogorov-Smirnov", "Lilliefors"),
+    Statistic = c(as.numeric(sw$statistic), as.numeric(ad$statistic),
+                  as.numeric(ks$statistic), as.numeric(li$statistic)),
+    P.value = c(sw$p.value, ad$p.value, ks$p.value, li$p.value)
+  )
+  return(results_df)
+}
+
+
+
+```
+
+Se definen grupos de variables como la variable objetivo y las variables numéricas de área, calidad y años, para evaluar su normalidad mediante pruebas estadísticas. Los resultados de las pruebas de normalidad se presentan a continuación:
+
+
+
+### Grupo 1: Variable objetivo y áreas
+
+```{r normality2, echo=FALSE, warning=FALSE}
+
+
+vars_group1 <- c("SalePrice", "GrLivArea", "LotArea", "X1stFlrSF", "TotalBsmtSF")
+
+# Iterar por cada variable y mostrar la tabla de resultados
+for (var in vars_group1) {
+  test_results <- run_normality_tests(datos[[var]])
+  # Agregar el nombre de la variable al data frame
+  test_results <- cbind(Variable = var, test_results)
+  
+  # Mostrar la tabla con kable
+  print(kable(test_results, digits = 4, caption = paste("Pruebas de Normalidad para", var)))
+}
+
+
+
+```
+
+
+### Grupo 2: Variables de calidad y construcción
+
+
+```{r normality3, echo=FALSE, warning=FALSE}
+
+vars_group2 <- c("OverallQual", "OverallCond", "YearBuilt", "YearRemodAdd")
+
+for (var in vars_group2) {
+  test_results <- run_normality_tests(datos[[var]])
+  test_results <- cbind(Variable = var, test_results)
+  print(kable(test_results, digits = 4, caption = paste("Pruebas de Normalidad para", var)))
+}
+
+
+
+```
+
+### Grupo 3: Variables relacionadas con acabados y garaje
+
+```{r normality4, echo=FALSE, warning=FALSE}
+
+vars_group3 <- c("MasVnrArea", "GarageArea")
+
+for (var in vars_group3) {
+  test_results <- run_normality_tests(datos[[var]])
+  test_results <- cbind(Variable = var, test_results)
+  print(kable(test_results, digits = 4, caption = paste("Pruebas de Normalidad para", var)))
+}
+
+
+
+```
+
+Las pruebas de normalidad en todos los grupos de variables arrojan p-valores extremadamente bajos (p < 2.2e-16 en la mayoría de los casos), lo que indica que ninguna de estas variables sigue una distribución normal según los test de Shapiro-Wilk, Anderson-Darling, Kolmogorov-Smirnov y Lilliefors. Esto es especialmente notable en variables como SalePrice, LotArea y MasVnrArea, que presentan un marcado sesgo a la derecha y outliers. Aunque algunas variables tienen valores de W relativamente altos, el tamaño de la muestra (n=1460) hace que incluso desviaciones leves se vuelvan estadísticamente significativas. En conclusión, la evidencia sugiere que es necesario aplicar transformaciones  y/o estrategias de manejo de outliers para aproximar la normalidad y estabilizar la varianza antes de proceder con el modelado predictivo.
+
+
+
+
+
+
+
+A partir de esta exploración inicial, se identificaron patrones y características clave en las variables categóricas y numéricas. Estos insights serán fundamentales para la limpieza, transformación y modelado de los datos, permitiendo construir modelos predictivos precisos y robustos.
+
+Adicionalmente,surgen interrogantes sobre la relación entre las variables y su impacto en el precio de venta, por lo que previo a las transformaciones las cuales se responden de manera iterativa en el análisis exploratorio de datos. A continuación, se presentan las preguntas de investigación que guiarán el análisis y modelado de los datos:
+
+1.  **¿Cómo se relacionan las variables de área (GrLivArea, LotArea, X1stFlrSF, TotalBsmtSF) con el precio de venta y cómo varían estas relaciones según categorías de calidad (OverallQual, OverallCond) y ubicación (Neighborhood, MSZoning)?**
+
+2.  **¿Qué impacto tienen los años de construcción y remodelación (YearBuilt, YearRemodAdd) en el precio? ¿Existen tendencias o agrupaciones de propiedades antiguas versus modernas que influyan en SalePrice?**
+
+3.  **¿Cuáles son las diferencias en la distribución de precios entre los distintos tipos de construcción y estilos de vivienda (BldgType, HouseStyle), y qué patrones se observan en función de la estructura física de la propiedad?**
+
+4.  **¿De qué manera afectan los acabados exteriores y materiales (Exterior1st, Exterior2nd, MasVnrType, MasVnrArea) la valoración de las viviendas? ¿Se observa que ciertos materiales o condiciones exteriores se asocian a precios más altos o más bajos?**
+
+5.  **¿Cómo influyen las condiciones y características del sótano (BsmtQual, BsmtCond, BsmtFinType1, BsmtFinSF1, BsmtFinSF2) en el precio?¿Existe un efecto diferencial entre casas con sótanos terminados y sin terminar?**
+
+6.  **¿Qué rol juegan las variables relacionadas con el garaje (GarageType, GarageArea, GarageCars, GarageQual, GarageCond) en la determinación del precio de venta? ¿Están las propiedades con garajes de mejor calidad o mayor capacidad asociadas a precios superiores?**
+
+7.  **¿Existen patrones de desequilibrio o baja representatividad en ciertas variables categóricas (por ejemplo, Alley, PoolQC, MiscFeature) que requieran agrupar categorías o realizar recodificaciones para un análisis más fiable?**
+
+8.  **¿Cómo se comportan las variables relacionadas con la ubicación y configuración del terreno (LotShape, LandContour, Street, Utilities) y qué relación tienen con el precio de venta?**
+
+9.  **¿Qué variables muestran mayor presencia de outliers o sesgo en su distribución, y cuál es el impacto de estos extremos en los modelos predictivos? ¿Es necesario aplicar transformaciones (como logaritmos) o segmentaciones específicas?**
+
+10. **¿Cómo se combinan las variables de calidad, área y ubicación para explicar de forma conjunta la variabilidad en el precio de las propiedades?**
 
 # Análisis de Grupos
 
