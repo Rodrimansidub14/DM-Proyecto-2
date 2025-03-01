@@ -3,17 +3,17 @@ title: "Proyecto 2"
 author: "Rodrigo Mansilla, Javier Chen"
 date: "2025-02-25"
 output:
+  html_document:
+    df_print: paged
   pdf_document:
     latex_engine: xelatex
-
 ---
-
-
 
 ```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
 library(tidyverse)
 library(knitr)
 library(nortest)  # Para ad.test() y lillie.test()
+library(patchwork)
 
 library(kableExtra)
 library(rmarkdown)
@@ -183,12 +183,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catconst2, echo = FALSE, warning = FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_HouseStyle.png")
 
 
 ```
+
 ```{r catconst3, echo = FALSE, warning = FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_RoofStyle.png")
@@ -196,6 +198,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catconst4, echo = FALSE, warning = FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_RoofMatl.png")
@@ -203,7 +206,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
-
 
 ```{r catconst5, echo = FALSE, warning = FALSE}
 
@@ -214,7 +216,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
 Este grupo de variables muestra una mayoría de casas unifamiliares, predominancia en casasde 2 y 1 piso, techos de tipo Gable y materiales de techos CompShg. La mayoría de las casas tienen cimientos de concreto y madera. Estos patrones pueden ser útiles para identificar características comunes en la construcción de las propiedades.
 
 #### Variables relacionadas con el exterior y materiales
@@ -224,11 +225,13 @@ Este grupo de variables muestra una mayoría de casas unifamiliares, predominanc
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_ExterCond.png")
 
 ```
+
 ```{r catext2, echo = FALSE, warning = FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_ExterQual.png")
 
 ```
+
 ```{r catext3, echo = FALSE, warning = FALSE}
 
 
@@ -236,6 +239,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catext4, echo = FALSE, warning = FALSE}
 
 
@@ -255,12 +259,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catbsm2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtQual.png")
 
 
 ```
+
 ```{r catbsm3, echo=FALSE, warning=FALSE}
 
 
@@ -269,6 +275,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catbsm4, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtFinType1.png")
@@ -276,6 +283,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catbsm5, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_BsmtFinType2.png")
@@ -293,23 +301,24 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catgrg2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageFinish.png")
 
 ```
+
 ```{r catgrg3, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageCond.png")
 
 ```
+
 ```{r catgrg4, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_GarageQual.png")
 
 ```
-
-
 
 La mayoría de las casas tienen garajes adjuntos, seguidos por garajes separados y sin garaje. En cuanto al acabado del garaje, predominan los garajes sin acabado o con acabado de calidad estándar. La calidad y condición del garaje tienden a ser promedio, con pocos casos en los extremos. Estos patrones sugieren que la mayoría de las propiedades tienen garajes estándar o básicos, lo que puede influir en el precio de venta.
 
@@ -339,8 +348,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
-
 La mayoría de las casas tienen calefacción estándar (GasA) y calidad promedio (TA). La electricidad es principalmente SBrkr, con algunos casos de FuseA y FuseF. La mayoría de las casas tienen aire acondicionado central, lo que sugiere un nivel de comodidad y eficiencia energética estándar en la mayoría de las propiedades.
 
 #### Variables relacionadas con la ubicación del terreno
@@ -351,6 +358,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catterr2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LandSlope.png")
@@ -364,6 +372,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r catterr4, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_LotShape.png")
@@ -381,7 +390,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
 ```{r catnbhd2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Neighborhood.png")
 
@@ -389,13 +397,11 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
 ```{r catnbhd3, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_Street.png")
 
 
 ```
-
 
 ```{r catnbhd4, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varscat/frecuencia_PavedDrive.png")
@@ -403,8 +409,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
-
-
 
 La mayoría de las propiedades tienen acceso por calle pavimentada y no tienen acceso a callejón. Los vecindarios más comunes son NAmes, CollgCr y OldTown, lo que sugiere una concentración en áreas urbanas o suburbanas. La mayoría de las propiedades tienen acceso pavimentado, lo que indica una buena accesibilidad a las vías principales.
 
@@ -415,8 +419,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
-
-
 
 ```{r catsafty2, echo=FALSE, warning=FALSE}
 
@@ -444,8 +446,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
-
 La mayoría de las propiedades se venden bajo condiciones normales y tienen funcionalidad típica. La calidad de la chimenea es promedio, con pocos casos en los extremos. La mayoría de las propiedades no tienen cercas, lo que sugiere una baja preocupación por la seguridad o privacidad en el vecindario.
 
 ### Visualización de Variables Numéricas
@@ -462,6 +462,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 Siendo esta la variable objetivo,observamos una distribución sesgada a la derecha, Esta asimetría puede afectar métodos estadísticos que asumen distribuciones normales. Observamos outliers en la parte superior de la distribución, lo que sugiere la presencia de propiedades muy caras que pueden afectar la predicción de precios.
 
 -   **Boxplot:** Se aprecia que la mayoría de los precios se concentran en un rango intercuartílico entre 130,000 y 210,000 dólares, pero existen varios puntos extremos en la cola superior. Esto indica la presencia de propiedades con precios significativamente más altos.
@@ -488,19 +489,18 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 ```
 
-
 ```{r LotArea2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_LotArea.png")
 
 
 ```
 
-
 ```{r X1stFlrSF, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_1stFlrSF.png")
 
 
 ```
+
 ```{r X1stFlrSF2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_1stFlrSF.png")
 
@@ -513,12 +513,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r TotalBsmtSF2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_TotalBsmtSF.png")
 
 
 ```
+
 **GrLivArea, LotArea, X1stFlrSF y TotalBsmtSF:**
 
 Los gráficos confirman que las variables de área tienden a ser **altamente asimétricas** y presentan **outliers**. Esto será fundamental al momento de construir modelos predictivos y al realizar inferencias estadísticas, ya que puede ser necesario **transformar** o **estratificar** estas variables para obtener resultados más confiables.
@@ -532,6 +534,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r OverallQual2, echo=FALSE, warning=FALSE}
 
 
@@ -539,6 +542,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 -   Valores entre 1 y 10.
 
 -   Mayoría entre 5 y 7.
@@ -552,11 +556,13 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r OverallCond2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_OverallCond.png")
 
 
 ```
+
 -   Valores entre 1 y 9.
 
 -   Pico muy marcado en 5.
@@ -571,12 +577,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r YearBuilt2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_YearBuilt.png")
 
 
 
 ```
+
 -   Rango amplio (1870–2010).
 
 -   Incremento progresivo hasta 2000.
@@ -591,12 +599,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r YearRemodAdd2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_YearRemodAdd.png")
 
 
 ```
+
 -   Rango 1950–2010.
 
 -   Mayor actividad de remodelación cerca de 1990 y 2010, 1950 presenta remodelaciones altas.
@@ -612,6 +622,7 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_LotFrontage.png")
 
 ```
+
 ```{r LotFrontage2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_LotFrontage.png")
@@ -629,11 +640,13 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r MasVnrArea2, echo=FALSE, warning=FALSE}
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_MasVnrArea.png")
 
 
 ```
+
 -   Mayoría en 0 (sin acabado de mampostería).
 
 -   Fuerte sesgo a la derecha.
@@ -648,12 +661,14 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 
 
 ```
+
 ```{r GarageArea2, echo=FALSE, warning=FALSE}
 
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_GarageArea.png")
 
 
 ```
+
 -   Mayoría entre 400–600.
 
 -   Distribución sesgada a la derecha.
@@ -665,11 +680,13 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/varsnum/distribucion_GarageCars.png")
 
 ```
+
 ```{r GarageCars2, echo=FALSE, warning=FALSE}
 # GarageCars: Capacidad de autos en el garaje
 knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figures/outliers/boxplot_GarageCars.png")
 
 ```
+
 -   Pico en 2 autos.
 
 -   Rango 0–4.
@@ -677,7 +694,6 @@ knitr::include_graphics("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/figu
 -   Pocos outliers en 4.
 
 Las variables numéricas, como áreas y precios, se distribuyen con asimetría a la derecha y tienen outliers significativos. Las variables de calidad se concentran en rangos medios y se detectan datos faltantes en algunas. Esto indica que será necesario aplicar transformaciones , tratar outliers y profundizar en el análisis de las variables categóricas para extraer patrones relevantes en la valoración de propiedades
-
 
 ## Identificación de faltantes y outliers
 
@@ -745,9 +761,6 @@ kable(outlier_summary_df, caption = "Resumen Estadístico y Cuantiles para Anál
 
 ```
 
-
-
-
 ## Pruebas de Normalidad
 
 ```{r normality, echo=FALSE, warning=FALSE}
@@ -783,8 +796,6 @@ run_normality_tests <- function(x) {
 
 Se definen grupos de variables como la variable objetivo y las variables numéricas de área, calidad y años, para evaluar su normalidad mediante pruebas estadísticas. Los resultados de las pruebas de normalidad se presentan a continuación:
 
-
-
 ### Grupo 1: Variable objetivo y áreas
 
 ```{r normality2, echo=FALSE, warning=FALSE}
@@ -806,9 +817,7 @@ for (var in vars_group1) {
 
 ```
 
-
 ### Grupo 2: Variables de calidad y construcción
-
 
 ```{r normality3, echo=FALSE, warning=FALSE}
 
@@ -840,13 +849,9 @@ for (var in vars_group3) {
 
 ```
 
-Las pruebas de normalidad en todos los grupos de variables arrojan p-valores extremadamente bajos (p < 2.2e-16 en la mayoría de los casos), lo que indica que ninguna de estas variables sigue una distribución normal según los test de Shapiro-Wilk, Anderson-Darling, Kolmogorov-Smirnov y Lilliefors. Esto es especialmente notable en variables como SalePrice, LotArea y MasVnrArea, que presentan un marcado sesgo a la derecha y outliers. Aunque algunas variables tienen valores de W relativamente altos, el tamaño de la muestra (n=1460) hace que incluso desviaciones leves se vuelvan estadísticamente significativas. En conclusión, la evidencia sugiere que es necesario aplicar transformaciones  y/o estrategias de manejo de outliers para aproximar la normalidad y estabilizar la varianza antes de proceder con el modelado predictivo.
+Las pruebas de normalidad en todos los grupos de variables arrojan p-valores extremadamente bajos (p \< 2.2e-16 en la mayoría de los casos), lo que indica que ninguna de estas variables sigue una distribución normal según los test de Shapiro-Wilk, Anderson-Darling, Kolmogorov-Smirnov y Lilliefors. Esto es especialmente notable en variables como SalePrice, LotArea y MasVnrArea, que presentan un marcado sesgo a la derecha y outliers. Aunque algunas variables tienen valores de W relativamente altos, el tamaño de la muestra (n=1460) hace que incluso desviaciones leves se vuelvan estadísticamente significativas. En conclusión, la evidencia sugiere que es necesario aplicar transformaciones y/o estrategias de manejo de outliers para aproximar la normalidad y estabilizar la varianza antes de proceder con el modelado predictivo.
 
-
-
-
-
-
+## Preguntas Exploratorias
 
 A partir de esta exploración inicial, se identificaron patrones y características clave en las variables categóricas y numéricas. Estos insights serán fundamentales para la limpieza, transformación y modelado de los datos, permitiendo construir modelos predictivos precisos y robustos.
 
@@ -854,25 +859,900 @@ Adicionalmente,surgen interrogantes sobre la relación entre las variables y su 
 
 1.  **¿Cómo se relacionan las variables de área (GrLivArea, LotArea, X1stFlrSF, TotalBsmtSF) con el precio de venta y cómo varían estas relaciones según categorías de calidad (OverallQual, OverallCond) y ubicación (Neighborhood, MSZoning)?**
 
+```{r q1, echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+
+# Cargar datos y ajustar variables
+datos$OverallQual  <- as.factor(datos$OverallQual)
+datos$OverallCond  <- as.factor(datos$OverallCond)
+datos$Neighborhood <- as.factor(datos$Neighborhood)
+datos$MSZoning     <- as.factor(datos$MSZoning)
+
+# Gráficos:
+
+p1 <- ggplot(datos, aes(x = GrLivArea, y = SalePrice, color = OverallQual)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "GrLivArea vs SalePrice\npor OverallQual",
+       x = "GrLivArea", y = "SalePrice") +
+  theme_minimal()
+
+p2 <- ggplot(datos, aes(x = LotArea, y = SalePrice, color = OverallCond)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "LotArea vs SalePrice\npor OverallCond",
+       x = "LotArea", y = "SalePrice") +
+  theme_minimal()
+
+p3 <- ggplot(datos, aes(x = X1stFlrSF, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "darkgreen") +
+  facet_wrap(~ Neighborhood) +
+  labs(title = "X1stFlrSF vs SalePrice\npor Neighborhood",
+       x = "X1stFlrSF", y = "SalePrice") +
+  theme_minimal()
+
+p4 <- ggplot(datos, aes(x = TotalBsmtSF, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  facet_wrap(~ MSZoning) +
+  labs(title = "TotalBsmtSF vs SalePrice\npor MSZoning",
+       x = "TotalBsmtSF", y = "SalePrice") +
+  theme_minimal()
+
+# Presentación elegante: organizar en una cuadrícula
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+
+
+```
+
+-   **GrLivArea vs SalePrice**\
+    En el diagrama de dispersión se aprecia una **tendencia claramente positiva**: a mayor superficie habitable (GrLivArea), mayor tiende a ser el precio de venta.
+
+    -   Se observa que los puntos con OverallQual más alto se concentran en la parte superior de la nube de puntos, indicando que casas con más área y mejor calidad se venden a precios notablemente superiores.
+
+-   **LotArea vs SalePrice**\
+    Existe también una relación positiva, pero es más dispersa que GrLivArea. Se ven valores muy altos de LotArea que no siempre conllevan precios igual de altos, lo cual sugiere que el tamaño del lote por sí solo no determina el precio de forma tan directa como el área habitable.
+
+    -   Al superponer la variable OverallCond , se aprecia que las viviendas con mejor condición se ubican en rangos de precio más elevados, aun con lotes de tamaño similar.
+
+<!-- -->
+
+-   **X1stFlrSF vs SalePrice (por Neighborhood)**\
+    En la gráfica se percibe nuevamente una relación creciente entre la superficie del primer piso y el precio.
+
+    -   Sin embargo, Neighborhood introduce diferencias: barrios de mayor nivel muestran precios más altos incluso para valores de X1stFlrSF relativamente moderados, mientras que en barrios de menor nivel se requieren superficies mucho mayores para alcanzar precios similares.
+
+-   **TotalBsmtSF vs SalePrice (por MSZoning)**\
+    De igual modo, se ve correlación positiva entre el tamaño del sótano y el precio.
+
+    -   La zonificación segmenta el mercado: en zonas residenciales de baja densidad los precios suelen ser más elevados que en zonas multifamiliares, a igualdad de TotalBsmtSF.
+
+Las áreas de la vivienda guardan una relación positiva con SalePrice. Esa relación se modula por la calidad/condición de la vivienda y por la ubicación .
+
 2.  **¿Qué impacto tienen los años de construcción y remodelación (YearBuilt, YearRemodAdd) en el precio? ¿Existen tendencias o agrupaciones de propiedades antiguas versus modernas que influyan en SalePrice?**
+
+```{r q2, echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+
+# Cargar el dataset y crear la variable DecadeBuilt
+if("YearBuilt" %in% names(datos)){
+  datos <- datos %>% mutate(DecadeBuilt = floor(YearBuilt / 10) * 10)
+} else {
+  stop("La variable 'YearBuilt' no se encuentra en el dataset.")
+}
+
+# Gráfico 1: YearBuilt vs SalePrice con línea de tendencia
+p1 <- ggplot(datos, aes(x = YearBuilt, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(title = "YearBuilt vs SalePrice",
+       x = "Build Year",
+       y = "Sale Price") +
+  theme_minimal()
+
+# Gráfico 2: Boxplot de SalePrice por Década de Construcción
+p2 <- ggplot(datos, aes(x = factor(DecadeBuilt), y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = " SalePrice per build decade",
+       x = "Build decade",
+       y = "Sale Price") +
+  theme_minimal()
+
+# Gráfico 3: YearRemodAdd vs SalePrice con línea de tendencia
+p3 <- ggplot(datos, aes(x = YearRemodAdd, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkorange") +
+  labs(title = "YearRemodAdd vs SalePrice",
+       x = "Remodeling year",
+       y = "Sale Price") +
+  theme_minimal()
+
+# Organizar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, ncol = 2)
+
+
+
+
+```
+
+-   **YearBuilt vs SalePrice**\
+    El gráfico de dispersión con una línea de tendencia sugiere que **las casas más nuevas** suelen tener precios promedio más altos.
+
+    -   Sin embargo, hay puntos antiguos (antes de 1940) con precios elevados, lo cual indica que algunas casas históricas o muy bien conservadas también pueden alcanzar precios altos, probablemente por estar en barrios deseados o haber sido remodeladas.
+
+-   **SalePrice por década de construcción**\
+    En la gráfica de cajas (boxplot) por década, se ve un incremento gradual en el precio mediano con cada década más reciente, aunque hay traslapes entre décadas y algunos outliers altos en décadas anteriores.
+
+-   **YearRemodAdd vs SalePrice**\
+    El diagrama de dispersión muestra una tendencia similar: las casas con remodelaciones más recientes suelen presentar precios mayores. Se evidencia que la remodelación eleva el valor de propiedades antiguas.
+
+Las viviendas construidas o renovadas más recientemente tienden a tener precios mayores, aunque propiedades muy antiguas y con alto mantenimiento pueden equipararse a precios de casas más nuevas.
 
 3.  **¿Cuáles son las diferencias en la distribución de precios entre los distintos tipos de construcción y estilos de vivienda (BldgType, HouseStyle), y qué patrones se observan en función de la estructura física de la propiedad?**
 
+```{r q3, echo=FALSE, warning=FALSE}
+
+# Cargar el dataset y ajustar variables
+datos$BldgType   <- as.factor(datos$BldgType)
+datos$HouseStyle <- as.factor(datos$HouseStyle)
+
+# Gráfico 1: Boxplot de SalePrice por BldgType
+p1 <- ggplot(datos, aes(x = BldgType, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice by BldgType",
+       x = "Building Type",
+       y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 2: Boxplot de SalePrice por HouseStyle
+p2 <- ggplot(datos, aes(x = HouseStyle, y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "SalePrice by HouseStyle",
+       x = "House Style",
+       y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico 3: Faceted Boxplots por BldgType y HouseStyle
+p3 <- ggplot(datos, aes(x = "", y = SalePrice)) +
+  geom_boxplot(fill = "coral") +
+  facet_grid(BldgType ~ HouseStyle) +
+  labs(title = "SalePrice by BldgType and HouseStyle",
+       x = "",
+       y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, ncol = 1)
+
+
+
+```
+
+-   **SalePrice por BldgType**\
+    El boxplot muestra que 1Fam suele tener la mediana de precios más alta. Otras tipologías presentan mediana y dispersión de precios algo menores.
+
+-   **SalePrice por HouseStyle**\
+    Se ven estilos como 1Story, 1.5Fin, 2Story, etc.
+
+    -   Generalmente, 2Story presenta una mediana algo más elevada que 1Story. Estilos con 1.5 pisos tienen una mediana menor, aunque con bastante dispersión.
+
+-   **SalePrice por BldgType y HouseStyle (combinados)**\
+    Se confirma que las unifamiliares de 2 pisos tienden a precios más altos. Los demás estilos y tipos presentan menor valor medio, aunque con outliers en todos los grupos.
+
 4.  **¿De qué manera afectan los acabados exteriores y materiales (Exterior1st, Exterior2nd, MasVnrType, MasVnrArea) la valoración de las viviendas? ¿Se observa que ciertos materiales o condiciones exteriores se asocian a precios más altos o más bajos?**
+
+```{r q4, echo=FALSE, warning=FALSE}
+
+
+# Cargar el dataset y ajustar variables
+datos$Exterior1st <- as.factor(datos$Exterior1st)
+datos$Exterior2nd <- as.factor(datos$Exterior2nd)
+datos$MasVnrType  <- as.factor(datos$MasVnrType)
+
+# Gráfico 1: Boxplot de SalePrice by Exterior1st
+p1 <- ggplot(datos, aes(x = Exterior1st, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice by Exterior1st", x = "Exterior1st", y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico 2: Boxplot de SalePrice by Exterior2nd
+p2 <- ggplot(datos, aes(x = Exterior2nd, y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "SalePrice by Exterior2nd", x = "Exterior2nd", y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico 3: Boxplot de SalePrice by MasVnrType
+p3 <- ggplot(datos, aes(x = MasVnrType, y = SalePrice)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "SalePrice by MasVnrType", x = "MasVnrType", y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico 4: Scatter plot de MasVnrArea vs SalePrice con línea de tendencia
+p4 <- ggplot(datos, aes(x = MasVnrArea, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(title = "MasVnrArea vs SalePrice", x = "MasVnrArea", y = "SalePrice") +
+  theme_minimal()
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+
+
+```
+
+-   **SalePrice por Exterior1st y Exterior2nd**\
+    Los boxplots muestran diferencias entre materiales: algunos como “Stone” o “Brick” tienen medianas de precio más altas. Acabados más económicos tienden a mediana inferior.
+
+-   **SalePrice por MasVnrType**\
+    Se ven categorías como “BrkFace”, “Stone”, “None”. “Stone” y “BrkFace” suelen asociarse a valores más altos que “None”.
+
+-   **MasVnrArea vs SalePrice**\
+    El diagrama de dispersión y la línea de tendencia reflejan una correlación positiva: cuanto mayor es el área de recubrimiento en mampostería (ladrillo, piedra, etc.), mayor suele ser el precio de venta.
+
+\
+Los acabados exteriores y la presencia de mampostería se asocian con precios más altos, indicando que la calidad y estética exterior añade valor.
 
 5.  **¿Cómo influyen las condiciones y características del sótano (BsmtQual, BsmtCond, BsmtFinType1, BsmtFinSF1, BsmtFinSF2) en el precio?¿Existe un efecto diferencial entre casas con sótanos terminados y sin terminar?**
 
+```{r q5, echo=FALSE, warning=FALSE}
+
+
+datos$BsmtQual <- as.factor(datos$BsmtQual)
+datos$BsmtCond <- as.factor(datos$BsmtCond)
+datos$BsmtFinType1 <- as.factor(datos$BsmtFinType1)
+
+# Crear la variable BasementStatus para identificar sótanos terminados vs. sin terminar
+datos$BasementStatus <- ifelse(is.na(datos$BsmtFinType1) | datos$BsmtFinType1 == "Unf", 
+                               "Unfinished", "Finished")
+datos$BasementStatus <- as.factor(datos$BasementStatus)
+
+# Gráfico 1: Boxplot de SalePrice vs BsmtQual
+p1 <- ggplot(datos, aes(x = BsmtQual, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice vs BsmtQual", x = "Basement Quality", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 2: Boxplot de SalePrice vs BsmtCond
+p2 <- ggplot(datos, aes(x = BsmtCond, y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "SalePrice vs BsmtCond", x = "Basement Condition", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 3: Boxplot de SalePrice vs BsmtFinType1
+p3 <- ggplot(datos, aes(x = BsmtFinType1, y = SalePrice)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "SalePrice vs BsmtFinType1", x = "Finished Basement Type", y = "SalePrice") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico 4: Scatter plot de BsmtFinSF1 vs SalePrice
+p4 <- ggplot(datos, aes(x = BsmtFinSF1, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(title = "BsmtFinSF1 vs SalePrice", x = "Basement Finished Area 1", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 5: Scatter plot de BsmtFinSF2 vs SalePrice
+p5 <- ggplot(datos, aes(x = BsmtFinSF2, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "orange") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkblue") +
+  labs(title = "BsmtFinSF2 vs SalePrice", x = "Basement Finished Area 2", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 6: Boxplot de SalePrice por BasementStatus
+p6 <- ggplot(datos, aes(x = BasementStatus, y = SalePrice)) +
+  geom_boxplot(fill = "wheat") +
+  labs(title = "SalePrice by Basement Finished Status", x = "Basement Status", y = "SalePrice") +
+  theme_minimal()
+
+# Organizar y mostrar los gráficos en una cuadrícula de 3 columnas
+grid.arrange(p1, p2, p3, p4, p5, p6, ncol = 3)
+
+
+
+```
+
+-   **SalePrice vs BsmtQual, BsmtCond, BsmtFinType**\
+    Los boxplots muestran que calidades altas (Ex, Gd) y condiciones buenas se asocian con precios medianos superiores. BsmtFinType (GLQ, ALQ) —acabados de mayor nivel— también suben el precio respecto a un sótano sin terminar (Unf).
+
+-   **BsmtFinSF1 y BsmtFinSF2 vs SalePrice**\
+    Los diagramas de dispersión evidencian una relación positiva: a más metros cuadrados terminados en el sótano, mayor precio.
+
+    -   BsmtFinSF1 suele tener un impacto más claro que BsmtFinSF2, probablemente porque es el área de acabado principal.
+
+\
+Un sótano bien calificado y con superficies terminadas aumenta el espacio habitable y, por ende, el valor de la vivienda.
+
 6.  **¿Qué rol juegan las variables relacionadas con el garaje (GarageType, GarageArea, GarageCars, GarageQual, GarageCond) en la determinación del precio de venta? ¿Están las propiedades con garajes de mejor calidad o mayor capacidad asociadas a precios superiores?**
 
-7.  **¿Existen patrones de desequilibrio o baja representatividad en ciertas variables categóricas (por ejemplo, Alley, PoolQC, MiscFeature) que requieran agrupar categorías o realizar recodificaciones para un análisis más fiable?**
+```{r q6, echo=FALSE, warning=FALSE}
+# Cargar el dataset y convertir variables categóricas a factor
+datos$GarageType <- as.factor(datos$GarageType)
+datos$GarageQual <- as.factor(datos$GarageQual)
+datos$GarageCond <- as.factor(datos$GarageCond)
+
+# Gráfico 1: Boxplot de SalePrice vs GarageType
+p1 <- ggplot(datos, aes(x = GarageType, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice by GarageType", x = "Garage Type", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 2: Scatter plot de GarageArea vs SalePrice con línea de tendencia
+p2 <- ggplot(datos, aes(x = GarageArea, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "darkgreen") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "GarageArea vs SalePrice", x = "Garage Area", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 3: Scatter plot de GarageCars vs SalePrice con línea de tendencia
+p3 <- ggplot(datos, aes(x = GarageCars, y = SalePrice)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkorange") +
+  labs(title = "GarageCars vs SalePrice", x = "Number of Cars", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 4: Boxplot de SalePrice vs GarageQual
+p4 <- ggplot(datos, aes(x = GarageQual, y = SalePrice)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "SalePrice by GarageQual", x = "Garage Quality", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 5: Boxplot de SalePrice vs GarageCond
+p5 <- ggplot(datos, aes(x = GarageCond, y = SalePrice)) +
+  geom_boxplot(fill = "lightyellow") +
+  labs(title = "SalePrice by GarageCond", x = "Garage Condition", y = "SalePrice") +
+  theme_minimal()
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, p4, p5, ncol = 2)
+
+
+
+```
+
+-   **SalePrice por GarageType**\
+    Viviendas con garajes “Attached” o “BuiltIn” suelen tener precios medianos mayores que aquellas con “CarPort” o “NA” .
+
+-   **GarageArea vs SalePrice**\
+    Se ve una **correlación positiva**: un garaje más grande tiende a asociarse con precios más altos.
+
+-   **GarageCars vs SalePrice**\
+    La línea que conecta la media según el número de coches sube de forma notable: garajes de 2-3 plazas suelen estar en rangos de precio más elevados que los de 1 plaza.
+
+-   **SalePrice por GarageQual y GarageCond**\
+    Garajes con calidades superiores (Ex, Gd) presentan precios medianos notablemente más altos. Condiciones regulares (TA) o pobres (Po) reducen la mediana.
+
+    \
+    Un garaje amplio, con capacidad suficiente y buena calidad incrementa el valor de la vivienda, confirmando su importancia en la percepción del comprador.
+
+-   **¿Existen patrones de desequilibrio o baja representatividad en ciertas variables categóricas (por ejemplo, Alley, PoolQC, MiscFeature) que requieran agrupar categorías o realizar recodificaciones para un análisis más fiable?**
+
+```{r q7, echo=FALSE, warning=FALSE}
+
+datos$Alley       <- as.factor(datos$Alley)
+datos$PoolQC      <- as.factor(datos$PoolQC)
+datos$MiscFeature <- as.factor(datos$MiscFeature)
+
+# Calcular las tablas de frecuencia y convertirlas a data frames
+df_alley <- as.data.frame(table(datos$Alley, useNA = "ifany"))
+names(df_alley) <- c("Alley", "Count")
+
+df_poolqc <- as.data.frame(table(datos$PoolQC, useNA = "ifany"))
+names(df_poolqc) <- c("PoolQC", "Count")
+
+df_misc <- as.data.frame(table(datos$MiscFeature, useNA = "ifany"))
+names(df_misc) <- c("MiscFeature", "Count")
+
+# Mostrar las tablas de frecuencia de forma elegante
+kable(df_alley, caption = "Frequency of Alley", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+kable(df_poolqc, caption = "Frequency of PoolQC", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+kable(df_misc, caption = "Frequency of MiscFeature", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
+
+```{r q7b, echo=FALSE, warning=FALSE}
+# Crear gráficos de barras
+
+# Gráfico para Alley
+p1 <- ggplot(datos, aes(x = Alley)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Frequency of Alley", x = "Alley", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico para PoolQC
+p2 <- ggplot(datos, aes(x = PoolQC)) +
+  geom_bar(fill = "salmon") +
+  labs(title = "Frequency of PoolQC", x = "PoolQC", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico para MiscFeature
+p3 <- ggplot(datos, aes(x = MiscFeature)) +
+  geom_bar(fill = "darkseagreen") +
+  labs(title = "Frequency of MiscFeature", x = "MiscFeature", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, ncol = 1)
+
+
+
+
+```
+
+-   **Frecuencia de Alley**\
+    El gráfico de barras muestra que la mayoría de los registros están en “NA” , y muy pocos tienen “Grvl” o “Pave”. Esto indica fuerte desequilibrio.
+
+-   **Frecuencia de PoolQC**\
+    La gran mayoría también aparece como “NA”, y solo un puñado de viviendas tiene calificaciones de piscina (Ex, Gd, etc.). Claramente hay pocas casas con piscina.
+
+-   **Frecuencia de MiscFeature**\
+    De nuevo, “NA” es dominante. Las categorías como “Shed”, “Tenc”, etc. son muy minoritarias.
+
+\
+Estas variables tienen muchos valores nulos o categorías con muy pocas observaciones, por lo que, para un análisis o modelado predictivo, probablemente se necesite agrupar, recodificar o descartar en ciertos casos.
 
 8.  **¿Cómo se comportan las variables relacionadas con la ubicación y configuración del terreno (LotShape, LandContour, Street, Utilities) y qué relación tienen con el precio de venta?**
 
+```{r q8, echo=FALSE, warning=FALSE}
+
+datos$LotShape    <- as.factor(datos$LotShape)
+datos$LandContour <- as.factor(datos$LandContour)
+datos$Street      <- as.factor(datos$Street)
+datos$Utilities   <- as.factor(datos$Utilities)
+
+# Crear data frames con las tablas de frecuencia
+df_lotshape <- as.data.frame(table(datos$LotShape, useNA = "ifany"))
+names(df_lotshape) <- c("LotShape", "Count")
+
+df_landcontour <- as.data.frame(table(datos$LandContour, useNA = "ifany"))
+names(df_landcontour) <- c("LandContour", "Count")
+
+df_street <- as.data.frame(table(datos$Street, useNA = "ifany"))
+names(df_street) <- c("Street", "Count")
+
+df_utilities <- as.data.frame(table(datos$Utilities, useNA = "ifany"))
+names(df_utilities) <- c("Utilities", "Count")
+
+# Mostrar las tablas de frecuencia de forma elegante con kable
+kable(df_lotshape, caption = "Frequency of LotShape", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+kable(df_landcontour, caption = "Frequency of LandContour", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+kable(df_street, caption = "Frequency of Street", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+kable(df_utilities, caption = "Frequency of Utilities", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+
+```
+
+```{r q8b, echo=FALSE, warning=FALSE}
+# Crear gráficos de boxplots
+
+# Gráfico 1: SalePrice vs LotShape
+p1 <- ggplot(datos, aes(x = LotShape, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice by LotShape", x = "Lot Shape", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 2: SalePrice vs LandContour
+p2 <- ggplot(datos, aes(x = LandContour, y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "SalePrice by LandContour", x = "Land Contour", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 3: SalePrice vs Street
+p3 <- ggplot(datos, aes(x = Street, y = SalePrice)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "SalePrice by Street", x = "Street Type", y = "SalePrice") +
+  theme_minimal()
+
+# Gráfico 4: SalePrice vs Utilities
+p4 <- ggplot(datos, aes(x = Utilities, y = SalePrice)) +
+  geom_boxplot(fill = "wheat") +
+  labs(title = "SalePrice by Utilities", x = "Utilities", y = "SalePrice") +
+  theme_minimal()
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+
+```
+
+-   **SalePrice por LotShape**\
+    Los boxplots muestran que lotes de forma regular (Reg) tienden a un precio mediano más alto, mientras que lotes muy irregulares (IR3) suelen tener precios más bajos.
+
+-   **SalePrice por LandContour**\
+    Los terrenos “Lvl” (nivelados) muestran, en general, medianas más altas que “Bnk” o “HLS” (terrenos con pendientes). No obstante, se observan outliers en todos los grupos.
+
+-   **SalePrice por Street**\
+    Calles pavimentadas (Pave) se asocian a precios más elevados que calles de grava (Grvl). La diferencia no es tan marcada como en otras variables, pero sí visible.
+
+-   **SalePrice por Utilities**\
+    Tener todos los servicios públicos (AllPub) presenta una mediana superior frente a “NoSeWa”. La mayoría de propiedades se concentran en “AllPub”, con pocas en la otra categoría.
+
+\
+Aunque no tan determinantes como el área o la calidad de construcción, estas variables de configuración y servicios del terreno influyen en la valoración final, especialmente cuando se combinan con la ubicación .
+
 9.  **¿Qué variables muestran mayor presencia de outliers o sesgo en su distribución, y cuál es el impacto de estos extremos en los modelos predictivos? ¿Es necesario aplicar transformaciones (como logaritmos) o segmentaciones específicas?**
+
+```{r q9, echo=FALSE, warning=FALSE}
+
+
+if (!require(moments)) {
+  install.packages("moments")
+  library(moments)
+} else {
+  library(moments)
+}
+# Variables a evaluar
+vars <- c("SalePrice", "GrLivArea", "LotArea", "TotalBsmtSF", "GarageArea", "MasVnrArea")
+
+# Calcular skewness para cada variable y redondear
+skew_values <- sapply(vars, function(v) { skewness(na.omit(datos[[v]])) })
+skew_table <- data.frame(Variable = vars, Skewness = round(skew_values, 2))
+
+# Mostrar la tabla de skewness con kable
+kable(skew_table, caption = "Skewness of Selected Variables", align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center")
+
+
+```
+
+```{r q9b, echo=FALSE, warning=FALSE}
+
+# Función para crear histogramas y boxplots
+create_plots <- function(var) {
+  p_hist <- ggplot(datos, aes_string(x = var)) +
+    geom_histogram(fill = "skyblue", bins = 30, color = "black") +
+    labs(title = paste("Histogram of", var),
+         x = var, y = "Frequency") +
+    theme_minimal()
+  
+  p_box <- ggplot(datos, aes_string(y = var)) +
+    geom_boxplot(fill = "orange", outlier.colour = "red", outlier.shape = 16) +
+    labs(title = paste("Boxplot of", var),
+         y = var) +
+    theme_minimal()
+  
+  list(p_hist = p_hist, p_box = p_box)
+}
+
+# Generar plots para cada variable
+plot_list <- lapply(vars, create_plots)
+
+# Ejemplo: Organizar los gráficos de las dos primeras variables (SalePrice y GrLivArea)
+grid.arrange(plot_list[[1]]$p_hist, plot_list[[1]]$p_box,
+             plot_list[[2]]$p_hist, plot_list[[2]]$p_box,
+             ncol = 2)
+
+# Opcional: Crear y mostrar histogramas log-transformados para variables con valores positivos
+create_log_plot <- function(var) {
+  data_nonzero <- datos %>% filter(.[[var]] > 0)
+  p_log <- ggplot(data_nonzero, aes_string(x = paste0("log(", var, ")"))) +
+    geom_histogram(fill = "lightgreen", bins = 30, color = "black") +
+    labs(title = paste("Histogram of log(", var, ")", sep=""),
+         x = paste("log(", var, ")", sep=""), y = "Frequency") +
+    theme_minimal()
+  p_log
+}
+
+# Generar histogramas log-transformados para todas las variables y organizarlos en una cuadrícula
+log_plots <- lapply(vars, create_log_plot)
+do.call(grid.arrange, c(log_plots, ncol = 2))
+
+
+
+```
+
+-   **Histogramas y boxplots de SalePrice y GrLivArea**
+
+    -   **SalePrice**: Presenta una distribución **sesgada a la derecha** (right-skewed) con algunos outliers muy altos.
+
+    -   **GrLivArea**: También muestra outliers en la cola derecha y una distribución asimétrica.\
+        Esto sugiere que, para un **modelo de regresión**, podría ser beneficioso aplicar **transformaciones logarítmicas** o alguna técnica de robustez que maneje valores extremos.
+
+SalePrice y GrLivArea tienen outliers y sesgo. Para un análisis predictivo, es habitual considerar log(SalePrice) y, a veces, log(GrLivArea), o bien detectar y tratar outliers que puedan distorsionar la estimación.
 
 10. **¿Cómo se combinan las variables de calidad, área y ubicación para explicar de forma conjunta la variabilidad en el precio de las propiedades?**
 
+```{r q10, echo=FALSE, warning=FALSE}
+
+# Convertir variables categóricas a factor
+datos$LotShape    <- as.factor(datos$LotShape)
+datos$LandContour <- as.factor(datos$LandContour)
+datos$Street      <- as.factor(datos$Street)
+datos$Utilities   <- as.factor(datos$Utilities)
+
+# 1. Boxplot: SalePrice vs LotShape
+p1 <- ggplot(datos, aes(x = LotShape, y = SalePrice)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "SalePrice by LotShape",
+       x = "Lot Shape", y = "SalePrice") +
+  theme_minimal()
+
+# 2. Boxplot: SalePrice vs LandContour
+p2 <- ggplot(datos, aes(x = LandContour, y = SalePrice)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "SalePrice by LandContour",
+       x = "Land Contour", y = "SalePrice") +
+  theme_minimal()
+
+# 3. Boxplot: SalePrice vs Street
+p3 <- ggplot(datos, aes(x = Street, y = SalePrice)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "SalePrice by Street",
+       x = "Street Type", y = "SalePrice") +
+  theme_minimal()
+
+# 4. Boxplot: SalePrice vs Utilities
+p4 <- ggplot(datos, aes(x = Utilities, y = SalePrice)) +
+  geom_boxplot(fill = "wheat") +
+  labs(title = "SalePrice by Utilities",
+       x = "Utilities", y = "SalePrice") +
+  theme_minimal()
+
+
+
+# Organizar y mostrar los gráficos en una cuadrícula
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+
+
+```
+
+A partir de todos los gráficos:
+
+-   **Calidad (OverallQual, BsmtQual, GarageQual, etc.)**:\
+    Las viviendas de mejor calidad y en buen estado destacan con precios altos en todos los ejes (área, sótano, garaje).
+
+-   **Área (GrLivArea, TotalBsmtSF, LotArea)**:\
+    El tamaño habitable es uno de los principales impulsores del precio; sin embargo, si la calidad es baja o la ubicación desfavorable, el precio no sube tanto.
+
+-   **Ubicación y servicios (Neighborhood, MSZoning, Street, Utilities)**:\
+    Zonas residenciales codiciadas y servicios completos pueden hacer que, incluso con áreas menores, se alcancen precios similares a los de casas grandes en barrios menos deseados.
+
+En conjunto, una casa grande, con acabados de calidad y en un vecindario atractivo, se sitúa en la parte alta del rango de precios. Por el contrario, deficiencias en cualquiera de estas dimensiones pueden limitar el valor final de la vivienda.
+
+### 
+
+## Transformación de Datos y Preprocesamiento
+
+La exploración inicial de los datos perimitió identificar que para una mejor comprensión y modelado de los datos es necesario transformar y preprocesar el conjunto de datos. Dentro de las transformaciones necesarias a realizar se detalllan las siguientes:
+
+-   **Manejo de NAs**:
+
+    -   Reemplazar NAs con “None” en variables categóricas donde la ausencia sea semánticamente “no existe”.
+
+    -   Colocar 0 en variables de área donde no exista sótano/garaje.
+
+    -   Decidir si eliminar variables con demasiados NAs irrelevantes.
+
+-   **Agrupación de categorías poco frecuentes**:
+
+    -   Unir en “Other” o “Rare” para evitar demasiados dummies con muy pocos registros.
+
+-   **Codificación**:
+
+    -   One-Hot para nominales (Neighborhood, BldgType, etc.).
+
+    -   Ordinal para calidades y condiciones (Ex \> Gd \> TA \> Fa \> Po).
+
+-   **Outliers**:
+
+    -   Evaluar la eliminación o recorte (capping) de valores extremadamente altos en variables como SalePrice, GrLivArea, LotArea.
+
+    -   Transformar SalePrice y otras variables con log para reducir skew.
+
+-   **Feature engineering**:
+
+    -   Crear variables de área total, antigüedad, total de baños, puntuaciones de calidad, etc.
+
+    -   Comprobar su correlación con SalePrice para validarlas.
+
+-   **Escalado**:
+
+    -   Normalizar o estandarizar variables numéricas según el algoritmo y la magnitud de los valores.
+
+-   **Validación**:
+
+    -   Separar datos de entrenamiento y testantes de encodings y escalados, para no sobreajustar.
+
 # Análisis de Grupos
+
+## Estadistico de Hopkins
+```{r groupingstup, echo=FALSE, warning=FALSE}
+# 2. Lectura del dataset de viviendas (ajusta la ruta según corresponda)
+datos <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = FALSE)
+
+# 3. Selección de variables relevantes para el clustering
+# Se usan variables relacionadas con el precio, áreas, calidad y antigüedad
+datos_clust <- datos %>% 
+  select(SalePrice, GrLivArea, LotArea, OverallQual, YearBuilt, TotalBsmtSF, GarageArea)
+
+# 4. Manejo de valores faltantes (eliminamos filas con NA en las variables seleccionadas)
+datos_clust <- na.omit(datos_clust)
+
+# 5. Transformación de variables con fuerte sesgo (aplicamos logaritmo)
+datos_clust <- datos_clust %>%
+  mutate(
+    SalePrice_log    = log(SalePrice + 1),
+    GrLivArea_log    = log(GrLivArea + 1),
+    LotArea_log      = log(LotArea + 1),
+    TotalBsmtSF_log  = log(TotalBsmtSF + 1),
+    GarageArea_log   = log(GarageArea + 1)
+  ) %>%
+  # Seleccionamos las variables transformadas y las que no se transformaron
+  select(SalePrice_log, GrLivArea_log, LotArea_log, OverallQual, YearBuilt, TotalBsmtSF_log, GarageArea_log)
+
+# 6. Escalar las variables para que tengan el mismo peso
+datos_scaled <- scale(datos_clust)
+datos_scaled <- datos_scaled[apply(datos_scaled, 1, function(x) all(is.finite(x))), ]
+
+
+```
+
+
+```{r hopkins, echo=FALSE, warning=FALSE}
+set.seed(123)
+hopkins_stat <- hopkins(datos_scaled)
+print(paste("Hopkins statistic:", round(hopkins_stat, 4)))
+
+
+``` 
+El estadístico de Hopkins es un valor entre 0 y 1 que mide la tendencia de un conjunto de datos a formar clusters. Un valor cercano a 0.5 indica aleatoriedad, mientras que valores cercanos a 0 o 1 sugieren estructura. En este caso, el valor obtenido es 0.9998, lo que indica que los datos tienen una estructura significativa y son adecuados para el clustering.
+### VAT
+
+```{r vat, echo=FALSE, warning=FALSE}
+# Un valor cercano a 0.5 indicaría aleatoriedad; valores cercanos a 0 o 1 sugieren estructura (la interpretación depende del contexto)
+# ---- Muestreo para análisis ----
+# Seleccionar una muestra (por ejemplo, 1120 observaciones) para agilizar el cálculo
+# Suponiendo que 'datos_scaled' ya está definido (datos procesados y escalados)
+set.seed(123)
+n_sample <- min(1120, nrow(datos_scaled))
+datos_sample <- datos_scaled[sample(seq_len(nrow(datos_scaled)), n_sample), ]
+
+# Calcular la matriz de distancias Euclideana usando parDist
+datos_dist <- parDist(as.matrix(datos_sample), method = "euclidean")
+
+# Confirmar que es de clase "dist"
+print(class(datos_dist))  # Debe imprimir "dist"
+
+# Convertir la matriz de distancias a matriz, normalizar y reconvertir a 'dist'
+dist_matrix <- as.matrix(datos_dist)
+dist_matrix_norm <- (dist_matrix - min(dist_matrix)) / (max(dist_matrix) - min(dist_matrix))
+datos_dist_norm <- as.dist(dist_matrix_norm)
+
+# Verificar el rango de distancias normalizadas
+print(range(dist_matrix_norm))  # Debería ser 0 a 1
+
+# Visualizar la matriz de distancias con fviz_dist (VAT)
+plot_vat_sample <- fviz_dist(datos_dist_norm, 
+                             show_labels = FALSE,
+                             gradient = list(low = "#005D8F",    
+                                             mid2 = "#5CC6FF",    
+                                             mid3 = "#FFFFFF",     
+                                             mid4 = "#E01522",    
+                                             high = "#780000")) +  
+  ggtitle("VAT sobre muestra de 1120 observaciones") +
+  theme_minimal() +
+  scale_fill_gradientn(
+    colors = c("#005D8F", "#5CC6FF", "#FFFFFF", "#E01522", "#780000"),
+    values = scales::rescale(c(
+      quantile(as.matrix(datos_dist_norm), 0.01),  
+      quantile(as.matrix(datos_dist_norm), 0.25),  
+      quantile(as.matrix(datos_dist_norm), 0.75),  
+      quantile(as.matrix(datos_dist_norm), 0.99)
+    )),
+    name = "Distancia"
+  ) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "right"
+  )
+
+# Mostrar la gráfica
+print(plot_vat_sample)
+
+
+```
+ Se observa que la matriz de distancias presenta una estructura clara, con bloques de observaciones similares en color blanco y líneas oscuras que separan grupos de observaciones. Esto sugiere que los datos tienen una estructura no aleatoria y son adecuados para el clustering.
+ 
+ 
+## Número optimo de clusters (Método del Codo)
+
+```{r elbow, echo=FALSE, warning=FALSE}
+
+
+# Calcular el método del codo (WSS) utilizando la muestra
+elbow_plot <- fviz_nbclust(datos_scaled, kmeans, method = "wss") +
+  labs(subtitle = "Método del Codo (Muestra n=1120)")
+print(elbow_plot)
+
+```
+
+ La gráfica muestra que el codo se encuentra en k = 4, lo que sugiere que este es el número óptimo de clusters para el conjunto de datos.
+### K-Means
+
+```{r kmeans, echo=FALSE, warning=FALSE}
+set.seed(123)
+k <- 4
+km_res <- kmeans(datos_scaled, centers = k, nstart = 25)
+print(km_res)
+
+
+```
+Los centroides de los clusters representan los valores medios de las variables en cada grupo. Las observaciones se asignan al cluster cuyo centroide está más cerca en términos de distancia Euclidiana.
+### Visualización de Clusters
+
+
+```{r clusterplot, echo=FALSE, warning=FALSE}
+fviz_cluster(km_res, data = datos_scaled, ellipse.type = "convex",
+             palette = "jco", ggtheme = theme_minimal(),
+             main = "Clusters K-means (k = 4)")
+
+
+
+
+```
+Los clusters se visualizan en un espacio de 2 dimensiones, con elipses convexas que representan la dispersión de los datos en cada grupo. Los colores y etiquetas indican la asignación de observaciones a cada cluster.
+
+## Calidad del Agrupamiento
+```{r silhouette, echo=FALSE, warning=FALSE}
+
+sil <- silhouette(km_res$cluster, dist(datos_scaled))
+fviz_silhouette(sil) + labs(title = "Gr\u00E1fico de Silueta para Clustering")
+
+
+```
+Se observa que los clusters tienen un tamaño similar y que la mayoría de las observaciones tienen un coeficiente de silueta positivo, lo que indica que están bien asignadas a sus respectivos grupos.
+
+
+## Análisis de componentes principales (PCA)
+
+```{r pca, echo=FALSE, warning=FALSE}
+
+pca_res <- prcomp(datos_scaled, center = TRUE, scale. = TRUE)
+summary(pca_res)
+#
+```
+El análisis de componentes principales (PCA) permite reducir la dimensionalidad de los datos y visualizar la estructura subyacente. Los resultados muestran la varianza explicada por cada componente y la importancia de las variables en la formación de los ejes principales.
+
+## Visualización de Componentes Principales
+
+
+```{r pca_plot, echo=FALSE, warning=FALSE}
+fviz_eig(pca_res, addlabels = TRUE, ylim = c(0, 80),
+         main = "Scree Plot - Porcentaje de Varianza Explicada")
+
+
+
+```
+El gráfico de valores propios muestra la proporción de varianza explicada por cada componente principal. En este caso, los dos primeros componentes explican la mayor parte de la varianza en los datos.
+
+
+
+
 
 # Modelado
 

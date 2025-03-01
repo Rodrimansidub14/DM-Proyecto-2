@@ -1,92 +1,150 @@
-# Cargar librerías necesarias
-library(readr)
+
+# 1. Cargar librerías necesarias
 library(dplyr)
+library(caret)
 library(ggplot2)
-library(corrplot)
+library(gridExtra)
 
-# Cargar el dataset (ajusta la ruta si es necesario)
-datos <- read.csv("data/raw/train.csv", stringsAsFactors = FALSE)
+# Para funciones de agrupación de niveles infrecuentes
+library(stringr)
 
-# 1. Revisión de la Estructura y Estadísticas Básicas
-cat("Cantidad de filas:", nrow(datos), "\n")
-cat("Cantidad de columnas:", ncol(datos), "\n")
-cat("\nEstructura del dataset:\n")
-str(datos)
+# Para codificación ordinal
+# Definimos el mapping de calidad: Ex > Gd > TA > Fa > Po
+quality_mapping <- c("Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5)
 
-cat("\nPrimeras 3 filas:\n")
-print(head(datos, 3))
+# 2. Cargar el dataset
+df <- read.csv("data/raw/train.csv", stringsAsFactors = FALSE)
 
-cat("\nÚltimas 3 filas:\n")
-print(tail(datos, 3))
+# 3. Manejo de NAs -----------------------------------------
 
-cat("\nVisualización de las primeras 5 columnas:\n")
-print(head(datos[, 1:5]))
+# Variables categóricas en las que NA indica ausencia de la característica
+cat_vars_none <- c("Alley", "PoolQC", "MiscFeature", "Fence",
+                   "FireplaceQu", "GarageType", "GarageFinish",
+                   "GarageQual", "GarageCond", "BsmtQual", "BsmtCond",
+                   "BsmtExposure", "BsmtFinType1", "BsmtFinType2")
 
-# 2. Análisis de Valores Faltantes
-faltantes <- sapply(datos, function(x) sum(is.na(x)))
-cat("\nCantidad de valores faltantes por variable:\n")
-print(faltantes)
-
-missing_percent <- sapply(datos, function(x) sum(is.na(x)) / nrow(datos))
-cat("\nPorcentaje de valores faltantes por variable:\n")
-print(missing_percent)
-
-# 3. Identificación de Registros Duplicados
-duplicados <- datos[duplicated(datos), ]
-cat("\nRegistros duplicados:\n")
-print(duplicados)
-
-# 4. Detección Preliminar de Outliers
-# Función para detectar índices de outliers usando el método IQR
-detectar_outliers <- function(x) {
-  if (is.numeric(x)) {
-    q <- quantile(x, probs = c(0.25, 0.75), na.rm = TRUE)
-    iqr <- q[2] - q[1]
-    li <- q[1] - 1.5 * iqr
-    ls <- q[2] + 1.5 * iqr
-    return(which(x < li | x > ls))
-  } else {
-    return(NULL)
+for (var in cat_vars_none) {
+  if(var %in% names(df)) {
+    df[[var]][is.na(df[[var]])] <- "None"
   }
 }
 
-# Selecciona algunas variables clave para revisar outliers (puedes ajustar la selección)
-vars_outliers <- c("MSSubClass", "LotFrontage", "LotArea", "GrLivArea", "SalePrice")
-for (var in vars_outliers) {
-  if (var %in% names(datos)) {
-    indices <- detectar_outliers(datos[[var]])
-    cat(paste("\nNúmero de outliers en", var, ":", length(indices), "\n"))
-    if (length(indices) > 0) {
-      cat("Índices de outliers en", var, ":", indices, "\n")
-    }
+# Variables de área donde la ausencia se interpreta como 0
+area_vars <- c("LotFrontage", "GarageArea", "TotalBsmtSF")
+for (var in area_vars) {
+  if(var %in% names(df)) {
+    df[[var]][is.na(df[[var]])] <- 0
   }
 }
 
-# 5. Visualizaciones Básicas
+# Eliminar variables con más del 40% de NAs
+na_threshold <- 0.4
+na_pct <- sapply(df, function(x) mean(is.na(x)))
+vars_to_drop <- names(na_pct[na_pct > na_threshold])
+if(length(vars_to_drop) > 0) {
+  df <- df %>% select(-one_of(vars_to_drop))
+}
 
-# Histograma y Boxplot para algunas variables numéricas clave
-ggplot(datos, aes(x = LotFrontage)) + 
-  geom_histogram(fill = "blue", bins = 30, na.rm = TRUE) +
-  labs(title = "Histograma de LotFrontage", x = "LotFrontage", y = "Frecuencia")
+# 4. Agrupación de categorías poco frecuentes ------------------
 
-ggplot(datos, aes(y = LotFrontage)) +
-  geom_boxplot(fill = "orange", na.rm = TRUE) +
-  labs(title = "Boxplot de LotFrontage", y = "LotFrontage")
+# Función para agrupar niveles con frecuencia menor a un umbral
+group_infrequent <- function(x, threshold = 0.05) {
+  freq <- table(x) / length(x)
+  levels_to_keep <- names(freq[freq >= threshold])
+  x[!(x %in% levels_to_keep)] <- "Other"
+  return(factor(x))
+}
 
-ggplot(datos, aes(x = SalePrice)) + 
-  geom_histogram(fill = "green", bins = 30, na.rm = TRUE) +
-  labs(title = "Histograma de SalePrice", x = "SalePrice", y = "Frecuencia")
+# Variables nominales para agrupar (ejemplos comunes)
+nominal_vars <- c("Neighborhood", "BldgType", "HouseStyle", "Exterior1st", "Exterior2nd")
+for (var in nominal_vars) {
+  if(var %in% names(df)) {
+    df[[var]] <- group_infrequent(df[[var]], threshold = 0.05)
+  }
+}
 
-# Matriz de correlaciones para variables numéricas
-numericas <- sapply(datos, is.numeric)
-cor_matrix <- cor(datos[, numericas], use = "pairwise.complete.obs")
-corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7, 
-         title = "Matriz de Correlaciones", mar = c(0,0,1,0))
+# 5. Codificación ---------------------------------------------
 
-# Diagrama de dispersión entre algunas variables clave
-pairs(~LotFrontage + LotArea + GrLivArea + SalePrice + , data = datos, 
-      main = "Relación entre variables clave")
+# 5.1 One-Hot encoding para variables nominales
+# Usamos dummyVars de caret
+dummy_vars <- nominal_vars  # Utilizamos las mismas variables nominales definidas
+if(length(dummy_vars) > 0) {
+  dummies <- dummyVars(~ ., data = df[, dummy_vars], fullRank = TRUE)
+  df_dummies <- predict(dummies, newdata = df[, dummy_vars])
+  df <- cbind(df, df_dummies)
+  df <- df %>% select(-one_of(dummy_vars))
+}
 
+# 5.2 Ordinal encoding para variables de calidad
+ordinal_vars <- c("ExterQual", "ExterCond", "BsmtQual", "BsmtCond", 
+                  "GarageQual", "GarageCond", "HeatingQC", "KitchenQual")
+for (var in ordinal_vars) {
+  if(var %in% names(df)) {
+    # Convertir a factor si no lo es y luego mapear
+    df[[var]] <- as.character(df[[var]])
+    df[[var]] <- as.numeric(quality_mapping[df[[var]]])
+  }
+}
 
+# 6. Outliers y transformación -------------------------------
+
+# Función para capping: recortar valores por encima del percentil 99
+cap_outliers <- function(x, cap = 0.99) {
+  quant_val <- quantile(x, probs = cap, na.rm = TRUE)
+  x[x > quant_val] <- quant_val
+  return(x)
+}
+
+# Variables numéricas a evaluar
+numeric_vars <- c("SalePrice", "GrLivArea", "LotArea", "TotalBsmtSF", "GarageArea", "MasVnrArea")
+for (var in numeric_vars) {
+  if(var %in% names(df)) {
+    df[[var]] <- cap_outliers(df[[var]], cap = 0.99)
+  }
+}
+
+# Transformar variables para reducir skew
+# Nota: Se añade 1 a GrLivArea y LotArea para evitar log(0)
+df$SalePrice <- log(df$SalePrice)
+df$GrLivArea <- log(df$GrLivArea + 1)
+df$LotArea   <- log(df$LotArea + 1)
+
+# 7. Feature Engineering -------------------------------------
+
+# Crear TotalArea: suma de GrLivArea, TotalBsmtSF y GarageArea (si existen)
+if(all(c("GrLivArea", "TotalBsmtSF", "GarageArea") %in% names(df))) {
+  df$TotalArea <- df$GrLivArea + df$TotalBsmtSF + df$GarageArea
+}
+
+# Crear HouseAge: Año de venta menos Año de construcción (si existen)
+if(all(c("YrSold", "YearBuilt") %in% names(df))) {
+  df$HouseAge <- df$YrSold - df$YearBuilt
+}
+
+# Crear TotalBath: Sumar baños completos y la mitad de los semibaños
+if(all(c("FullBath", "HalfBath", "BsmtFullBath", "BsmtHalfBath") %in% names(df))) {
+  df$TotalBath <- df$FullBath + 0.5 * df$HalfBath + df$BsmtFullBath + 0.5 * df$BsmtHalfBath
+}
+
+# Verificar correlación con SalePrice (opcional)
+num_cols <- names(df)[sapply(df, is.numeric)]
+correlations <- cor(df[, num_cols], use = "pairwise.complete.obs")
+print(correlations["SalePrice", ])
+
+# 8. Escalado ------------------------------------------------
+
+# Estandarizar variables numéricas
+df[num_cols] <- lapply(df[num_cols], scale)
+
+# 9. Validación: Separación en train y test ---------------
+
+set.seed(123)
+train_index <- createDataPartition(df$SalePrice, p = 0.8, list = FALSE)
+train_data <- df[train_index, ]
+test_data  <- df[-train_index, ]
+
+# 10. Guardar conjuntos preprocesados ---------------------
+write.csv(train_data, "data/processed/train_preprocessed.csv", row.names = FALSE)
+write.csv(test_data, "data/processed/test_preprocessed.csv", row.names = FALSE)
 
 
