@@ -14,6 +14,8 @@ library(tidyverse)
 library(knitr)
 library(nortest)  # Para ad.test() y lillie.test()
 library(patchwork)
+library(psych)
+library(corrplot)
 
 library(kableExtra)
 library(rmarkdown)
@@ -23,7 +25,6 @@ library(tidyverse)
 library(hopkins)
 library(fpc)
 library(factoextra)
-library(parallelDist)
 library(ggrepel)
 library(GGally)
 library(flexclust)
@@ -35,7 +36,6 @@ library(tidyverse)      # Manipulación de datos y piping
 library(tidyverse)
 library(hopkins)
 library(fpc)
-library(factoextra)
 library(parallelDist)
 library(ggrepel)
 library(GGally)
@@ -1579,6 +1579,7 @@ La exploración inicial de los datos perimitió identificar que para una mejor c
 # Análisis de Grupos
 
 ## Estadistico de Hopkins
+
 ```{r groupingstup, echo=FALSE, warning=FALSE}
 # 2. Lectura del dataset de viviendas (ajusta la ruta según corresponda)
 datos <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = FALSE)
@@ -1610,16 +1611,17 @@ datos_scaled <- datos_scaled[apply(datos_scaled, 1, function(x) all(is.finite(x)
 
 ```
 
-
 ```{r hopkins, echo=FALSE, warning=FALSE}
 set.seed(123)
-hopkins_stat <- hopkins(datos_scaled)
+hopkins_stat <- hopkins(datos_clust)
 print(paste("Hopkins statistic:", round(hopkins_stat, 4)))
 
 
-``` 
-El estadístico de Hopkins es un valor entre 0 y 1 que mide la tendencia de un conjunto de datos a formar clusters. Un valor cercano a 0.5 indica aleatoriedad, mientras que valores cercanos a 0 o 1 sugieren estructura. En este caso, el valor obtenido es 0.9998, lo que indica que los datos tienen una estructura significativa y son adecuados para el clustering.
-### VAT
+```
+
+El estadístico de Hopkins confirma una fuerte tendencia a clusterizar.
+
+## VAT
 
 ```{r vat, echo=FALSE, warning=FALSE}
 # Un valor cercano a 0.5 indicaría aleatoriedad; valores cercanos a 0 o 1 sugieren estructura (la interpretación depende del contexto)
@@ -1676,37 +1678,98 @@ print(plot_vat_sample)
 
 
 ```
- Se observa que la matriz de distancias presenta una estructura clara, con bloques de observaciones similares en color blanco y líneas oscuras que separan grupos de observaciones. Esto sugiere que los datos tienen una estructura no aleatoria y son adecuados para el clustering.
- 
- 
+
+Se observa que la matriz de distancias presenta una estructura clara, con bloques de observaciones similares en color blanco y líneas oscuras que separan grupos de observaciones. Esto sugiere que los datos tienen una estructura no aleatoria y son adecuados para el clustering.
+
 ## Número optimo de clusters (Método del Codo)
 
 ```{r elbow, echo=FALSE, warning=FALSE}
 
 
 # Calcular el método del codo (WSS) utilizando la muestra
-elbow_plot <- fviz_nbclust(datos_scaled, kmeans, method = "wss") +
-  labs(subtitle = "Método del Codo (Muestra n=1120)")
-print(elbow_plot)
+fviz_nbclust(datos_scaled, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2) +
+  labs(subtitle = "Método del Codo")
 
 ```
 
- La gráfica muestra que el codo se encuentra en k = 4, lo que sugiere que este es el número óptimo de clusters para el conjunto de datos.
-### K-Means
+La gráfica muestra que el codo se encuentra entre k=3 y k = 4, lo que sugiere que este es el número óptimo de clusters para el conjunto de datos.
+
+## K-Means
+
+### Agrupamiento con K=3
 
 ```{r kmeans, echo=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+datos_scaled <- as.data.frame(datos_scaled)
+
+set.seed(123)
+k <- 3
+km_res <- kmeans(datos_scaled, centers = k, nstart = 25)
+
+
+
+
+kable(km_summary, caption = "Resumen General del Modelo K-means") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+# También puedes mostrar los centros de los clusters:
+km_centers <- as.data.frame(round(km_res$centers, 3))
+km_centers$Cluster <- rownames(km_centers)
+kable(km_centers, caption = "Centros de los Clusters") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+
+
+```
+
+#### Visualización de Clusters
+
+```{r clusterplot, echo=FALSE, warning=FALSE}
+
+set.seed(123)
+k <- 3
+km_res <- kmeans(as.matrix(datos_scaled), centers = k, nstart = 25)
+
+fviz_cluster(km_res, data = as.matrix(datos_scaled), ellipse.type = "convex",
+             palette = "jco", ggtheme = theme_minimal(),
+             main = "Clusters K-means (k = 3)")
+
+
+```
+
+### Agrupamiento con K=4
+
+```{r kmeans, echo=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+
+# Crear un resumen con el tamaño de cada cluster y la suma de cuadrados intra-grupo
 set.seed(123)
 k <- 4
 km_res <- kmeans(datos_scaled, centers = k, nstart = 25)
-print(km_res)
+
+
+
+kable(km_summary, caption = "Resumen General del Modelo K-means") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# También puedes mostrar los centros de los clusters:
+km_centers <- as.data.frame(round(km_res$centers, 4))
+km_centers$Cluster <- rownames(km_centers)
+kable(km_centers, caption = "Centros de los Clusters") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
 
 
 ```
-Los centroides de los clusters representan los valores medios de las variables en cada grupo. Las observaciones se asignan al cluster cuyo centroide está más cerca en términos de distancia Euclidiana.
-### Visualización de Clusters
+
+#### Visualización de Clusters
+
+```{r clusterplot2, echo=FALSE, warning=FALSE}
 
 
-```{r clusterplot, echo=FALSE, warning=FALSE}
+
 fviz_cluster(km_res, data = datos_scaled, ellipse.type = "convex",
              palette = "jco", ggtheme = theme_minimal(),
              main = "Clusters K-means (k = 4)")
@@ -1714,46 +1777,610 @@ fviz_cluster(km_res, data = datos_scaled, ellipse.type = "convex",
 
 
 
+
 ```
-Los clusters se visualizan en un espacio de 2 dimensiones, con elipses convexas que representan la dispersión de los datos en cada grupo. Los colores y etiquetas indican la asignación de observaciones a cada cluster.
+
+```{r plotclst2 , echo = FALSE, warning = FALSE}
+set.seed(123)
+n_sample <- min(85, nrow(datos_scaled))
+idx <- sample(seq_len(nrow(datos_scaled)), n_sample)
+df_sub <- datos_scaled[idx, ]
+
+# Aplicar K-means a la muestra
+km3_sub <- kmeans(df_sub, centers = 3, nstart = 25)
+
+
+cluster_plot3 <- fviz_cluster(km3_sub,
+                              data = df_sub,
+                              geom = "point",         # Representa cada punto
+                              ellipse.type = "norm",  # Elipses basadas en la varianza
+                              main = "Clusters (k = 3)")
+
+set.seed(123)
+km4_sub <- kmeans(df_sub, centers = 4, nstart = 25)
+cluster_plot4 <- fviz_cluster(km4_sub,
+                              data = df_sub,
+                              geom = "point",
+                              ellipse.type = "norm",
+                              main = "Clusters (k = 4)")
+
+library(gridExtra)
+grid.arrange(cluster_plot3, cluster_plot4, ncol = 2)
+
+
+```
+
+```{r clustloc, echo=FALSE, warning=FALSE}
+
+
+library(gridGraphics)
+library(gridExtra)
+
+# Seleccionar una muestra (por ejemplo, 85 observaciones)
+set.seed(123)
+n_sample <- min(85, nrow(datos_scaled))
+idx <- sample(seq_len(nrow(datos_scaled)), n_sample)
+df_sub <- datos_scaled[idx, ]
+
+## Gráfico para k = 3
+set.seed(123)
+km3 <- kmeans(datos_scaled, centers = 3, nstart = 25)
+clusters_sub3 <- km3$cluster[idx]
+
+# Capturar el plot base para k=3
+plot_k3 <- function(){
+  plotcluster(as.matrix(df_sub), clusters_sub3, method = "dc", clnum = TRUE, 
+              main = "Ubicación de los Clusters (k = 3)")
+}
+# Preparar y capturar el gráfico
+grid.newpage()
+grid.echo(plot_k3)
+p3 <- grid.grab()
+
+## Gráfico para k = 4
+set.seed(123)
+km4 <- kmeans(datos_scaled, centers = 4, nstart = 25)
+clusters_sub4 <- km4$cluster[idx]
+
+# Capturar el plot base para k=4
+plot_k4 <- function(){
+  plotcluster(as.matrix(df_sub), clusters_sub4, method = "dc", clnum = TRUE, 
+              main = "Ubicación de los Clusters (k = 4)")
+}
+grid.newpage()
+grid.echo(plot_k4)
+p4 <- grid.grab()
+
+# Combinar los dos gráficos en una sola imagen
+grid.arrange(p3, p4, ncol = 2)
+
+
+```
+
+-   El modelo con 3 clusters agrupa el mercado de viviendas en tres segmentos (alta, media, baja) de forma razonable y más sencilla.
+
+-   El modelo con 4 clusters incrementa la separación estadística y reduce la variabilidad interna, pero añade complejidad en la interpretación. La elección final depende tanto de la validez estadística como de la utilidad práctica para el análisis o toma de decisiones .
+
+-   Con 4 clusters se logra una mayor segmentación del mercado, dividiendo uno de los grupos grandes en dos.
 
 ## Calidad del Agrupamiento
+
 ```{r silhouette, echo=FALSE, warning=FALSE}
 
-sil <- silhouette(km_res$cluster, dist(datos_scaled))
-fviz_silhouette(sil) + labs(title = "Gr\u00E1fico de Silueta para Clustering")
+# Para k = 3
+set.seed(123)
+km3 <- kmeans(datos_scaled, centers = 3, nstart = 25)
+sil3 <- silhouette(km3$cluster, dist(datos_scaled))
+p_sil3 <- fviz_silhouette(sil3) + labs(title = "Gr\u00E1fico de Silueta (k = 3)")
+
+# Para k = 4
+set.seed(123)
+km4 <- kmeans(datos_scaled, centers = 4, nstart = 25)
+sil4 <- silhouette(km4$cluster, dist(datos_scaled))
+p_sil4 <- fviz_silhouette(sil4) + labs(title = "Gr\u00E1fico de Silueta (k = 4)")
+
+# Visualizar ambos gráficos lado a lado
+library(gridExtra)
+grid.arrange(p_sil3, p_sil4, ncol = 2)
+
+```
+
+```{r silhouette2, echo=FALSE, warning=FALSE}
+
+library(dplyr)
+library(cluster)
+
+# Supongamos que 'df_numeric' es tu dataframe numérico (ya procesado y escalado)
+# Si aún no lo tienes, asegúrate de crearlo a partir de tus datos procesados.
+
+set.seed(123)
+n_sample <- 85
+df_sample <- datos_scaled %>% sample_n(n_sample)
+
+# Para k = 3
+km3 <- kmeans(df_sample, centers = 3, iter.max = 100, nstart = 25)
+silkm3 <- silhouette(km3$cluster, dist(df_sample))
+silhouette_promedio3 <- mean(silkm3[, 3])
+cat("Silhouette promedio (k = 3):", silhouette_promedio3, "\n")
+
+# Para k = 4
+km4 <- kmeans(df_sample, centers = 4, iter.max = 100, nstart = 25)
+silkm4 <- silhouette(km4$cluster, dist(df_sample))
+silhouette_promedio4 <- mean(silkm4[, 3])
+cat("Silhouette promedio (k = 4):", silhouette_promedio4, "\n")
+
+# Graficar la silueta para ambas soluciones
+par(mfrow = c(1, 2))  # Configura la gráfica en 2 columnas
+plot(silkm3, cex.names = 0.8, col = 1:6, main = "Análisis de la Silueta - k = 3")
+plot(silkm4, cex.names = 0.8, col = 1:6, main = "Análisis de la Silueta - k = 4")
 
 
 ```
-Se observa que los clusters tienen un tamaño similar y que la mayoría de las observaciones tienen un coeficiente de silueta positivo, lo que indica que están bien asignadas a sus respectivos grupos.
 
+Ambas configuraciones (k=3 y k=4) muestran un promedio de silueta, bajo. Esto indica que:
 
-## Análisis de componentes principales (PCA)
+1.  La separación entre clusters no es muy marcada (hay solapamiento).
+
+2.  Con k=4 aparece un cluster pequeño que mejora su silueta, pero otro obtiene valores muy bajos, compensando el beneficio.
+
+3.  En términos globales, no hay una gran diferencia en la calidad de la segmentación entre 3 y 4 clusters.
+
+En resumen, los datos sugieren que la estructura de los clusters no está fuertemente definida o que tal vez se necesiten otras técnicas (por ejemplo, reducción de dimensionalidad o índices adicionales) para encontrar una segmentación más clara.
+
+## Análisis de Componentes Principales (PCA)
+
+### Mátriz de Correlación
 
 ```{r pca, echo=FALSE, warning=FALSE}
 
-pca_res <- prcomp(datos_scaled, center = TRUE, scale. = TRUE)
-summary(pca_res)
-#
+# Seleccionar las variables numéricas relevantes para PCA
+pca_vars <- c("SalePrice", "GrLivArea", "LotArea", "OverallQual", "YearBuilt", "TotalBsmtSF", "GarageArea")
+pca_data <- train_data %>% select(one_of(pca_vars)) %>% na.omit()
+
+# Escalar los datos
+pca_data_scaled <- scale(pca_data)
+
+# Calcular y visualizar la matriz de correlación
+cor_matrix <- cor(pca_data_scaled)
+det_cor <- det(cor_matrix)
+cat("Determinante de la matriz de correlación:", round(det_cor, 5), "\n")
+corrplot(cor_matrix, method = "color", addCoef.col = "black", number.cex = 0.7, tl.cex = 0.8)
+
+
 ```
-El análisis de componentes principales (PCA) permite reducir la dimensionalidad de los datos y visualizar la estructura subyacente. Los resultados muestran la varianza explicada por cada componente y la importancia de las variables en la formación de los ejes principales.
 
-## Visualización de Componentes Principales
+```{r corrpca3, echo = FALSE, warning = FALSE}
+
+# Calcular la matriz de correlación
+cor_matrix <- cor(pca_data_scaled, use = "pairwise.complete.obs")
+
+# Calcular el determinante de la matriz de correlación
+det_val <- det(cor_matrix)
 
 
-```{r pca_plot, echo=FALSE, warning=FALSE}
-fviz_eig(pca_res, addlabels = TRUE, ylim = c(0, 80),
-         main = "Scree Plot - Porcentaje de Varianza Explicada")
+
+# Imprimir el determinante de la matriz
+knitr::asis_output(paste("\n### Determinante de la Matriz de Correlación: ", round(det_val, 5), "\n"))
+```
+
+Observervamos que el determinante de la matriz de correlación es cercano a 0, lo que indica que las variables están altamente correlacionadas, lo cual es un requisito para aplicar PCA.
+
+La matriz de correlación confirma que la calidad y el tamaño (habitable, sótano, garaje) son los principales impulsores del precio de venta de las viviendas, mientras que la antigüedad y el área del lote tienen un papel secundario
+
+### Indice de Kaiser-Meyer-Olkin (KMO)
+
+```{r kmo, echo=FALSE, warning=FALSE}
+
+# Índice KMO y test de esfericidad de Bartlett
+kmo_result <- KMO(pca_data_scaled)
+kmo_df <- data.frame(
+  `Índice KMO Global` = round(kmo_result$MSA, 4)
+)
+
+kable(kmo_df, caption = "Índice de Kaiser-Meyer-Olkin (KMO) Global") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
 
 
 
 ```
-El gráfico de valores propios muestra la proporción de varianza explicada por cada componente principal. En este caso, los dos primeros componentes explican la mayor parte de la varianza en los datos.
+
+### Test de esfericidad de Bartlett
+
+```{r kmo, echo = FALSE, warning = FALSE}
+library(psych)  # Cargar la librería necesaria
+
+# Seleccionar solo variables numéricas del dataset escalado
+
+# Aplicar el test de Bartlett
+bartlett_result <- cortest.bartlett(pca_data_scaled)
+
+# Formatear la salida como tabla
+bartlett_df <- data.frame(
+  `Chi-cuadrado` = round(bartlett_result$chisq, 4),
+  `Grados de Libertad` = bartlett_result$df,
+  `p-valor` = round(bartlett_result$p.value, 10)
+)
+
+kable(bartlett_df, caption = "Test de Esfericidad de Bartlett") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+El índice KMO es mayor a 0.5 y el test de Bartlett es significativo con un p-valor = 0 , indicando que las variables están efectivamente correlacionadas., lo que indica que los datos son adecuados para realizar un análisis de componentes principales.
+
+### Análisis de Componentes Principales
+
+```{r pca2, echo=FALSE, warning=FALSE}
+# Realizar el PCA
+pca_res <- prcomp(pca_data_scaled, center = TRUE, scale. = TRUE)
+# Obtener el resumen del PCA
+pca_summary <- summary(pca_res)
+
+# Extraer la proporción de varianza explicada por cada componente
+pca_var <- data.frame(
+  Componente = paste0("PC", seq_along(pca_summary$importance[2,])),
+  Proporción_Varianza = round(pca_summary$importance[2,] * 100, 2),  # Convertir a porcentaje
+  Varianza_Acumulada = round(pca_summary$importance[3,] * 100, 2)  # Convertir a porcentaje
+)
+
+# Imprimir tabla con knitr
+knitr::kable(pca_var, caption = "Proporción de Varianza Explicada por Componente") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+```
+
+### Regla de Kaiser
+
+```{r kaiser, echo=FALSE, warning=FALSE}
+# Calcular los valores propios del PCA
+valores_propios <- pca_res$sdev^2
+
+# Crear un dataframe con los valores propios
+valores_propios_df <- data.frame(
+  Componente = paste0("PC", seq_along(valores_propios)),
+  Valor_Propio = round(valores_propios, 4)  # Redondeamos para mejor visualización
+)
+
+# Imprimir tabla con knitr
+knitr::kable(valores_propios_df, caption = "Valores Propios de Cada Componente Principal") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
 
 
 
 
+```
 
-# Modelado
+Se retienen los primeros 2 componentes principales cumplen con este criterio, por lo que se retendrán para el análisis.
+
+### Regla de Sedimentación
+
+```{r pca3, echo=FALSE, warning=FALSE}
+# Scree Plot - Porcentaje de varianza explicada
+# Scree Plot con porcentaje de varianza explicada
+fviz_eig(pca_res, addlabels = TRUE, ylim = c(0, 80)) +
+  ggtitle("Scree Plot - Porcentaje de Varianza Explicada")
+
+# Scree Plot con valores propios (Eigenvalues)
+fviz_eig(pca_res, addlabels = TRUE, ylim = c(0, 4), choice = "eigenvalue") +
+  ggtitle("Scree Plot - Valores Propios")
+
+```
+
+Gran parte de la variabilidad se concentra en la primera y segunda componente, y que la tercera todavía aporta una porción apreciable. Más allá de la tercera, las ganancias en varianza explicada son mucho menores.
+
+### Paralelismo de los Componentes Principales
+
+```{r paralelismo, echo = FALSE, warning = FALSE}
+
+library(paran)
+
+# Aplicar el análisis de paralelismo
+paran_result <- paran(pca_data_scaled, graph = TRUE, centile = 95)
+
+# Agregar título a la gráfica
+title("Análisis de Paralelismo - Evaluación de Componentes Principales")
+
+```
+
+El analisis sugiere conservar 2 componentes principales, ya que la tercera (y siguientes) no se diferencian lo bastante de los valores propios generados al azar.
+
+### Carga Factorial
+
+```{r carga, echo = FALSE, warning = FALSE}
+
+# Visualizar la importancia de las variables en los componentes principales
+fviz_pca_var(pca_res, 
+             col.var = "cos2",  # Colorear según calidad de representación
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE)  # Evitar superposición de etiquetas
+
+
+```
+
+-   La primera componente (Dim1) captura la mayor parte de la información relevante para el valor de la casa (tamaño, calidad, precio).
+
+-   La segunda componente aporta un matiz adicional (por ejemplo, tamaño de lote y antigüedad), pero su peso en la varianza total es menor.
+
+-   Variables como SalePrice, OverallQual, GrLivArea, TotalBsmtSF y GarageArea se mueven en conjunto, reforzando la idea de que la calidad y los espacios construidos son factores clave en la determinación del precio de venta.
+
+#### Contribución de Variables en las primeras dimensiones
+
+```{r contrib, echo = FALSE, warning = FALSE}
+fviz_contrib(pca_res, choice = "var", axes = 1, top = 10)
+
+
+```
+
+```{r contrib2, echo = FALSE, warning = FALSE}
+fviz_contrib(pca_res, choice = "var", axes = 2, top = 10)
+
+
+
+```
+
+```{r contrib3, echo = FALSE, warning = FALSE}
+# Obtener la matriz de cos² de las variables en el PCA
+var <- get_pca_var(pca_res)
+
+# Visualizar la matriz de cos²
+corrplot(var$cos2, is.corr = FALSE, 
+         col = colorRampPalette(c("white", "#00AFBB", "#E7B800", "#FC4E07"))(200),
+         tl.col = "black", tl.srt = 45, 
+         title = "Calidad de Representación de Variables (cos²)", 
+         mar = c(1, 1, 2, 1))
+
+
+
+
+```
+
+-   La dimension 1 es la dimensión principal en la cual se conentran relaciones de precio,calidad espacios de las casas.
+
+-   La segunda dimensión explica fáctores como el tamaño del lote y la antiguedad de la vivienda que no presentan una relación tan significativa con el precio como la primera.
+
+-   El análisis de **contribución** y **cos²** refuerza que, en el espacio de las dos primeras componentes, se distinguen claramente dos ejes interpretables:
+
+    -   Eje 1: Valor/Calidad/Tamaño construidos
+
+    -   Eje 2: Tamaño de lote/Año de construcción
+
+# Modelado Predictivo (Regresión lineal)
+
+Separamos los datos en conjuntos de entrenamiento y testeo, y ajustamos un modelo de regresión lineal para predecir el precio de venta de las viviendas.
+
+```{r modeladoSTP, echo=FALSE, warning=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(caret)      # Para partición y evaluación
+library(car)        # Para calcular VIF y detectar multicolinealidad
+library(nortest)    # Para pruebas de normalidad de residuos
+library(glmnet)     # Para Ridge y Lasso
+library(tidyr)      # Para reorganizar datos (si es necesario)
+library(GGally)     # Para matriz de dispersión
+library(corrplot)
+library(tibble)
+
+datostrain <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = FALSE)
+datostest <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r modeladoSTP2, echo=FALSE, warning=FALSE}
+library(knitr)
+tabla_filas <- data.frame(
+  Dataset = c("Entrenamiento", "Prueba"),
+  Filas = c(nrow(datostrain), nrow(datostest))
+)
+kable(tabla_filas, caption = "Número de filas en cada dataset")
+
+
+
+```
+
+## Modelo Univariado
+
+Trabajamos con la variable más correlacionada con el precio de venta: GrLivArea.
+
+```{r modeladoSTP3, echo=FALSE, warning=FALSE}
+library(broom)
+library(knitr)
+tabla_modelo <- tidy(modelo_uni)
+kable(tabla_modelo, caption = "Resumen del Modelo Lineal")
+
+
+
+
+```
+
+GrLivArea es un predictor muy fuerte en el modelo, mientras que el intercepto no aporta información relevante.
+
+### Representación Gráfica
+
+```{r modeladounigraph, echo=FALSE, warning=FALSE}
+
+ggplot(datostrain, mapping= aes(x = GrLivArea, y = SalePrice)) +
+  geom_point(color = "firebrick", alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  labs(title = "Regresión Lineal Univariada: SalePrice ~ GrLivArea",
+       x = "GrLivArea", y = "SalePrice`") +
+  theme_bw()+ theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+La gráfica muestra una relación lineal positiva entre el área habitable y el precio de venta, con una dispersión considerable en los datos.
+
+### Residuos
+
+```{r residuosuni, echo=FALSE, warning=FALSE}
+
+library(knitr)
+
+# Tabla de las primeras predicciones
+tabla_pred <- data.frame(Predicciones = head(predL))
+kable(tabla_pred, caption = "Primeras Predicciones")
+
+# Tabla de los primeros residuales
+tabla_res <- data.frame(Residuales = head(modelo_uni$residuals))
+kable(tabla_res, caption = "Primeros Residuales")
+
+# Imprimir el número total de predicciones
+kable(data.frame(Total = length(predL)), caption = "Número total de predicciones")
+```
+
+```{r residuosuni2, echo=FALSE, warning=FALSE}
+
+par(mfrow = c(2, 2))
+plot(modelo_uni)
+par(mfrow = c(1, 1))
+
+```
+
+### 
+
+-   **Residuals vs Fitted**:
+
+    -   Muestra cómo se distribuyen los residuos en función de las predicciones. No se aprecia un patrón en “U” o “∩” muy marcado, aunque se observan algunos puntos alejados.
+
+-   **Q-Q Residuals**:
+
+    -   Varios puntos siguen la línea teórica, pero se observa **cierta desviación** en colas.
+
+    -   Indica que la distribución de los residuos se aleja de la normalidad en los valores más altos y más bajos.
+
+-   **Scale-Location**:
+
+    -   No se ve un patrón muy pronunciado, pero sí algo de dispersión variable.
+
+-   **Residuals vs Leverage**:
+
+    -   Algunas observaciones podrían tener un impacto desproporcionado en el ajuste.
+
+#### Distribución de Residuos
+
+```{r residuosuni3, echo=FALSE, warning=FALSE}
+
+
+hist(modelo_uni$residuals, breaks = 30, col = "lightblue", border = "black", main = "Histograma de Residuos", xlab = "Residuos")
+
+```
+
+```{r residuosuni4, echo=FALSE, warning=FALSE}
+boxplot(modelo_uni$residuals, col = "lightblue", border = "black", main = "Boxplot de Residuos")
+
+
+```
+
+-   **Histograma**: Los residuos se concentran mayoritariamente alrededor de 0, con cola a la izquierda y derecha.
+
+-   **Boxplot**: Hay valores atípicos tanto por debajo como por encima. La mediana está cerca de 0.
+
+```{r residuosuni5, echo=FALSE, warning=FALSE}
+
+qqnorm(modelo_uni$residuals, col = "blue", pch = 20, main = "Gráfico Q-Q de Residuos")
+qqline(modelo_uni$residuals, col = "red")
+
+```
+
+#### Prueba de Normalidad
+
+```{r residuosuni6, echo=FALSE, warning=FALSE}
+library(nortest)
+resultado_lillie <- lillie.test(modelo_uni$residuals)
+
+# Crear la tabla usando solo los elementos disponibles (estadístico y p_value)
+tabla_lillie <- data.frame(
+  Estadístico = as.numeric(resultado_lillie$statistic),
+  p_value = resultado_lillie$p.value
+)
+
+library(knitr)
+kable(tabla_lillie, caption = "Resultado del Test de Lilliefors")
+
+```
+
+### Predicción y Ecualización
+
+```{r preduni, echo=FALSE, warning=FALSE}
+library(knitr)
+
+# Mostrar las primeras predicciones
+tabla_pred_uni <- data.frame(Predicciones = head(pred_uni))
+kable(tabla_pred_uni, caption = "Primeras Predicciones del Modelo Univariado")
+
+# Mostrar el RMSE del modelo
+tabla_rmse <- data.frame(Métrica = "RMSE", Valor = rmse_uni)
+kable(tabla_rmse, caption = "Métricas del Modelo Univariado")
+
+
+```
+
+#### Gráfico de Predicciones
+
+```{r preduni2, echo=FALSE, warning=FALSE}
+#Grafico de la predicción
+plot(datostest$SalePrice, col = "blue")
+points(pred_uni, col = "red")
+
+
+
+
+```
+
+```{r preduni3, echo=FALSE, warning=FALSE}
+resumen_diff <- summary(datostest$SalePrice - pred_uni)
+tabla_resumen <- data.frame(
+  Estadística = names(resumen_diff),
+  Valor = as.vector(resumen_diff)
+)
+library(knitr)
+kable(tabla_resumen, caption = "Resumen de la diferencia (SalePrice - pred_uni)")
+
+
+```
+
+1.  **Relación significativa**: GrLivArea tiene un efecto fuertemente positivo y significativo en SalePrice.
+
+2.  **Intercepto no significativo**: No aporta gran información cuando GrLivArea = 0.
+
+3.  **Distribución de residuos**:
+
+    -   La media y mediana de (SalePrice - Predicción) están cercanas a 0, lo que sugiere que no hay un sesgo sistemático.
+
+    -   Existen puntos outlier y el test de Lilliefors indica **no normalidad** de los residuos.
+
+    -   Aun así, el modelo univariado capta la tendencia global: a mayor área habitable, mayor precio.
+
+En suma, la **regresión univariada** SalePrice \~ GrLivArea **confirma** que el área habitable es un predictor relevante y explica una parte importante de la variabilidad en el precio de las viviendas, pero **no** captura toda la complejidad del problema.
+
+## Modelo Multivariado (Todas las Variables numéricas)
+
+### Selección de Variables
+
+### Analisis de Residuos
+
+### Predicción y Ecualización
+
+### Análisis de Errores
+
+### Modelo Normalizado
+
+### Normalización de Variables
+
+### Test de Normalidad
+
+### Predicción y Ecualización
+
+### Análisis de Errores
+
+## Modelos Regularizados
+
+## Modelo Ridge
+
+## Modelo Lasso
+
+## Comparación de Modelos
 
 # Discusión y Conclusiones
