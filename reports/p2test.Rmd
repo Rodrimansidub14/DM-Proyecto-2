@@ -2686,7 +2686,7 @@ points(prediccion_test2, col = "red")
 
 Se crean las matrices de entrenamiento y testeo, y y se ajusta un modelo de regresión Ridge. La regularización de los coeficientes evita el sobreajuste y mejorar la generalización del modelo.
 
-```{r modeladoSTP10, echo=FALSE, warning=FALSE}
+```{r modeladoSTP1sss0, echo=FALSE, warning=FALSE}
 
 x_train <- model.matrix(SalePrice ~ ., data = train_filtered)[, -1]
 y_train <- train_filtered$SalePrice
@@ -2701,7 +2701,7 @@ regularization  <- regularization %>% pivot_longer(cols = -lambda, names_to = "p
 regularization %>% 
   ggplot(aes(x = lambda, y = coefficients, color = predictor)) +
   geom_line() +
-  labs(title = "Coeficientes del modelo en función de la regularización") +
+  labs(title = "Coeficientes del modelo en función de la regularizacion") +
   theme_bw() +
   theme(legend.position = "none")
 
@@ -2758,7 +2758,7 @@ kable(tabla_coef, caption = "Coeficientes del Modelo 3")
 
 Se observan las predicciones y se calcula el error cuadrático medio en el conjunto de testeo.
 
-```{r modeladoSTP15, echo=FALSE, warning=FALSE}
+```{r modeladoSTsP15, echo=FALSE, warning=FALSE}
 ## Grafica de predicciones
 
 pred_train_model3 <- predict(model3,newx = x_train)

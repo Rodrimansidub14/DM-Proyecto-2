@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  2 MAR 2025 17:25
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  2 MAR 2025 19:10
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1447,44 +1447,60 @@ File: p2test_files/figure-latex/modeladoSTP6-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP6-1.pdf>
 
 
-[76]
-
-[77]
+[76] [77]
 File: p2test_files/figure-latex/modeladoSTP10-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP10-1.pdf>
+
+
+[78]
+File: p2test_files/figure-latex/modeladoSTP1sss0-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP1sss0-1.pdf>
+
+
+[79]
 File: p2test_files/figure-latex/modeladoSTP12-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP12-1.pdf>
 
 
-[78] [79]
+[80] [81]
+File: p2test_files/figure-latex/modeladoSTsP15-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTsP15-1.pdf>
 
-[80]
+
+[82]
 File: p2test_files/figure-latex/modeladoSTP16-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP16-1.pdf>
 File: p2test_files/figure-latex/modeladoSTP17-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP17-1.pdf>
 
-Overfull \hbox (139.24498pt too wide) in paragraph at lines 2926--2926
+
+[83]
+Overfull \hbox (139.24498pt too wide) in paragraph at lines 3064--3064
 []\TU/lmtt/m/n/10 ## Call:  cv.glmnet(x = x_train, y = y_train, type.measure = "mse", nfolds = 10,      alpha = 1, standardize = TRUE)[] 
  []
 
 
 
-[81]
+[84]
 
-[82]
+[85]
+File: p2test_files/figure-latex/modeladoplt1-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoplt1-1.pdf>
+
+
+[86]
 File: p2test_files/figure-latex/modeladoSTP21-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP21-1.pdf>
 
 
-[83]
+[87]
 File: p2test_files/figure-latex/modeladoSTP23-1.pdf Graphic file (type pdf)
 <use p2test_files/figure-latex/modeladoSTP23-1.pdf>
 
 
-[84]
+[88]
 
-[85] (./p2test.aux)
+[89] (./p2test.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -1494,12 +1510,12 @@ LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 20354 strings out of 475846
- 419044 string characters out of 5773211
- 953773 words of memory out of 5000000
- 42924 multiletter control sequences out of 15000+600000
- 562517 words of font info for 68 fonts, out of 8000000 for 9000
+ 20388 strings out of 475846
+ 420739 string characters out of 5773211
+ 953724 words of memory out of 5000000
+ 42953 multiletter control sequences out of 15000+600000
+ 562525 words of font info for 69 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,8n,114p,405b,485s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on p2test.pdf (85 pages).
+Output written on p2test.pdf (89 pages).
