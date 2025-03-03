@@ -24,3 +24,17 @@ flexclust
 data.table
 cluster
 nortest
+patchwork
+psych
+corrplot
+gridExtra
+moments
+gridGraphics
+MASS
+paran
+caret
+carData
+car
+Matrix
+glmnet
+broom

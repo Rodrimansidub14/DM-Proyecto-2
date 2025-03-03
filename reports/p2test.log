@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  28 FEB 2025 14:37
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  2 MAR 2025 17:25
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -491,7 +491,29 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 28
 ) (c:/Users/rodri/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/bookmark/bkm-dvipdfm.def
 File: bkm-dvipdfm.def 2023-12-10 v1.31 bookmark driver for dvipdfm (HO)
 \BKM@id=\count337
-)) (./p2test.aux)
+)) (./p2test.aux
+
+LaTeX Warning: Label `tab:q7' multiply defined.
+
+
+LaTeX Warning: Label `tab:q7' multiply defined.
+
+
+LaTeX Warning: Label `tab:q8' multiply defined.
+
+
+LaTeX Warning: Label `tab:q8' multiply defined.
+
+
+LaTeX Warning: Label `tab:q8' multiply defined.
+
+
+LaTeX Warning: Label `tab:kmeans' multiply defined.
+
+
+LaTeX Warning: Label `tab:kmeans2' multiply defined.
+
+)
 \openout1 = `p2test.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 95.
@@ -1222,30 +1244,262 @@ Overfull \hbox (4.89658pt too wide) in paragraph at lines 767--767
 [32]
 
 [33]
-Underfull \hbox (badness 1057) in paragraph at lines 968--970
+File: p2test_files/figure-latex/q1-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q1-1.pdf>
+
+
+[34]
+Underfull \hbox (badness 1057) in paragraph at lines 1042--1043
 []\TU/lmr/bx/n/10 ¿Qué impacto tienen los años de construcción y remodelación (YearBuilt, Year-
+ []
+
+File: p2test_files/figure-latex/q2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q2-1.pdf>
+
+
+[35]
+File: p2test_files/figure-latex/q3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q3-1.pdf>
+
+
+[36]
+File: p2test_files/figure-latex/q4-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q4-1.pdf>
+File: p2test_files/figure-latex/q5-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q5-1.pdf>
+
+
+[37]
+File: p2test_files/figure-latex/q6-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q6-1.pdf>
+
+
+[38]
+
+[39]
+File: p2test_files/figure-latex/q7b-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q7b-1.pdf>
+
+
+[40]
+File: p2test_files/figure-latex/q8b-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q8b-1.pdf>
+
+
+[41] [42]
+File: p2test_files/figure-latex/q9b-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q9b-1.pdf>
+File: p2test_files/figure-latex/q9b-2.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q9b-2.pdf>
+
+
+[43]
+File: p2test_files/figure-latex/q10-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/q10-1.pdf>
+
+
+[44]
+File: p2test_files/figure-latex/vat-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/vat-1.pdf>
+
+
+[45]
+File: p2test_files/figure-latex/elbow-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/elbow-1.pdf>
+
+
+[46]
+Overfull \hbox (87.62498pt too wide) in alignment at lines 1599--1608
+ [] [] [] [] [] [] [] [] 
+ []
+
+File: p2test_files/figure-latex/clusterplot-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clusterplot-1.pdf>
+[47]
+Overfull \hbox (87.62498pt too wide) in alignment at lines 1628--1638
+ [] [] [] [] [] [] [] [] 
+ []
+
+File: p2test_files/figure-latex/clusterplot2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clusterplot2-1.pdf>
+File: p2test_files/figure-latex/plotclst2 -1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/plotclst2 -1.pdf>
+
+
+[48]
+File: p2test_files/figure-latex/clustloc-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clustloc-1.pdf>
+File: p2test_files/figure-latex/clustloc-2.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clustloc-2.pdf>
+
+
+[49]
+File: p2test_files/figure-latex/clustloc-3.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clustloc-3.pdf>
+File: p2test_files/figure-latex/clustloc-4.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clustloc-4.pdf>
+
+
+[50]
+File: p2test_files/figure-latex/clustloc-5.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/clustloc-5.pdf>
+
+
+[51]
+File: p2test_files/figure-latex/silhouette-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/silhouette-1.pdf>
+File: p2test_files/figure-latex/silhouette2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/silhouette2-1.pdf>
+
+
+[52]
+File: p2test_files/figure-latex/pca-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/pca-1.pdf>
+
+
+[53]
+
+[54]
+File: p2test_files/figure-latex/pca3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/pca3-1.pdf>
+
+
+[55]
+File: p2test_files/figure-latex/pca3-2.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/pca3-2.pdf>
+
+
+[56]
+File: p2test_files/figure-latex/paralelismo-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/paralelismo-1.pdf>
+File: p2test_files/figure-latex/carga-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/carga-1.pdf>
+
+
+[57]
+File: p2test_files/figure-latex/contrib-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/contrib-1.pdf>
+
+
+[58]
+File: p2test_files/figure-latex/contrib2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/contrib2-1.pdf>
+File: p2test_files/figure-latex/contrib3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/contrib3-1.pdf>
+
+
+[59]
+
+[60]
+File: p2test_files/figure-latex/modeladounigraph-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladounigraph-1.pdf>
+
+
+[61]
+File: p2test_files/figure-latex/residuosuni2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/residuosuni2-1.pdf>
+Missing character: There is no ∩ (U+2229) in font [lmroman10-regular]:mapping=tex-text;!
+
+
+[62]
+File: p2test_files/figure-latex/residuosuni3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/residuosuni3-1.pdf>
+File: p2test_files/figure-latex/residuosuni4-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/residuosuni4-1.pdf>
+File: p2test_files/figure-latex/residuosuni5-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/residuosuni5-1.pdf>
+
+
+[63]
+File: p2test_files/figure-latex/preduni2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/preduni2-1.pdf>
+
+
+[64]
+
+[65] [66]
+File: p2test_files/figure-latex/multirlstp2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp2-1.pdf>
+
+
+[67]
+File: p2test_files/figure-latex/multirlstp4-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp4-1.pdf>
+[68] [69] [70] [71]
+File: p2test_files/figure-latex/multirlstp8-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp8-1.pdf>
+File: p2test_files/figure-latex/multirlstp9-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp9-1.pdf>
+
+
+[72]
+File: p2test_files/figure-latex/multirlstp10-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp10-1.pdf>
+
+
+[73]
+File: p2test_files/figure-latex/multirlstp13-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/multirlstp13-1.pdf>
+
+
+[74] [75]
+File: p2test_files/figure-latex/modeladoSTP6-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP6-1.pdf>
+
+
+[76]
+
+[77]
+File: p2test_files/figure-latex/modeladoSTP10-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP10-1.pdf>
+File: p2test_files/figure-latex/modeladoSTP12-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP12-1.pdf>
+
+
+[78] [79]
+
+[80]
+File: p2test_files/figure-latex/modeladoSTP16-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP16-1.pdf>
+File: p2test_files/figure-latex/modeladoSTP17-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP17-1.pdf>
+
+Overfull \hbox (139.24498pt too wide) in paragraph at lines 2926--2926
+[]\TU/lmtt/m/n/10 ## Call:  cv.glmnet(x = x_train, y = y_train, type.measure = "mse", nfolds = 10,      alpha = 1, standardize = TRUE)[] 
  []
 
 
 
-[34]
+[81]
 
-[35] (./p2test.aux)
+[82]
+File: p2test_files/figure-latex/modeladoSTP21-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP21-1.pdf>
+
+
+[83]
+File: p2test_files/figure-latex/modeladoSTP23-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/modeladoSTP23-1.pdf>
+
+
+[84]
+
+[85] (./p2test.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 19677 strings out of 475846
- 392986 string characters out of 5773211
- 949732 words of memory out of 5000000
- 42298 multiletter control sequences out of 15000+600000
+ 20354 strings out of 475846
+ 419044 string characters out of 5773211
+ 953773 words of memory out of 5000000
+ 42924 multiletter control sequences out of 15000+600000
  562517 words of font info for 68 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,8n,114p,405b,481s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,8n,114p,405b,485s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on p2test.pdf (35 pages).
+Output written on p2test.pdf (85 pages).

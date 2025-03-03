@@ -3,10 +3,10 @@ title: "Proyecto 2"
 author: "Rodrigo Mansilla, Javier Chen"
 date: "2025-02-25"
 output:
-  html_document:
-    df_print: paged
   pdf_document:
     latex_engine: xelatex
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
@@ -1708,6 +1708,11 @@ set.seed(123)
 k <- 3
 km_res <- kmeans(datos_scaled, centers = k, nstart = 25)
 
+km_summary <- data.frame(
+  Cluster = 1:k,
+  Size = km_res$size,
+  Tot_WithinSS = km_res$tot.withinss
+)
 
 
 
@@ -1740,7 +1745,7 @@ fviz_cluster(km_res, data = as.matrix(datos_scaled), ellipse.type = "convex",
 
 ### Agrupamiento con K=4
 
-```{r kmeans, echo=FALSE, warning=FALSE}
+```{r kmeans2, echo=FALSE, warning=FALSE}
 library(knitr)
 library(kableExtra)
 
@@ -1933,9 +1938,12 @@ En resumen, los datos sugieren que la estructura de los clusters no está fuerte
 
 ```{r pca, echo=FALSE, warning=FALSE}
 
+# Cargar el dataset de entrenamiento
+datostrain <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = FALSE)
+
 # Seleccionar las variables numéricas relevantes para PCA
 pca_vars <- c("SalePrice", "GrLivArea", "LotArea", "OverallQual", "YearBuilt", "TotalBsmtSF", "GarageArea")
-pca_data <- train_data %>% select(one_of(pca_vars)) %>% na.omit()
+pca_data <- datostrain %>% select(one_of(pca_vars)) %>% na.omit()
 
 # Escalar los datos
 pca_data_scaled <- scale(pca_data)
@@ -1943,9 +1951,8 @@ pca_data_scaled <- scale(pca_data)
 # Calcular y visualizar la matriz de correlación
 cor_matrix <- cor(pca_data_scaled)
 det_cor <- det(cor_matrix)
-cat("Determinante de la matriz de correlación:", round(det_cor, 5), "\n")
+cat("Determinante de la matriz de correlacion:", round(det_cor, 5), "\n")
 corrplot(cor_matrix, method = "color", addCoef.col = "black", number.cex = 0.7, tl.cex = 0.8)
-
 
 ```
 
@@ -1986,7 +1993,7 @@ kable(kmo_df, caption = "Índice de Kaiser-Meyer-Olkin (KMO) Global") %>%
 
 ### Test de esfericidad de Bartlett
 
-```{r kmo, echo = FALSE, warning = FALSE}
+```{r bartlett, echo = FALSE, warning = FALSE}
 library(psych)  # Cargar la librería necesaria
 
 # Seleccionar solo variables numéricas del dataset escalado
@@ -2148,7 +2155,7 @@ corrplot(var$cos2, is.corr = FALSE,
 
 # Modelado Predictivo (Regresión lineal)
 
-Separamos los datos en conjuntos de entrenamiento y testeo, y ajustamos un modelo de regresión lineal para predecir el precio de venta de las viviendas.
+Se separan los datos en conjuntos de entrenamiento y testeo,y se aplica un modelo de regresión lineal para predecir el precio de venta de las viviendas.
 
 ```{r modeladoSTP, echo=FALSE, warning=FALSE}
 
@@ -2182,11 +2189,13 @@ kable(tabla_filas, caption = "Número de filas en cada dataset")
 
 ## Modelo Univariado
 
-Trabajamos con la variable más correlacionada con el precio de venta: GrLivArea.
+Se trabaja con la variable más correlacionada con el precio de venta: GrLivArea.
 
 ```{r modeladoSTP3, echo=FALSE, warning=FALSE}
 library(broom)
 library(knitr)
+modelo_uni <- lm(SalePrice ~ GrLivArea, data = datostrain)
+
 tabla_modelo <- tidy(modelo_uni)
 kable(tabla_modelo, caption = "Resumen del Modelo Lineal")
 
@@ -2216,8 +2225,10 @@ La gráfica muestra una relación lineal positiva entre el área habitable y el 
 
 ```{r residuosuni, echo=FALSE, warning=FALSE}
 
-library(knitr)
+# Generar predicciones para el conjunto de entrenamiento (o el que corresponda)
+predL <- predict(modelo_uni, newdata = datostrain)
 
+library(knitr)
 # Tabla de las primeras predicciones
 tabla_pred <- data.frame(Predicciones = head(predL))
 kable(tabla_pred, caption = "Primeras Predicciones")
@@ -2226,8 +2237,9 @@ kable(tabla_pred, caption = "Primeras Predicciones")
 tabla_res <- data.frame(Residuales = head(modelo_uni$residuals))
 kable(tabla_res, caption = "Primeros Residuales")
 
-# Imprimir el número total de predicciones
+# Número total de predicciones
 kable(data.frame(Total = length(predL)), caption = "Número total de predicciones")
+
 ```
 
 ```{r residuosuni2, echo=FALSE, warning=FALSE}
@@ -2237,8 +2249,6 @@ plot(modelo_uni)
 par(mfrow = c(1, 1))
 
 ```
-
-### 
 
 -   **Residuals vs Fitted**:
 
@@ -2306,13 +2316,10 @@ kable(tabla_lillie, caption = "Resultado del Test de Lilliefors")
 ```{r preduni, echo=FALSE, warning=FALSE}
 library(knitr)
 
-# Mostrar las primeras predicciones
-tabla_pred_uni <- data.frame(Predicciones = head(pred_uni))
-kable(tabla_pred_uni, caption = "Primeras Predicciones del Modelo Univariado")
-
-# Mostrar el RMSE del modelo
-tabla_rmse <- data.frame(Métrica = "RMSE", Valor = rmse_uni)
-kable(tabla_rmse, caption = "Métricas del Modelo Univariado")
+pred_uni <- predict(modelo_uni, newdata = datostest)
+head(pred_uni)
+rmse_uni <- RMSE(pred_uni, datostest$SalePrice)
+cat("RMSE del modelo univariado:", rmse_uni, "\n")
 
 
 ```
@@ -2357,30 +2364,706 @@ En suma, la **regresión univariada** SalePrice \~ GrLivArea **confirma** que el
 
 ## Modelo Multivariado (Todas las Variables numéricas)
 
+```{r modeladoSTP4, echo=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(caret)      # Para partición y evaluación
+library(car)        # Para calcular VIF y detectar multicolinealidad
+library(nortest)    # Para pruebas de normalidad de residuos
+library(glmnet)     # Para Ridge y Lasso
+library(tidyr)      # Para reorganizar datos (si es necesario)
+library(GGally)     # Para matriz de dispersión
+library(corrplot)
+library(tibble)
+
+
+```
+
 ### Selección de Variables
+
+```{r multirlstp, echo=FALSE, warning=FALSE}
+datostrain <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = FALSE)
+datostest <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = FALSE)
+
+
+names(datostrain) <- make.names(names(datostrain))
+names(datostest)  <- make.names(names(datostest))
+
+# 2. Seleccionar todas las variables numéricas en cada conjunto
+num_vars_train <- names(datostrain)[sapply(datostrain, is.numeric)]
+num_vars_test  <- names(datostest)[sapply(datostest, is.numeric)]
+
+```
+
+Se seleccionan todas las vaariables numericas del dataset. Sin embargo, por motivos de visualizacion se escojen aquellas con mayor correlación para el calculo de la mátriz de correlación variables que presentan la mayor relación de acuerdo a la mátriz de correlación.
+
+```{r multirlstp2, echo=FALSE, warning=FALSE}
+
+common_vars <- intersect(num_vars_train, num_vars_test)
+tabla_common <- data.frame(Variables = common_vars)
+library(knitr)
+kable(tabla_common, caption = "Variables numéricas comunes")
+
+if(!"SalePrice" %in% common_vars) {
+  stop("La variable 'SalePrice' no se encuentra en los datos numéricos comunes.")
+}
+vars_seleccionadas <-  c("SalePrice",   # Variable objetivo
+                         "GrLivArea", 
+                         "LotArea",
+                         "OverallQual",
+                         "YearBuilt",
+                         "TotalBsmtSF",
+                         "GarageArea")
+pairs(datostrain[, vars_seleccionadas], main = "Matriz de Dispersión Reducida")
+
+
+```
+
+```{r multirlstp4, echo=FALSE, warning=FALSE}
+
+matriz_corrpairs <- cor(datostrain[, vars_seleccionadas])
+matriz_corrpairs
+
+corrplot(matriz_corrpairs)
+
+
+```
+
+Definimos los predictores
+
+```{r multirlstp5, echo=FALSE, warning=FALSE}
+
+predictors <- setdiff(common_vars, "SalePrice")
+tabla_predictors <- data.frame(Predictor = predictors)
+library(knitr)
+kable(tabla_predictors, caption = "Predictores seleccionados")
+
+```
+
+```{r multirlstp6, echo=FALSE, warning=FALSE}
+# Definir la fórmula del modelo
+formula_numeric <- as.formula(paste("SalePrice ~", paste(predictors, collapse = " + ")))
+
+# Filtrar los conjuntos de datos para las variables de interés
+train_filtered <- datostrain[, c("SalePrice", predictors)]
+train_filtered <- train_filtered[complete.cases(train_filtered), ]
+test_filtered  <- datostest[, c("SalePrice", predictors)]
+test_filtered  <- test_filtered[complete.cases(test_filtered), ]
+
+# Convertir la fórmula a texto y mostrarla en una tabla
+formula_text <- deparse(formula_numeric)
+tabla_formula <- data.frame(Formula = formula_text)
+library(knitr)
+kable(tabla_formula, caption = "Fórmula del modelo")
+
+# Crear tabla con las dimensiones de los conjuntos filtrados
+tabla_dims <- data.frame(
+  Conjunto = c("train_filtered", "test_filtered"),
+  Filas = c(nrow(train_filtered), nrow(test_filtered)),
+  Columnas = c(ncol(train_filtered), ncol(test_filtered))
+)
+kable(tabla_dims, caption = "Dimensiones de los conjuntos filtrados")
+
+
+
+```
+
+```{r multirlstp7, echo=FALSE, warning=FALSE}
+
+library(broom)
+library(knitr)
+model_multi <- lm(SalePrice ~ ., data = train_filtered)
+
+tabla_model_multi <- tidy(model_multi)
+kable(tabla_model_multi, caption = "Resumen del Modelo Lineal Múltiple")
+
+```
 
 ### Analisis de Residuos
 
+```{r multirlstp8, echo=FALSE, warning=FALSE}
+
+
+par(mfrow = c(2, 2))
+plot(model_multi)
+par(mfrow = c(1, 1))
+```
+
+#### Histograma de Residuos
+
+```{r multirlstp9, echo=FALSE, warning=FALSE}
+hist(model_multi$residuals, breaks = 30, col = "lightblue", border = "black", main = "Histograma de Residuos", xlab = "Residuos")
+
+
+```
+
+#### Boxplot de Residuos
+
+```{r multirlstp10, echo=FALSE, warning=FALSE}
+
+boxplot(model_multi$residuals, col = "lightblue", border = "black", main = "Boxplot de Residuos")
+
+
+```
+
+### Pruaba de Normalidad
+
+```{r multirlstp11, echo=FALSE, warning=FALSE}
+lillie_result <- lillie.test(model_multi$residuals)
+print(lillie_result)
+
+```
+
 ### Predicción y Ecualización
+
+```{r multirlstp12, echo=FALSE, warning=FALSE}
+pred_test <- predict(model_multi, newdata = test_filtered)
+rmse_multi <- RMSE(pred_test, test_filtered$SalePrice)
+cat("RMSE del modelo multivariado en test:", rmse_multi, "\n")
+
+
+
+```
+
+```{r multirlstp13, echo=FALSE, warning=FALSE}
+plot(test_filtered$SalePrice, col = "blue")
+points(pred_test, col = "red")
+
+```
+
+```{r multirlstp14, echo=FALSE, warning=FALSE}
+resumen_diff_multi <- summary(test_filtered$SalePrice - pred_test)
+# Forzar nombres estándar si no están disponibles
+nombres_estandar <- c("Min", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max")
+tabla_resumen_multi <- data.frame(
+  Estadística = nombres_estandar,
+  Valor = as.numeric(resumen_diff_multi)
+)
+library(knitr)
+kable(tabla_resumen_multi, caption = "Resumen de la diferencia (SalePrice - pred_test)")
+
+
+
+```
 
 ### Análisis de Errores
 
-### Modelo Normalizado
+```{r multirlstp15, echo=FALSE, warning=FALSE}
+prediccion_train <- predict(model_multi, newdata = train_filtered)
+prediccion_test <- predict(model_multi, newdata = test_filtered)
 
-### Normalización de Variables
+train_mse <- mean((prediccion_train - train_filtered$SalePrice)^2)
+test_mse <- mean((prediccion_test - test_filtered$SalePrice)^2)
+
+tabla_mse <- data.frame(
+  Conjunto = c("Entrenamiento", "Prueba"),
+  MSE = c(train_mse, test_mse)
+)
+library(knitr)
+kable(tabla_mse, caption = "MSE en Entrenamiento y Prueba")
+
+```
+
+**Análisis del Modelo y Detección de Multicolinealidad**
+
+-   **Multicolinealidad:**\
+    Al ajustar el modelo completo se observa que algunas variables están fuertemente correlacionadas, lo que puede generar coeficientes inestables y altos errores estándar. La matriz de correlación y gráficos de dispersión confirman estas relaciones.
+
+-   **Variables Relevantes:**\
+    Mediante análisis de correlación y la significancia en el resumen del modelo, se identificaron aquellas variables que aportan de manera significativa . Sin embargo, la inclusión de todas puede introducir redundancia.
+
+**2. Adaptación del Modelo y Sobreajuste**
+
+-   **Ajuste al Dataset:**\
+    Aunque el modelo completo muestra un R² alto , el análisis de residuos evidencia patrones y falta de normalidad en los residuos, lo que sugiere que el modelo no captura toda la complejidad y podría estar sobreajustado.
+
+-   **Sobreajuste (Overfitting):**\
+    Se observa que el error de entrenamiento es significativamente menor que el error en el conjunto de prueba, lo que indica que el modelo completo podría estar ajustándose demasiado a los datos de entrenamiento.
+
+## Modelo Normalizado
+
+```{r modeladoSTP5, echo=FALSE, warning=FALSE}
+train_filtered_norm <- as.data.frame(scale(train_filtered))
+test_filtered_norm <- as.data.frame(scale(test_filtered))
+
+model_multi_norm <- lm(SalePrice ~ ., data = train_filtered_norm)
+library(broom)
+library(knitr)
+tabla_model_multi_norm <- tidy(model_multi_norm)
+kable(tabla_model_multi_norm, caption = "Resumen del Modelo Lineal Múltiple (Normalizado)")
+
+
+```
+
+```{r modeladoSTP6, echo=FALSE, warning=FALSE}
+par(mfrow = c(2, 2))
+plot(model_multi_norm)
+par(mfrow = c(1, 1))
+
+```
+
+Seleccionamos predictores
+
+```{r modeladoSTP7, echo=FALSE, warning=FALSE}
+
+
+library(broom)
+library(knitr)
+modelo_mult2  <- step(
+ object = lm(formula = SalePrice ~ ., data = train_filtered),
+ direction = "backward",
+ scope = list(upper = ~ ., lower = ~ 1),
+ trace = FALSE
+)
+tabla_modelo_mult2 <- tidy(modelo_mult2)
+kable(tabla_modelo_mult2, caption = "Resumen del Modelo Multivariado (Stepwise Backward)")
+
+```
 
 ### Test de Normalidad
 
+```{r modeladoSTP8, echo=FALSE, warning=FALSE}
+
+lillie.test(modelo_mult2$residuals)
+
+```
+
 ### Predicción y Ecualización
 
-### Análisis de Errores
+```{r modeladoSTP9, echo=FALSE, warning=FALSE}
+
+prediccion_train2 <- predict(modelo_mult2, newdata = train_filtered)
+prediccion_test2 <- predict(modelo_mult2, newdata = test_filtered)
+
+train_stepwise <- mean((prediccion_train2 - train_filtered$SalePrice)^2)
+test_stepwise_mse <- mean((prediccion_test2 - test_filtered$SalePrice)^2)
+
+
+tabla_stepwise <- data.frame(
+  Conjunto = c("Entrenamiento", "Prueba"),
+  MSE = c(train_stepwise, test_stepwise_mse)
+)
+library(knitr)
+kable(tabla_stepwise, caption = "MSE del Modelo Stepwise Backward en Entrenamiento y Prueba")
+
+
+```
+
+```{r modeladoSTP10, echo=FALSE, warning=FALSE}
+plot(test_filtered$SalePrice, col = "blue")
+points(prediccion_test2, col = "red")
+
+
+```
+
+-   **Motivación y Efecto de la Normalización:**
+
+    -   Todas las variables se escalan a media 0 y desviación estándar 1.
+
+    -   Los coeficientes se vuelven directamente comparables: un coeficiente más grande indica mayor impacto relativo sobre el precio.
+
+-   **Principales Hallazgos en los Coeficientes:**
+
+    -   Variables como *OverallQual*, *OverallCond*, *YearBuilt*, *LotArea* y *TotalBsmtSF* muestran coeficientes positivos y muy significativos.
+
+    -   Muchas otras variables presentan p-valores altos, sugiriendo que su aporte es menor o está solapado por predictores más fuertes.
+
+-   **Residuos y Ajuste del Modelo:**
+
+    -   Los gráficos de diagnóstico (Residuals vs Fitted, Q-Q) revelan patrones y desviaciones en las colas, indicando no normalidad de residuos.
+
+    -   El test de Lilliefors confirma p-valor cercano a 0, por lo que se rechaza la hipótesis de normalidad.
+
+    -   La alta dimensionalidad y varias variables con poca significancia sugieren posible sobreajuste.
+
+-   **Conclusión:**
+
+    -   El modelo normalizado facilita comparar la importancia relativa de cada predictor, pero no resuelve problemas de residuos ni sobreajuste.
 
 ## Modelos Regularizados
 
 ## Modelo Ridge
 
+Se crean las matrices de entrenamiento y testeo, y y se ajusta un modelo de regresión Ridge. La regularización de los coeficientes evita el sobreajuste y mejorar la generalización del modelo.
+
+```{r modeladoSTP10, echo=FALSE, warning=FALSE}
+
+x_train <- model.matrix(SalePrice ~ ., data = train_filtered)[, -1]
+y_train <- train_filtered$SalePrice
+
+x_test <- model.matrix(SalePrice ~ ., data = test_filtered)[, -1]
+y_test <- test_filtered$SalePrice
+model_ridge <- glmnet(x = x_train, y = y_train, alpha = 0, nlambda = 100, standardize = TRUE)
+regularization <- model_ridge$beta %>% as.matrix() %>% t() %>% as.tibble() %>% mutate(lambda = model_ridge$lambda)
+regularization  <- regularization %>% pivot_longer(cols = -lambda, names_to = "predictor", values_to = "coefficients")
+
+
+regularization %>% 
+  ggplot(aes(x = lambda, y = coefficients, color = predictor)) +
+  geom_line() +
+  labs(title = "Coeficientes del modelo en función de la regularización") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+```
+
+Se determina el valor óptimo de lambda mediante validación cruzada y se ajusta el modelo final.
+
+```{r modeladoSTP11, echo=FALSE, warning=FALSE}
+cv_error <- cv.glmnet(
+  x      = x_train,
+  y      = y_train,
+  alpha  = 0,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+# imprimir el valor óptimo de lambda con kable
+tabla_lambda <- data.frame(
+  Lambda_Optimo = cv_error$lambda.min,
+  MSE_CV = cv_error$cvm[cv_error$lambda == cv_error$lambda.min]
+)
+kable(tabla_lambda, caption = "Valor óptimo de lambda y MSE en validación cruzada")
+```
+
+```{r modeladoSTP12, echo=FALSE, warning=FALSE}
+
+
+plot(cv_error)
+
+```
+
+Se establece un modelo con el valor óptimo de lambda y se evalua su desempeño en el conjunto de testeo.
+
+```{r modeladoSTP13, echo=FALSE, warning=FALSE}
+model3 <- glmnet(x = x_train, y = y_train, alpha = 0, lambda = cv_error$lambda.1se, standardize = TRUE)
+
+
+```
+
+```{r modeladoSTP14, echo=FALSE, warning=FALSE}
+# Convertir los coeficientes a una matriz densa y luego a data.frame
+coef_model3 <- coef(model3)
+tabla_coef <- as.data.frame(as.matrix(coef_model3))
+tabla_coef$Coeficiente <- rownames(tabla_coef)
+colnames(tabla_coef)[1] <- "Valor"
+tabla_coef <- tabla_coef[, c("Coeficiente", "Valor")]
+
+library(knitr)
+kable(tabla_coef, caption = "Coeficientes del Modelo 3")
+
+
+```
+
+Se observan las predicciones y se calcula el error cuadrático medio en el conjunto de testeo.
+
+```{r modeladoSTP15, echo=FALSE, warning=FALSE}
+## Grafica de predicciones
+
+pred_train_model3 <- predict(model3,newx = x_train)
+plot(test_filtered$SalePrice, col = "blue")
+points(pred_train_model3, col = "red")
+
+```
+
+```{r modeladoSTP15, echo=FALSE, warning=FALSE}
+
+pred_train_model3 <- predict(model3,newx = x_train)
+
+pred_test_model3 <- predict(model3,newx = x_test)
+
+
+test_mse_model3 <- mean((pred_test_model3 - y_test)^2)
+cat("MSE en prueba:", test_mse_model3, "\n")
+
+cat("MSE en entrenamiento:", mean((pred_train_model3 - y_train)^2), "\n")
+
+
+```
+
+-   Elección de lambda Óptimo
+
+    -   Se aplicó validación cruzada para determinar el valor de 0.0756, que balancea la complejidad del modelo (penalizando los coeficientes) y su capacidad de predicción.
+
+-   Coeficientes Suavizados
+
+    -   A diferencia del modelo OLS, Ridge reduce la magnitud de todos los coeficientes sin llegar a anularlos.
+
+    -   Variables importantes (e.g., *OverallQual*, *GrLivArea*, *TotalArea*, *TotalBsmtSF*) conservan coeficientes positivos y relativamente altos, pero atenuados frente a un modelo sin penalización.
+
+-   **Desempeño y Generalización**
+
+    -   **MSE de Entrenamiento**: \~0.1225
+
+    -   **MSE de Prueba**: \~0.1203
+
+    -   La similitud entre ambos errores indica que el modelo **no está sobreajustado**, y la regularización contribuye a una mejor estabilidad frente a multicolinealidad.
+
+-   **Conclusiones**
+
+    -   Ridge reduce la varianza y mejora la robustez del modelo al encoger los coeficientes.
+
+    -   El error de prueba y entrenamiento son cercanos, lo que evidencia una buena generalización.
+
 ## Modelo Lasso
+
+Se construye un modelo Lasso y ajustamos los coeficientes mediante validación cruzada.
+
+```{r modeladoSTP16, echo=FALSE, warning=FALSE}
+
+model_lasso <- glmnet(x = x_train, y = y_train, alpha = 1, nlambda = 100, standardize = TRUE)
+
+regularization_lasso <- model_lasso$beta %>% as.matrix() %>% t() %>% as.tibble() %>% mutate(lambda = model_lasso$lambda)
+
+regularization_lasso  <- regularization_lasso %>% pivot_longer(cols = !lambda, names_to = "predictor", values_to = "coefficients")
+
+
+regularization_lasso %>% 
+  ggplot(aes(x = lambda, y = coefficients, color = predictor)) +
+  geom_line() +
+  labs(title = "Coeficientes del modelo en función de la regularización") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
+
+```
+
+Se determina el valor óptimo de lambda mediante validación cruzada y ajustamos el modelo final.
+
+```{r modeladoSTP17, echo=FALSE, warning=FALSE}
+cv_error_lasso <- cv.glmnet(
+  x      = x_train,
+  y      = y_train,
+  alpha  = 1,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
+
+plot(cv_error_lasso)
+
+
+```
+
+El valor óptimo de lambda y el error cuadrático medio en validación cruzada son:
+
+```{r modeladoSTP18, echo=FALSE, warning=FALSE}
+print(cv_error_lasso)
+
+
+```
+
+Ahora ajustamos el modelo con el valor óptimo de lambda y evaluamos su desempeño en el conjunto de testeo.
+
+```{r modeladoSTP19, echo=FALSE, warning=FALSE}
+model_lasso <- glmnet(x = x_train, y = y_train, alpha = 1, lambda = cv_error_lasso$lambda.1se, standardize = TRUE)
+
+coef(model_lasso)
+
+```
+
+Se determinan los predictores con los coeficientes no nulos y evaluamos el modelo en el conjunto de testeo.
+
+Se obtienen 18 predictores con coeficientes no nulos.
+
+El error cuadrático medio en el conjunto de testeo es de:
+
+```{r modeladoSTP20, echo=FALSE, warning=FALSE}
+
+pred_train_model_lasso <- predict(model_lasso,newx = x_train)
+
+pred_test_model_lasso <- predict(model_lasso,newx = x_test)
+
+
+test_mse_model_lasso <- mean((pred_test_model_lasso - y_test)^2)
+
+train_mse_model_lasso <- mean((pred_train_model_lasso - y_train)^2)
+
+cat("MSE en prueba:", test_mse_model_lasso, "\n")
+
+cat("MSE en entrenamiento:", train_mse_model_lasso, "\n")
+
+```
+
+```{r modeladoplt1, echo=FALSE, warning=FALSE}
+plot(test_filtered$SalePrice, col = "blue")
+points(pred_test_model_lasso, col = "red")
+
+
+
+```
+
+**Análisis del Modelo Lasso**
+
+-   Elección del lambda Óptimo
+
+    -   Se usó validación cruzada (10 folds) para estimar el error cuadrático medio (MSE) a diferentes valores de lambda
+
+    -   De los resultados, se destacan dos valores de lambda:
+
+        -   lambda minimo​: aquel que minimiza el MSE en validación cruzada (\~0.00869).
+
+        -   lambda1se​: el más sencillo dentro de 1 desviación estándar del mínimo (\~0.03851).
+
+-   **Coeficientes No Nulos**
+
+    -   Lasso tiende a poner en cero muchos coeficientes, quedándose con un subconjunto reducido de predictores (18 en este caso).
+
+    -   Entre las variables seleccionadas sobresalen:
+
+        -   **OverallQual** (coef. \~0.24), **GrLivArea** (\~0.26), **TotalArea** (\~0.17) y **KitchenQual** (\~0.05).
+
+        -   Algunas variables importantes en OLS (como *TotalBsmtSF* o *GarageArea*) quedan en cero si su aporte marginal no supera la penalización.
+
+-   **Desempeño Predictivo**
+
+    -   **MSE en Entrenamiento**: \~0.1082
+
+    -   **MSE en Prueba**: \~0.1080
+
+    -   La cercanía de estos errores indica buena generalización y ausencia de sobreajuste significativo.
+
+    -   El modelo final es más simple, pues sólo 18 predictores quedan con coeficientes distintos de cero.
+
+-   **Conclusiones**
+
+    -   Reduce la complejidad del modelo, dejando un número manejable de variables relevantes.
+
+    -   Error de prueba y entrenamiento similares, lo que evidencia buena capacidad de generalización.
+
+    -   Algunas variables potencialmente útiles pueden ser forzadas a cero si su efecto es relativamente menor frente a la penalización.
+
+    -   Puede omitirse información marginalmente significativa.
 
 ## Comparación de Modelos
 
-# Discusión y Conclusiones
+```{r modeladoSTP21, echo=FALSE, warning=FALSE}
+
+modelos <- c( "Multivariado", "Multivariado Normalizado", "Multivariado Stepwise", "Ridge", "Lasso")
+mse <- c( test_mse, test_mse, test_stepwise_mse, test_mse_model3, test_mse_model_lasso)
+ggplot(data = data.frame(modelos, mse), aes(x = modelos, y = mse)) +
+  geom_col(fill = "lightblue", color = "black") +
+  geom_text(aes(label = round(mse, 2)), vjust = -0.5) +
+  labs(title = "Comparación de Modelos", x = "Modelo", y = "MSE") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+Calculo de AIC y BIC para los modelos
+
+```{r modeladoSTP22, echo=FALSE, warning=FALSE}
+
+glmnet_cv_aicc <- function(fit) {
+  # 'fit' es el objeto glmnet ajustado (por ejemplo, model3 o model_lasso)
+  # tLL: diferencia entre la nula y la deviance actual
+  tLL <- fit$nulldev - deviance(fit)
+  # k: número de predictores en cada lambda (vector)
+  k <- fit$df
+  # n: número de observaciones
+  n <- fit$nobs
+  
+  # AICc para cada lambda
+  AICc <- -tLL + 2 * k + (2 * k * (k + 1)) / (n - k - 1)
+  
+  # BIC para cada lambda
+  BIC <- log(n) * k - tLL
+  
+  # Retornar como lista
+  list(AICc = AICc, BIC = BIC)
+}
+
+##################################################
+# 2. Calcular AIC y BIC para el modelo lineal
+##################################################
+aic_linear <- AIC(model_multi)
+bic_linear <- BIC(model_multi)
+
+#aic stepwise
+
+aic_stepwise <- AIC(modelo_mult2)
+bic_stepwise <- BIC(modelo_mult2)
+
+
+##################################################
+# 3. Calcular AICc y BIC para Ridge y Lasso
+##################################################
+# Nota: glmnet produce un vector de lambdas. 
+# La función glmnet_cv_aicc() devuelve un vector de AICc y BIC 
+# para cada lambda en 'fit$lambda'.
+
+aic_bic_ridge <- glmnet_cv_aicc(model3)     # model3 es tu modelo Ridge
+aic_bic_lasso <- glmnet_cv_aicc(model_lasso) # model_lasso es tu modelo Lasso
+
+# Si deseas elegir un lambda en particular (por ejemplo, el lambda.1se),
+# convendría extraer la posición del lambda en 'model3$lambda' y tomar
+# la AICc/BIC correspondiente.
+
+# Por ejemplo, si ya usaste 'model3 <- glmnet(..., lambda = cv_error$lambda.1se)',
+# 'model3$lambda' es un solo valor. 
+# Si, en cambio, usaste nlambda = 100, tendrás 100 lambdas.
+
+# Supongamos que en 'model3' solo hay un lambda. 
+# Entonces aic_bic_ridge$AICc y aic_bic_ridge$BIC serán vectores de longitud 1 (o más).
+# Toma el primer valor si es uno solo:
+ridge_aicc <- aic_bic_ridge$AICc[1]
+ridge_bic  <- aic_bic_ridge$BIC[1]
+
+lasso_aicc <- aic_bic_lasso$AICc[1]
+lasso_bic  <- aic_bic_lasso$BIC[1]
+
+##################################################
+# 4. Crear un data frame con la comparación
+##################################################
+dfMetricas <- data.frame(
+  Modelo = c("Lineal Múltiple", "Stepwise", "Ridge", "Lasso"),
+  AIC_or_AICc = c(aic_linear, aic_stepwise, ridge_aicc, lasso_aicc),
+  BIC = c(bic_linear, bic_stepwise, ridge_bic, lasso_bic)
+)
+
+
+dfMetricas
+
+```
+
+-   **Modelo Stepwise**
+
+    -   **Ventaja:** El MSE más bajo (0.09) en el conjunto de prueba.
+
+    -   **Inconveniente:** Su AIC/BIC no es tan bueno como el de los modelos regularizados (Ridge, Lasso).
+
+    -   **Uso recomendado:** Si la prioridad es la **precisión de predicción** y no se penaliza tanto la complejidad.
+
+-   **Modelo Lasso**
+
+    -   **Ventaja:** Logra un MSE razonablemente bajo (0.11) y la mejor puntuación en AIC/BIC. Además, selecciona un número reducido de variables.
+
+    -   **Uso recomendado:** Cuando se busca simplicidad y un buen balance entre ajuste y complejidad según criterios de información.
+
+-   **Modelo Ridge**
+
+    -   **Ventaja:** Estabiliza coeficientes frente a multicolinealidad, con MSE de 0.12.
+
+    -   **Inconveniente:** No alcanza ni el MSE más bajo ni el mejor AIC/BIC.
+
+    -   **Uso recomendado:** Situaciones con alta correlación entre predictores donde se desee mantener **todos** los coeficientes.
+
+-   **Modelo OLS Completo y Normalizado**
+
+    -   Ambos tienen MSE \~0.10, relativamente buenos, pero un AIC/BIC elevado , lo que sugiere mayor complejidad de la necesaria y potencial riesgo de sobreajuste.
+
+Por ende en el caso de la predicción de precios de casas en el mercado inmobiliario tanto los modelos regularizados y la selección de variables pueden llegar a brindar el equilibrio necesario entre la calidad de interpretar con precisión. En este caso, se usa la predicción del modelo Stepwise dado que fue el que tuvo un mejor desempeño en comparación a los demas.
+
+```{r modeladoSTP23, echo=FALSE, warning=FALSE}
+
+
+plot(test_filtered$SalePrice, col = "blue",main = "Predicciones vs valores reales")
+points(prediccion_test2, col = "red")
+legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pch = 1)
+
+
+summary
+```

@@ -287,6 +287,7 @@ cv_error_lasso <- cv.glmnet(
 )
 
 plot(cv_error_lasso)
+print(cv_error_lasso)
 
 
 model_lasso <- glmnet(x = x_train, y = y_train, alpha = 1, lambda = cv_error_lasso$lambda.1se, standardize = TRUE)
