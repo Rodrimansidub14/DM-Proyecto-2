@@ -3,10 +3,13 @@ title: "Proyecto 2"
 author: "Rodrigo Mansilla, Javier Chen"
 date: "2025-02-25"
 output:
-  pdf_document:
-    latex_engine: xelatex
   html_document:
     df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE , echo = FALSE, warning = FALSE}
@@ -15,7 +18,9 @@ library(dplyr)
 library(ggplot2)
 library(rpart)
 library(rpart.plot)
+library(nortest)
 library(caret)
+library(car)     
 library(randomForest)
 knitr::opts_chunk$set(
 	fig.align = "center",
@@ -30,7 +35,6 @@ knitr::opts_chunk$set(
 
 ```
 
-
 # Introducción
 
 Breve introducción del proyecto y objetivos.
@@ -39,223 +43,421 @@ Breve introducción del proyecto y objetivos.
 
 ## Carga de datos
 
-```{r}
-# Función para ajustar niveles en datos de prueba según datos de entrenamiento
-ajustar_niveles <- function(train, test) {
-  for (col in names(train)) {
-    if (is.factor(train[[col]])) {
-      niveles_train <- levels(train[[col]])
-      test[[col]] <- factor(test[[col]], levels = niveles_train)
-      test[[col]][is.na(test[[col]])] <- niveles_train[which.max(table(train[[col]]))]
-    }
-  }
-  return(test)
-}
-# Convertir caracteres a factores en train y test
-for (col in names(train)){
-  if(is.character(train[[col]])){
-    train[[col]] <- as.factor(train[[col]])
-    test[[col]]  <- as.factor(test[[col]])
-  }
-}
+```{r adjs}
+# Cargar datos preprocesados (los mismos usados para regresión lineal)
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
 
-# Aplicar la función de ajuste
+cat("Dimensiones originales de train:", dim(train_data), "\n")
+cat("Dimensiones originales de test:", dim(test_data), "\n")
 
-train <- train %>% drop_na()
-test  <- ajustar_niveles(train, test)
+# Para asegurar consistencia: ajustar niveles de variables categóricas problemáticas
+test_data$Condition2 <- factor(test_data$Condition2, levels = levels(train_data$Condition2))
+test_data$RoofMatl   <- factor(test_data$RoofMatl,   levels = levels(train_data$RoofMatl))
 
-train <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv")
-test <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv")
-
-cat("Dimensiones train:", dim(train), "\n")
-cat("Dimensiones test:", dim(test), "\n")
+# ----------------------------
+# Paso 1.1. Filtrar únicamente filas completas (sin NA)
+# ----------------------------
+train_data <- train_data[complete.cases(train_data), ]
+test_data  <- test_data[complete.cases(test_data), ]
+cat("Dimensiones de train (sin NA):", dim(train_data), "\n")
+cat("Dimensiones de test (sin NA):", dim(test_data), "\n")
 
 
-```
 
-## Ajuste de Factores
-
-Función para ajustar los factores y prevenir errores en las predicciones.
-
-```{r}
-ajustar_factores <- function(train, test) {
-  columnas <- names(train)[sapply(train, is.factor)]
-  for (col in columnas) {
-    if (col %in% colnames(test)) {
-      test[[col]] <- factor(test[[col]], levels = levels(train[[col]]))
-      test[[col]][is.na(test[[col]])] <- levels(train[[col]])[which.max(table(train[[col]]))]
-    }
-  }
-  return(test)
-}
-
-# Aplicación
-train[] <- lapply(train, function(x) if(is.character(x)) as.factor(x) else x)
-test[] <- lapply(test, function(x) if(is.character(x)) as.factor(x) else x)
-
-test <- ajustar_factores(train, test)
-
-test_resp <- test$SalePrice
-test <- NULL
-```
-
-# Exploración inicial de los datos
-
-```{r}
-dim(train)
-dim(test)
-summary(train)
-```
-
-## Árboles de Decisión
-
-### Árbol de regresión
-
-```{r tree1, echo = FALSE, warning = FALSE}}
-library(rpart)
-library(rpart.plot)
-
-modelo_arbol <- rpart(SalePrice ~ ., data = train)
-rpart.plot(modelo_arbol)
-```
-
-Se determinan las variables más importantes para el modelo. 
-#### Predicción con el modelo de árbol de regresión con parámetros por defecto
-
-```{r pred1 , echo = FALSE, warning = FALSE}
-# 1. Ajustar niveles de variables categóricas
+# ----------------------------
+# Paso 3. Preprocesamiento extra: ajustar niveles y escalar variables
+# ----------------------------
+# Ajustar niveles de variables categóricas en el conjunto de prueba para que coincidan con el de entrenamiento
 factor_vars <- names(train_data)[sapply(train_data, is.factor)]
 for (var in factor_vars) {
   if (var %in% names(test_data)) {
-    # Si en test aparecen niveles nuevos, estos se convertirán en NA
     test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
   }
 }
+```
 
-# 2. Estandarización de variables numéricas
-num_vars <- names(train_data)[sapply(train_data, is.numeric)]
-for (var in num_vars) {
-  media <- mean(train_data[[var]], na.rm = TRUE)
-  sd_val <- sd(train_data[[var]], na.rm = TRUE)
-  # Estandarizamos el conjunto de entrenamiento
-  train_data[[var]] <- (train_data[[var]] - media) / sd_val
-  # Estandarizamos el conjunto de prueba usando la media y sd del entrenamiento
-  test_data[[var]] <- (test_data[[var]] - media) / sd_val
-}
 
-# Ahora ya se pueden realizar las predicciones sin error
+
+
+## Árboles de Decisión
+
+### Árbol de regresión parametrizado por defecto
+
+```{r tree1, echo = FALSE, warning = FALSE}
+# ----------------------------
+# Paso 2. Elaborar un árbol de regresión (modelo base) para predecir SalePrice
+# ----------------------------
+# Se utiliza el método "anova" para regresión
+modelo_reg_base <- rpart(SalePrice ~ ., data = train_data, method = "anova")
+rpart.plot(modelo_reg_base, main = "Arbol de Regresion: Modelo Base")
+```
+
+Se determinan las variables más importantes para el modelo.
+
+### Predicción con el modelo de árbol base
+
+#### Datos de Prueba
+
+```{r teetpredbase , echo = FALSE, warning = FALSE}
 pred_reg_test <- predict(modelo_reg_base, newdata = test_data)
-rmse_reg_test <- RMSE(pred_reg_test, test_data$SalePrice)
-mse_reg_test <- mean((pred_reg_test - test_data$SalePrice)^2)
-cat("RMSE del Arbol de Regresion (Modelo Base):", rmse_reg_test, "\n")
-cat("MSE del Arbol de Regresion (Modelo Base):", mse_reg_test, "\n")
-pred_reg_train <- predict(modelo_reg_base, newdata = train_data)
-rmse_reg_train <- RMSE(pred_reg_train, train_data$SalePrice)
-cat("RMSE del Arbol de Regresion (Modelo Base) en entrenamiento:", rmse_reg_train, "\n")
-mse_reg_train <- mean((pred_reg_train - train_data$SalePrice)^2)
-cat("MSE del Arbol de Regresion (Modelo Base) en entrenamiento:", mse_reg_train, "\n")
+rmse_reg_test <- RMSE(pred_reg_test,test_data$SalePrice)
+mse_reg_test  <- mean((pred_reg_test - test_data$SalePrice)^2)
+cat("RMSE del Árbol de Regresión (Modelo Base):", rmse_reg_test, "\n")
+cat("MSE del Árbol de Regresión (Modelo Base):", mse_reg_test, "\n")
 
 ```
 
+Estos valores son los errores cuadráticos medios y las raíces de los
+errores cuadráticos medios para el modelo de árbol de regresión con
+parámetros por defecto.
+
+#### Datos de Prueba
+
+```{r trainpredbase, echo = FALSE, warning = FALSE}
+
+pred_reg_train <- predict(modelo_reg_base, newdata = train_data)
+rmse_reg_train <- RMSE(pred_reg_train, train_data$SalePrice)
+mse_reg_train  <- mean((pred_reg_train - train_data$SalePrice)^2)
+cat("RMSE en entrenamiento (Modelo Base):", rmse_reg_train, "\n")
+cat("MSE en entrenamiento (Modelo Base):", mse_reg_train, "\n")
+
+```
+
+#### Grafico de Predicciones vs Real
+
 ```{r predgraph1, echo = FALSE, warning = FALSE}
-
-
-plot(test_data$SalePrice, col = "blue",main = "Prediccion vs Real")
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo Base)",
+     xlab = "Indice", ylab = "SalePrice")
 points(pred_reg_test, col = "red")
 legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
 
+
+
+
+
+
 ```
+
 ### Árbol de Regresión Tuned
 
-```{r}
-controlcv <- trainControl(method = "cv", number = 10)
-profundidades <- expand.grid(maxdepth = 2:10)
+### Modelos de Validación Cruzada
 
-modelo_arbol_tuned <- train(SalePrice ~ ., data = train,
-                            method = "rpart2",
-                            tuneGrid = profundidades,
-                            trControl = controlcv,
-                            metric = "RMSE")
+```{r tuned1, echo = FALSE, warning = FALSE}
+train_data <- na.omit(train_data)
 
-rpart.plot(modelo_arbol_tuned$finalModel)
-modelo_arbol_tuned$bestTune
+# Definir control de validación cruzada
+control_cv <- trainControl(method = "cv", number = 15)
 
-# Predicción tuned
-y_pred_tuned <- predict(modelo_arbol_tuned, test)
-RMSE_tuned <- caret::RMSE(y_pred_tuned, test$SalePrice)
-cat("RMSE Árbol Regresión Tuned:", RMSE_tuned, "\n")
+# Entrenar modelo con caret usando rpart
+modelo_reg_cv <- caret::train(SalePrice ~ ., 
+                              data = train_data, 
+                              method = "rpart", 
+                              trControl = control_cv)
+print(modelo_reg_cv)
+rpart.plot(modelo_reg_cv$finalModel, main = "Arbol de Regresion Tuned con CV")
 ```
 
-## Clasificación por terciles de precios
+### Predicciones y Evaluación
 
-```{r}
-quantiles <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
-train$PrecioCat <- cut(train$SalePrice, breaks = quantiles,
-                       labels = c("Economica", "Intermedia", "Cara"), include.lowest = TRUE)
+#### Datos de Prueba
 
-test$PrecioCat <- cut(test$SalePrice, breaks = quantiles,
-                      labels = c("Economica", "Intermedia", "Cara"),
-                      include.lowest = TRUE)
+```{r pred2TEST, echo = FALSE, warning = FALSE}
+
+pred_reg_cv_test <- predict(modelo_reg_cv, newdata = test_data)
+rmse_reg_cv_test <- RMSE(pred_reg_cv_test, test_data$SalePrice)
+cat("RMSE del Arbol de Regresion (Modelo CV):", rmse_reg_cv_test, "\n")
+
+
+
 ```
 
-### Árbol de Clasificación
+#### Datos de entrenamiento
 
-```{r}
-modelo_clas <- rpart(PrecioCat ~ . -SalePrice, data = train, method = "class")
-rpart.plot(modelo_clas)
+```{r pred2TRAIN, echo = FALSE, warning = FALSE}
+pred_reg_cv_train <- predict(modelo_reg_cv, newdata = train_data)
+rmse_reg_cv_train <- RMSE(pred_reg_cv_train, train_data$SalePrice)
+cat("RMSE en entrenamiento (Modelo CV):", rmse_reg_cv_train, "\n")
 
-# Evaluación
-pred_clas <- predict(modelo_clas, newdata = test, type = "class")
-confusionMatrix(pred_clas, test$PrecioCat)
+
 ```
 
-### Árbol de Clasificación Tuned
+El modelo con validacion cruzada parece hacerlo peor.
 
-```{r}
-modelo_clas_tuned <- train(PrecioCat ~ . -SalePrice, data = train,
-                           method = "rpart2",
-                           tuneGrid = profundidades,
-                           trControl = controlcv,
-                           metric = "Accuracy")
-rpart.plot(modelo_clas_tuned$finalModel)
+```{r predgraph2, echo = FALSE, warning = FALSE}
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo CV)",
+     xlab = "Indice", ylab = "SalePrice")
+points(pred_reg_cv_test, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
 
-# Evaluación
-pred_clas_tuned <- predict(modelo_clas_tuned, test)
-confusionMatrix(pred_clas_tuned, test$PrecioCat)
+
 ```
 
-### Random Forest
+### Árbol de Regresión con diferentes profundidades
 
-```{r}
-modelo_rf <- randomForest(PrecioCat ~ . -SalePrice, data = train)
+```{r tuned4, echo = FALSE, warning = FALSE}
 
-# Evaluación
-pred_rf <- predict(modelo_rf, test)
-confusionMatrix(pred_rf, test$PrecioCat)
+##parametrons a tunear
+modelLookup("rpart")
+modelLookup("rpart2")
+
 ```
 
-# Comparación de modelos
+```{r tuned5, echo = FALSE, warning = FALSE}
+# Modelos manuales con diferentes maxdepth
+# Modelo con maxdepth = 3
+# Define el grid de profundidad
+depths <- data.frame(maxdepth = c(1,3, 5, 7))
+modelo_reg_depth3 <- caret::train(SalePrice ~ ., 
+                                  data = train_data, 
+                                  method = "rpart2", 
+                                  trControl = control_cv,
+                                  metric = "RMSE", 
+                                  tuneGrid = depths)
 
-```{r}
-resultados <- data.frame(
-  Modelo = c("Regresión Lineal", "Árbol Regresión", "Árbol Tuned"),
-  RMSE = c(RMSE_lineal, RMSE_arbol, RMSE_tuned)
+plot(modelo_reg_depth3)
+
+```
+
+### Modelo Greedy
+
+#### Datos de Prueba
+
+```{r tuned6, echo = FALSE, warning = FALSE}
+
+modelo_reg3 <- predict(modelo_reg_depth3, newdata = test_data)
+rmse_reg3 <- RMSE(modelo_reg3, test_data$SalePrice)
+cat("RMSE del Arbol de Regresion (Modelo maxdepth = 3):", rmse_reg3, "\n")
+mse_reg3  <- mean((modelo_reg3 - test_data$SalePrice)^2)
+cat("MSE del Arbol de Regresion (Modelo maxdepth = 3):", mse_reg3, "\n")
+```
+
+#### Datos de entrenamiento
+
+```{r tuned7, echo = FALSE, warning = FALSE}
+pred_reg3_train <- predict(modelo_reg_depth3, newdata = train_data)
+rmse_reg3_train <- RMSE(pred_reg3_train, train_data$SalePrice)
+cat("RMSE en entrenamiento (Modelo maxdepth = 3):", rmse_reg3_train, "\n")
+mse_reg3_train  <- mean((pred_reg3_train - train_data$SalePrice)^2)
+cat("MSE en entrenamiento (Modelo maxdepth = 3):", mse_reg3_train, "\n")
+
+
+```
+
+#### Grafico de Predicciones vs Real
+
+```{r predgraph3, echo = FALSE, warning = FALSE}
+
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo maxdepth = 3)",
+     xlab = "Indice", ylab = "SalePrice")
+points(modelo_reg3, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+
+```
+
+### Comparación de Modelos
+
+```{r tuned8, echo = FALSE, warning = FALSE}
+
+comparemodels <- c(rmse_reg_test, rmse_reg_cv_test, rmse_reg3)
+names(comparemodels) <- c("Modelo Base", "Modelo CV", "Modelo maxdepth = 3")
+print(comparemodels)
+
+
+```
+
+## Comparación con modelos Lineales
+
+### Modelo Lineal Múltiple normalizado
+
+```{r tuned9, echo = FALSE, warning = FALSE}
+## Modelo Normalizado
+# 1. Estandarizar los nombres de columnas en ambos datasets
+names(train_data) <- make.names(names(train_data))
+names(test_data)  <- make.names(names(test_data))
+
+# 2. Seleccionar todas las variables numéricas en cada conjunto
+num_vars_train <- names(train_data)[sapply(train_data, is.numeric)]
+num_vars_test  <- names(test_data)[sapply(test_data, is.numeric)]
+
+# 3. Identificar las variables numéricas comunes a ambos datasets
+common_vars <- intersect(num_vars_train, num_vars_test)
+
+predictors <- setdiff(common_vars, "SalePrice")
+
+train_filtered <- train_data[, c("SalePrice", predictors)]
+train_filtered <- train_filtered[complete.cases(train_filtered), ]
+test_filtered  <- test_data[, c("SalePrice", predictors)]
+test_filtered  <- test_filtered[complete.cases(test_filtered), ]
+
+train_filtered_norm <- as.data.frame(scale(train_filtered))
+test_filtered_norm <- as.data.frame(scale(test_filtered))
+
+model_multi_norm <- lm(SalePrice ~ ., data = train_filtered_norm)
+library(broom)
+library(knitr)
+tabla_model_multi_norm <- tidy(model_multi_norm)
+kable(tabla_model_multi_norm, caption = "Resumen del Modelo Lineal Múltiple (Normalizado)")
+
+
+```
+
+```{r modeladoSTP6, echo=FALSE, warning=FALSE}
+par(mfrow = c(2, 2))
+plot(model_multi_norm)
+par(mfrow = c(1, 1))
+
+```
+
+Seleccionamos predictores
+
+```{r modeladoSTP7, echo=FALSE, warning=FALSE}
+
+
+library(broom)
+library(knitr)
+modelo_mult2  <- step(
+ object = lm(formula = SalePrice ~ ., data = train_filtered),
+ direction = "backward",
+ scope = list(upper = ~ ., lower = ~ 1),
+ trace = FALSE
 )
-kable(resultados, caption = "Comparación de Modelos de Regresión")
+tabla_modelo_mult2 <- tidy(modelo_mult2)
+kable(tabla_modelo_mult2, caption = "Resumen del Modelo Multivariado (Stepwise Backward)")
 
-# Comparativa Clasificación
-resultados_clas <- data.frame(
-  Modelo = c("Árbol Clasificación", "Árbol Clasificación Tuned", "Random Forest"),
-  Accuracy = c(
-    confusionMatrix(pred_clas, test$PrecioCat)$overall['Accuracy'],
-    confusionMatrix(pred_clas_tuned, test$PrecioCat)$overall['Accuracy'],
-    confusionMatrix(pred_rf, test$PrecioCat)$overall['Accuracy']
-  )
-)
-kable(resultados, caption = "Comparativa de Modelos de Clasificación")
 ```
 
-# Conclusiones
+### Test de Normalidad
+
+```{r modeladoSTP8, echo=FALSE, warning=FALSE}
+
+lillie.test(modelo_mult2$residuals)
+
+```
+
+### Predicción y Ecualización
+
+```{r modeladoSTP9, echo=FALSE, warning=FALSE}
+prediccion_train2 <- predict(modelo_mult2, newdata = train_filtered)
+prediccion_test2 <- predict(modelo_mult2, newdata = test_filtered)
+
+train_stepwise <- mean((prediccion_train2 - train_filtered$SalePrice)^2)
+test_stepwise_mse <- mean((prediccion_test2 - test_filtered$SalePrice)^2)
+test_stepwise_rmse <- sqrt(test_stepwise_mse)
+
+tabla_stepwise <- data.frame(
+  Conjunto = c("Entrenamiento", "Prueba"),
+  MSE = c(train_stepwise, test_stepwise_mse),
+  RMSE = c(sqrt(train_stepwise), sqrt(test_stepwise_mse))
+)
+library(knitr)
+kable(tabla_stepwise, caption = "MSE y RMSE del Modelo Stepwise Backward en Entrenamiento y Prueba")
+
+```
+
+```{r modeladoSTP10, echo=FALSE, warning=FALSE}
+plot(test_filtered$SalePrice, col = "blue")
+points(prediccion_test2, col = "red")
 
 
----
+```
+
+Previamente se obtuvo el modelo lineal normalizado el cual tuvo el
+rendimiento mas adecuado para el proyecto. Para el cual se encontraron
+los siguientes halazgos\>
+
+-   **Principales Hallazgos en los Coeficientes:**
+
+    -   Variables como *OverallQual*, *OverallCond*, *YearBuilt*,
+        *LotArea* y *TotalBsmtSF* muestran coeficientes positivos y muy
+        significativos.
+
+    -   Muchas otras variables presentan p-valores altos, sugiriendo que
+        su aporte es menor o está solapado por predictores más fuertes.
+
+-   **Residuos y Ajuste del Modelo:**
+
+    -   Los gráficos de diagnóstico (Residuals vs Fitted, Q-Q) revelan
+        patrones y desviaciones en las colas, indicando no normalidad de
+        residuos.
+
+    -   El test de Lilliefors confirma p-valor cercano a 0, por lo que
+        se rechaza la hipótesis de normalidad.
+
+    -   La alta dimensionalidad y varias variables con poca
+        significancia sugieren posible sobreajuste.
+        
+Analizando las metricas de cada uno se concluye que el árbol de regresión “base” supera al modelo lineal stepwise en el conjunto de prueba.
+
+## Variable Respuesta
+A partir de la variable SalePrice, podemos proponer:
+
+Económicas: casas con SalePrice < 130,000 (aprox. primer cuartil)
+Intermedias: casas con SalePrice >= 130,000 y < 215,000 (entre el primer y el tercer cuartil)
+Caras: casas con SalePrice >= 215,000 (por encima del tercer cuartil)
+
+```{r tuned11, echo = FALSE, warning = FALSE}
+
+
+
+# Tomar cuartiles como referencia (ejemplo)
+cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75))
+lower_threshold <- cuartiles[1]  # ~ primer cuartil
+upper_threshold <- cuartiles[2]  # ~ tercer cuartil
+
+cat("\nUmbrales elegidos para clasificar:\n")
+cat("Económicas: < ", lower_threshold, "\n")
+cat("Intermedias: [", lower_threshold, ", ", upper_threshold, ")\n")
+cat("Caras: >= ", upper_threshold, "\n\n")
+
+
+```
+
+```{r tuned12, echo = FALSE, warning = FALSE}
+# Crear la nueva variable categórica en train_data
+train_data$PriceCat <- case_when(
+  train_data$SalePrice < lower_threshold ~ "Economicas",
+  train_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+# Crear la misma variable en test_data
+test_data$PriceCat <- case_when(
+  test_data$SalePrice < lower_threshold ~ "Economicas",
+  test_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+test_data$PriceCat <- factor(test_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+cat("Distribución de PriceCat en train:\n")
+print(table(train_data$PriceCat))
+cat("\nDistribución de PriceCat en test:\n")
+print(table(test_data$PriceCat))
+
+```
+### Árbol de Clasificación para PriceCat
+```{r tuned13, echo = FALSE, warning = FALSE}
+formula_class <- PriceCat ~ . - SalePrice
+modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+rpart.plot(modelo_class_base, main = "Arbol de Clasificacion Base (PriceCat)")
+
+
+
+
+```
+### Metricas de Evaluación
+
+
+```{r tuned14, echo = FALSE, warning = FALSE}
+pred_class_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+conf_matrix_base <- confusionMatrix(pred_class_base, test_data$PriceCat)
+cat("Matriz de Confusión - Árbol de Clasificación (Modelo Base):\n")
+print(conf_matrix_base)
+
+```
+
+El árbol de clasificación tiene una precisión global del 71.75%, por lo que clasifica relativamente bien las casas en la categoría Caras (alta especificidad y buen valor predictivo) y en Intermedias, aunque la sensibilidad para Económicas es algo menor. Esto sugiere que, si bien el modelo es razonable, puede haber margen de mejora en distinguir las casas económicas, donde se cometen más errores.
+

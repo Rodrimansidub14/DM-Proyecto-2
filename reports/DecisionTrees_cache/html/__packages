@@ -1,0 +1,13 @@
+tidyr
+dplyr
+ggplot2
+rpart
+rpart.plot
+lattice
+caret
+randomForest
+broom
+knitr
+nortest
+carData
+car

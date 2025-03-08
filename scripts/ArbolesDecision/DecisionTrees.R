@@ -11,13 +11,14 @@
 
 
 # Cargar librerías necesarias
+library(GGally)
+library(nortest)
 library(dplyr)
-library(caret)
+library(tidyverse)
 library(rpart)
 library(rpart.plot)
-library(randomForest)
-library(ggplot2)
-
+library(caret)
+library(discretization)
 # Cargar datos preprocesados (los mismos usados para regresión lineal)
 train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
 test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
@@ -55,20 +56,13 @@ for (var in factor_vars) {
   }
 }
 
-# Escalar variables numéricas usando media y desviación estándar del conjunto de entrenamiento
-num_vars <- names(train_data)[sapply(train_data, is.numeric)]
-for (var in num_vars) {
-  media   <- mean(train_data[[var]], na.rm = TRUE)
-  sd_val  <- sd(train_data[[var]], na.rm = TRUE)
-  train_data[[var]] <- (train_data[[var]] - media) / sd_val
-  test_data[[var]]  <- (test_data[[var]] - media) / sd_val
-}
+
 
 # ----------------------------
 # Paso 3.1. Predicción y evaluación del modelo base de regresión
 # ----------------------------
 pred_reg_test <- predict(modelo_reg_base, newdata = test_data)
-rmse_reg_test <- RMSE(pred_reg_test, test_data$SalePrice)
+rmse_reg_test <- RMSE(pred_reg_test,test_data$SalePrice)
 mse_reg_test  <- mean((pred_reg_test - test_data$SalePrice)^2)
 cat("RMSE del Árbol de Regresión (Modelo Base):", rmse_reg_test, "\n")
 cat("MSE del Árbol de Regresión (Modelo Base):", mse_reg_test, "\n")
@@ -93,7 +87,7 @@ legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch
 train_data <- na.omit(train_data)
 
 # Definir control de validación cruzada
-control_cv <- trainControl(method = "cv", number = 10)
+control_cv <- trainControl(method = "cv", number = 15)
 
 # Entrenar modelo con caret usando rpart
 modelo_reg_cv <- caret::train(SalePrice ~ ., 
@@ -124,52 +118,103 @@ modelLookup("rpart2")
 
 # Modelos manuales con diferentes maxdepth
 # Modelo con maxdepth = 3
-depths <-data.frame(c(2, 4, 6,8,10))
-names(depths) <- "maxdepth"
-system.time(
-modelo_reg_depth3 <- 
+# Define el grid de profundidad
+depths <- data.frame(maxdepth = c(1,3, 5, 7))
+modelo_reg_depth3 <- caret::train(SalePrice ~ ., 
+                                  data = train_data, 
+                                  method = "rpart2", 
+                                  trControl = control_cv,
+                                  metric = "RMSE", 
+                                  tuneGrid = depths)
 
-------------------------
-# Paso 5. Comparar resultados del árbol de regresión con el modelo de regresión lineal previo
-# ----------------------------
-modelo_lineal <- lm(SalePrice ~ ., data = train_data)
-pred_lineal <- predict(modelo_lineal, newdata = test_data)
-rmse_lineal <- RMSE(pred_lineal, test_data$SalePrice)
-cat("RMSE del Modelo de Regresión Lineal:", rmse_lineal, "\n")
-# Se debe comparar y comentar cuál modelo predice mejor SalePrice
+plot(modelo_reg_depth3)
 
-# ----------------------------
-# Paso 6. Crear variable respuesta para clasificar las casas en Económicas, Intermedias o Caras
-# ----------------------------
-# Utilizamos los cuantiles de SalePrice del conjunto de entrenamiento para definir los límites
-q <- quantile(train_data$SalePrice, probs = c(0, 1/3, 2/3, 1))
-train_data$PriceCat <- cut(train_data$SalePrice, breaks = q,
-                           labels = c("Económicas", "Intermedias", "Caras"),
-                           include.lowest = TRUE)
-test_data$PriceCat <- cut(test_data$SalePrice, breaks = q,
-                          labels = c("Económicas", "Intermedias", "Caras"),
-                          include.lowest = TRUE)
+#modelo greedy
 
-cat("Distribución de PriceCat en entrenamiento:\n")
+modelo_reg3 <- predict(modelo_reg_depth3, newdata = test_data)
+rmse_reg3 <- RMSE(modelo_reg3, test_data$SalePrice)
+cat("RMSE del Arbol de Regresion (Modelo maxdepth = 3):", rmse_reg3, "\n")
+mse_reg3  <- mean((modelo_reg3 - test_data$SalePrice)^2)
+cat("MSE del Arbol de Regresion (Modelo maxdepth = 3):", mse_reg3, "\n")
+
+
+pred_reg3_train <- predict(modelo_reg_depth3, newdata = train_data)
+rmse_reg3_train <- RMSE(pred_reg3_train, train_data$SalePrice)
+cat("RMSE en entrenamiento (Modelo maxdepth = 3):", rmse_reg3_train, "\n")
+mse_reg3_train  <- mean((pred_reg3_train - train_data$SalePrice)^2)
+cat("MSE en entrenamiento (Modelo maxdepth = 3):", mse_reg3_train, "\n")
+
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo maxdepth = 3)",
+     xlab = "Indice", ylab = "SalePrice")
+points(modelo_reg3, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+comparemodels <- c(rmse_reg_test, rmse_reg_cv_test, rmse_reg3)
+names(comparemodels) <- c("Modelo Base", "Modelo CV", "Modelo maxdepth = 3")
+print(comparemodels)
+
+
+# -----------------------------------------------------------------
+# PASO 6. CREACIÓN DE LA VARIABLE RESPUESTA PARA CLASIFICACIÓN
+# (Económicas, Intermedias, Caras) CON BASE EN LA DISTRIBUCIÓN DE PRECIOS
+# -----------------------------------------------------------------
+
+# Análisis rápido de la distribución de precios en el conjunto de entrenamiento
+cat("\nResumen de SalePrice en train:\n")
+print(summary(train_data$SalePrice))
+
+# Tomar cuartiles como referencia (ejemplo)
+cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75))
+lower_threshold <- cuartiles[1]  # ~ primer cuartil
+upper_threshold <- cuartiles[2]  # ~ tercer cuartil
+
+cat("\nUmbrales elegidos para clasificar:\n")
+cat("Económicas: < ", lower_threshold, "\n")
+cat("Intermedias: [", lower_threshold, ", ", upper_threshold, ")\n")
+cat("Caras: >= ", upper_threshold, "\n\n")
+
+# Crear la nueva variable categórica en train_data
+train_data$PriceCat <- case_when(
+  train_data$SalePrice < lower_threshold ~ "Economicas",
+  train_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+# Crear la misma variable en test_data
+test_data$PriceCat <- case_when(
+  test_data$SalePrice < lower_threshold ~ "Economicas",
+  test_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+test_data$PriceCat <- factor(test_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+cat("Distribución de PriceCat en train:\n")
 print(table(train_data$PriceCat))
+cat("\nDistribución de PriceCat en test:\n")
+print(table(test_data$PriceCat))
 
 # ----------------------------
-# Paso 7. Elaborar un árbol de clasificación utilizando la variable respuesta creada
+# PASO 7. Elaborar un árbol de clasificación con la nueva variable PriceCat
 # ----------------------------
-# Excluir SalePrice para evitar contaminación en el entrenamiento
-predictors_class <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
-formula_class <- as.formula(paste("PriceCat ~", paste(predictors_class, collapse = " + ")))
+# Importante: no incluimos SalePrice como predictor, pues PriceCat se derivó de él
+formula_class <- PriceCat ~ . - SalePrice
+
+# Entrenar el árbol de clasificación "base"
 modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
-rpart.plot(modelo_class_base, main = "Árbol de Clasificación: Modelo Base")
-# Comenta en el informe las variables clave y la interpretación de los nodos
+rpart.plot(modelo_class_base, main = "Arbol de Clasificacion Base (PriceCat)")
 
-# ----------------------------
-# Paso 8. Utilizar el modelo de clasificación con el conjunto de prueba y determinar su eficiencia
-# ----------------------------
 pred_class_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+
+
+
+
 conf_matrix_base <- confusionMatrix(pred_class_base, test_data$PriceCat)
 cat("Matriz de Confusión - Árbol de Clasificación (Modelo Base):\n")
 print(conf_matrix_base)
+
+depths <- c(2, 4, 6)
+resultados_depth <- data.frame(Profundidad = depths, Accuracy = NA)
 
 # ----------------------------
 # Paso 9. Análisis de la eficiencia del árbol de clasificación (matriz de confusión)
