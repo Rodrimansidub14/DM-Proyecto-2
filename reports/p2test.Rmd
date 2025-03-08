@@ -3067,3 +3067,7 @@ legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pc
 
 summary
 ```
+
+
+
+## Arboles de Decisión
