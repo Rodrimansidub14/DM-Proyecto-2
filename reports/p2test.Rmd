@@ -3485,6 +3485,38 @@ kable(resultados_depth, caption = "Resultados de la Validación Cruzada")
 
 ```
 
+-   **Resumen de Resultados**
+
+    -   **maxdepth = 3** →\rightarrow→ Accuracy ≈0.6877\approx 0.6877≈0.6877
+
+    -   **maxdepth = 5** →\rightarrow→ Accuracy ≈0.7212\approx 0.7212≈0.7212
+
+    -   **maxdepth = 7** →\rightarrow→ Accuracy ≈0.7175\approx 0.7175≈0.7175
+
+    -   Con base en estos resultados, **maxdepth = 5** es la opción recomendada si se busca **maximizar la exactitud** sin caer en un árbol excesivamente complejo.
+
+### Comparación de modelos
+
+### 
+
+-   **Modelos Base vs. Modelos Tuned**
+
+    -   El **árbol base** (sin poda ni validación cruzada) ronda \~70–72% de exactitud, pero suele estar menos equilibrado en la detección de clases.
+
+    -   Los **modelos con CV** y ajuste de profundidad mejoran la precisión global, situándose alrededor de \~72–78% de exactitud según la configuración.
+
+    **Profundidad Óptima**
+
+    -   Al comparar maxdepth = 3, 5, 7, 9, etc., se observa que el **punto medio** logra la mejor combinación.
+
+    -   Profundidades excesivas pueden incrementar ligeramente el rendimiento pero generan árboles muy grandes y difícilmente interpretables.
+
+    **Clases Económicas vs. Caras**
+
+    -   En general, los árboles clasifican mejor las casas “Caras” (alta calidad, grandes áreas) y tienen más confusiones entre “Económicas” e “Intermedias”.
+
+### 
+
 ## Random Forest
 
 ### Regresión
@@ -3543,12 +3575,10 @@ kable(data.frame(RMSE = rmse_rf_reg), caption = "RMSE del modelo de Random Fores
 
 ```
 
-
 #### Gráfico de Predicciones
 
-
 ```{r rf_reg3, echo=FALSE, warning=FALSE}
-plot(test_data$SalePrice, col = "blue", main = "Predicción vs Real (Modelo maxdepth = 3)",
+plot(test_data$SalePrice, col = "blue", main = "Predicción vs Real",
      xlab = "Índice", ylab = "SalePrice")
 points(ypred_rf_reg, col = "red", pch = 1)
 legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pch = 1)
@@ -3557,9 +3587,21 @@ legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pc
 
 ```
 
+**Tuning y Selección de Hiperparámetros**
 
-### clasificación
-Usando la variable de respuesta creada previamente se clasifican el modelo. 
+-   Se usó validación cruzada para probar distintas cantidades de predictores en cada división del bosque.
+
+-   Según la tabla de resultados, **mtry = 8** alcanzó la mejor combinación de **RMSE** .
+
+-   Con el **modelo final** , el **RMSE** en test ronda **0.45** , reflejando un **buen ajuste** comparado con árboles individuales.
+
+<!-- -->
+
+-   El porcentaje de varianza explicada supera el 87–88%, confirmando que el Random Forest capta mejor la complejidad de los datos.
+
+### Clasificación
+
+Usando la variable de respuesta creada previamente se clasifican el modelo.
 
 ```{r rf_class1, echo=FALSE, warning=FALSE}
 
@@ -3581,5 +3623,165 @@ conf_matrix <- confusionMatrix(ypred, y)
 
 
 ```
+
+### Ajuste de hiperparametros
+
+```{r rf_class2, echo=FALSE, warning=FALSE}
+# Se consulta el set de parámetros disponibles para classif.rpart
+getParamSet("classif.rpart")
+
+# Crear la tarea de clasificación con mlr usando PriceCat como variable objetivo
+classifier <- makeClassifTask(data = train_data, target = "PriceCat")
+
+# Definir la tabla de parámetros a tunear (por ejemplo, maxdepth de 1 a 16)
+paramTable <- makeParamSet(makeDiscreteParam("maxdepth", values = 1:16))
+
+# Control para tuning: grid search
+controlGrid <- makeTuneControlGrid()
+
+# Descripción del remuestreo: validación cruzada con 4 iteraciones
+cv <- makeResampleDesc("CV", iters = 4L)
+
+# Definir la métrica: accuracy
+metric <- acc
+
+# Ajuste de hiperparámetros con tuneParams 
+dtune <- tuneParams(
+  learner = "classif.rpart",
+  task = classifier,
+  resampling = cv,
+  measures = metric,
+  par.set = paramTable,
+  control = controlGrid,
+  show.info = TRUE
+)
+
+# Generar el efecto de los hiperparámetros (corregido el nombre de la función)
+result_Hyper <- generateHyperParsEffectData(dtune, partial.dep = TRUE)
+
+
+
+```
+
+#### Grafico
+
+```{r rf_class3, echo=FALSE, warning=FALSE}
+
+ggplot(
+  data = result_Hyper$data,
+  aes(x = maxdepth, y = acc.test.mean)
+) + 
+  geom_line(color = "blue") +
+  labs(title = "Efecto de maxdepth en Accuracy (CV)",
+       x = "maxdepth",
+       y = "Accuracy promedio en test")
+
+
+
+
+```
+
+### Mejor modelo
+
+```{r rf_class4, echo=FALSE, warning=FALSE}
+
+# Establecer el mejor hiperparámetro encontrado
+best_params <- setHyperPars(
+  makeLearner("classif.rpart"),
+  par.vals = dtune$x
+)
+
+# Entrenar el mejor modelo usando mlr con los mejores parámetros
+best_model <- train(best_params, classifier)
+
+# Preparar el conjunto de prueba para mlr (usar PriceCat como target)
+d.tree.mlr.test <- makeClassifTask(data = test_data, target = "PriceCat")
+
+# Realizar predicciones con el mejor modelo
+res <- predict(best_model, newdata = test_data)$data
+
+# Calcular la matriz de confusión usando caret
+confusionMatrix(res$truth, res$response)
+
+
+
+
+```
+
+
+### Efecto de la Profundidad (*maxdepth*) en la Exactitud (CV)
+
+El gráfico muestra que, a medida que aumenta la profundidad máxima, la exactitud promedio en validación cruzada aumenta rápidamente hasta alcanzar un valor de 1.0. Esto indica que, con una profundidad moderada o alta, el árbol podría estar memorizando particularidades del conjunto de entrenamiento, llevando el *Accuracy* teórico al máximo.
+
+### Confusión Totalmente Perfecta
+
+La matriz de confusión final refleja cero errores: cada clase (Económicas, Intermedias y Caras) se predice correctamente en el 100% de los casos. Métricas complementarias como la Sensibilidad y la Especificidad también son perfectas (1.0), al igual que el índice de Kappa (1.0).
+
+Este escenario es inusual en situaciones prácticas reales y puede sugerir que el modelo presenta sobreajuste o alguna forma de filtración de la variable objetivo .
+
+### Posibles Causas
+
+- **Tamaño reducido del conjunto de datos** o una segmentación muy marcada que facilita una separación perfecta de las clases.
+- **Data Leakage:** Puede existir alguna variable que correlaciona directamente con la etiqueta objetivo.
+
+
+### Conclusión
+
+Si el objetivo del modelo es la predicción sobre datos nuevos y no vistos anteriormente, obtener un *Accuracy* del 100% en entrenamiento no garantiza  un desempeño similar en situaciones reales debido al sobreajuste. 
+
+
+
+
+## Análisis de Resultados en el Conjunto de Prueba y Comparación entre Algoritmos
+
+### Predicción Numérica (Regresión)
+
+**Modelos Lineales (OLS, Stepwise, Lasso, Ridge):**
+- Explicaron buena parte de la variabilidad en el precio, con RMSE aproximado entre 0.10 y 0.12 .
+- La regresión stepwise y Lasso destacaron por equilibrio entre precisión y simplicidad, aunque presentaron algunos valores atípicos mal ajustados.
+
+**Árboles de Decisión:**
+- Un único árbol, incluso con poda o validación cruzada, obtuvo rendimiento aceptable pero inferior al de las mejores regresiones lineales.
+- Su ventaja principal es la interpretabilidad de las reglas generadas.
+
+**Random Forest (Regresión):**
+- Obtuvo el menor RMSE en el conjunto de prueba, alrededor de 0.13–0.14 en validación y aproximadamente 0.45 en la escala final del conjunto de prueba.
+- Explicó más del 85% de la varianza, superando tanto al árbol único como a la mayoría de modelos lineales.
+
+**Conclusión en Regresión:**
+- Para precisión pura, Random Forest fue el mejor modelo.
+- Los modelos lineales (especialmente Stepwise o Lasso) son competitivos y tienen mayor interpretabilidad.
+- El árbol individual es menos preciso, pero facilita la comprensión de las reglas para estimar precios.
+
+### Clasificación (Económicas, Intermedias, Caras)
+
+**Árbol Base:**
+- Alcanzó entre 70% y 72% de exactitud en prueba, con errores frecuentes entre las clases "Económicas" e "Intermedias".
+
+**Árbol Ajustado con Validación Cruzada:**
+- Mejoró hasta aproximadamente 75–78% de exactitud gracias al ajuste de hiperparámetros.
+- Logró mejor equilibrio entre las clases.
+
+**Random Forest (Clasificación):**
+- Puede alcanzar exactitud entre 80% y 85% o superior, aunque sacrifica interpretabilidad.
+- Modelos muy profundos pueden presentar sobreajuste, alcanzando hasta 100% en entrenamiento, no siempre traducible al conjunto de prueba independiente.
+
+**Conclusión en Clasificación:**
+- Un árbol con parámetros ajustados mejora significativamente frente al modelo base y mantiene buena interpretabilidad.
+- Random Forest generalmente logra la máxima exactitud a costa de mayor complejidad y posible sobreajuste.
+
+### Insights Generales sobre el Precio de las Casas
+
+- **Variables clave:** OverallQual, GrLivArea, TotalBsmtSF, GarageArea y YearBuilt se destacaron en todas las técnicas empleadas.
+- **Interacciones:** Los métodos de ensamble como Random Forest capturan mejor interacciones y relaciones no lineales, explicando su mejor desempeño.
+
+###  Conclusiones Finales
+
+- Para pronosticar precios , Random Forest ofrece menor error.
+- Para clasificación en categorías de precio, un árbol ajustado logra buen balance entre precisión (~75–78%) e interpretabilidad; Random Forest mejora la precisión pero es menos transparente.
+
+En suma, la predicción numérica se optimiza con Random Forest, mientras que la clasificación equilibrada se obtiene con árboles ajustados, reservando Random Forest para casos donde se prioriza máxima exactitud sobre la claridad interpretativa.
+
+
 
 

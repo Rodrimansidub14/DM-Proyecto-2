@@ -16,9 +16,12 @@ library(nortest)
 library(dplyr)
 library(tidyverse)
 library(rpart)
+library(randomForest)
+
 library(rpart.plot)
 library(caret)
 library(discretization)
+library(mlr)
 # Cargar datos preprocesados (los mismos usados para regresión lineal)
 train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
 test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
@@ -208,43 +211,43 @@ pred_class_base <- predict(modelo_class_base, newdata = test_data, type = "class
 
 
 
-
 conf_matrix_base <- confusionMatrix(pred_class_base, test_data$PriceCat)
 cat("Matriz de Confusión - Árbol de Clasificación (Modelo Base):\n")
 print(conf_matrix_base)
 
-depths <- c(2, 4, 6)
-resultados_depth <- data.frame(Profundidad = depths, Accuracy = NA)
+accuracy <- conf_matrix_base$overall["Accuracy"]
+cat("Accuracy global:", accuracy, "\n")
+
+# - Métricas por clase (sensibilidad, especificidad, etc.)
+cat("Métricas por clase:\n")
+print(conf_matrix_base$byClass)
+
+
 
 # ----------------------------
-# Paso 9. Análisis de la eficiencia del árbol de clasificación (matriz de confusión)
+# Paso 09. Entrenar un modelo de clasificación usando validación cruzada y predecir con él
 # ----------------------------
-print(conf_matrix_base$table)
-# En el informe se debe detallar cuál clase se predice mejor y dónde se cometen más errores
+depths <- expand.grid(maxdepth = c(2,4,6,8,10))
 
-# ----------------------------
-# Paso 10. Entrenar un modelo de clasificación usando validación cruzada y predecir con él
-# ----------------------------
-set.seed(123)
-control_cv_class <- trainControl(method = "cv", number = 10)
-grid_class <- expand.grid(maxdepth = c(2, 3, 4, 5, 6))
-modelo_class_cv <- train(formula_class,
-                         data = train_data,
-                         method = "rpart2",
-                         tuneGrid = grid_class,
-                         trControl = control_cv_class,
-                         metric = "Accuracy")
-print(modelo_class_cv)
-rpart.plot(modelo_class_cv$finalModel, main = "Árbol de Clasificación Tuned con CV")
-pred_class_cv <- predict(modelo_class_cv, newdata = test_data)
-conf_matrix_cv <- confusionMatrix(pred_class_cv, test_data$PriceCat)
-cat("Matriz de Confusión - Árbol de Clasificación (Modelo CV):\n")
-print(conf_matrix_cv)
+system.time(modelo_class_cv <- caret::train(formula_class, 
+                                            data = train_data, 
+                                            method = "rpart2",      
+                                            tuneGrid = expand.grid(maxdepth = 2:10),
+                                            trControl = control_cv,
+                                            metric = "Accuracy")
+)
+
+
+
+modelo_class_cv
+rpart.plot(modelo_class_cv$finalModel, main = "Arbol de Clasificacion Tuned con CV (PriceCat)")
+                                     
+
 
 # ----------------------------
 # Paso 11. Elaborar al menos 3 modelos más de clasificación cambiando la profundidad del árbol
 # ----------------------------
-depths <- c(2, 4, 6)
+depths <- c(3, 5, 7)
 resultados_depth <- data.frame(Profundidad = depths, Accuracy = NA)
 for (i in seq_along(depths)) {
   modelo_temp <- rpart(formula_class, data = train_data, method = "class",
@@ -256,16 +259,140 @@ for (i in seq_along(depths)) {
 }
 print(resultados_depth)
 
-# ----------------------------
-# Paso 12. Repetir análisis usando Random Forest para clasificación y comparar algoritmos
-# ----------------------------
-set.seed(123)
-modelo_rf_class <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
-pred_rf_class <- predict(modelo_rf_class, newdata = test_data)
-conf_matrix_rf <- confusionMatrix(pred_rf_class, test_data$PriceCat)
-cat("Matriz de Confusión - Random Forest para Clasificación:\n")
-print(conf_matrix_rf)
 
-###############################################
-# FIN DEL SCRIPT
-###############################################
+
+# ----------------------------
+# Paso 12. Repetir análisis usando Random Forest 
+
+library(randomForest)
+library(caret)
+
+set.seed(123)
+# Definir control de validación cruzada para regresión (por ejemplo, 10-fold CV)
+control_cv_reg <- trainControl(method = "cv", number = 10)
+
+# Definir un grid para tunear el parámetro mtry (número de variables a considerar en cada división)
+grid_rf <- expand.grid(mtry = c(2, 4, 6, 8))
+
+# Entrenar el modelo de Random Forest para predecir SalePrice usando caret
+modelo_rf_reg <- caret::train(SalePrice ~ ., 
+                              data = train_data, 
+                              method = "rf",
+                              trControl = control_cv_reg,
+                              tuneGrid = grid_rf,
+                              metric = "RMSE")
+  
+# Mostrar resultados del tuning
+print(modelo_rf_reg)
+plot(modelo_rf_reg, main = "Tuning de Random Forest para Regresión")
+
+# Realizar predicciones en el conjunto de prueba
+ypred_rf_reg <- predict(modelo_rf_reg, newdata = test_data)
+
+# Calcular y mostrar el RMSE en el conjunto de prueba
+rmse_rf_reg <- RMSE(ypred_rf_reg, test_data$SalePrice)
+cat("RMSE del Random Forest tuneado para regresión:", rmse_rf_reg, "\n")
+
+# Opcional: Graficar las predicciones vs valores reales
+# Extraer los índices de las filas que generaron predicción
+idx <- as.numeric(names(ypred_rf_reg))
+actual <- test_data$SalePrice[idx]
+
+# Graficar las predicciones vs. los valores reales correspondientes
+plot(actual, ypred_rf_reg, 
+     main = "Predicción vs. Real (Random Forest Regresión)",
+     xlab = "Valores Reales de SalePrice", 
+     ylab = "Predicciones",
+     col = "blue", pch = 16)
+abline(a = 0, b = 1, col = "red", lwd = 2)
+
+
+# Suponiendo que 'ypred_rf_reg' contiene las predicciones del modelo para el conjunto de prueba:
+plot(test_data$SalePrice, col = "blue", main = "Predicción vs Real (Modelo maxdepth = 3)",
+     xlab = "Índice", ylab = "SalePrice")
+points(ypred_rf_reg, col = "red", pch = 1)
+legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pch = 1)
+
+
+# Paso 12. Repetir análisis usando Random Forest para clasificación y comparar algoritmos
+
+# Extraer la variable de referencia del conjunto de prueba
+y <- test_data[,"PriceCat"]
+
+# Entrenar modelo de Random Forest para clasificación 
+# (se excluye SalePrice, ya que PriceCat se deriva de él)
+modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+
+# Realizar predicciones en el conjunto de prueba
+ypred <- predict(modelo_rf, newdata = test_data)
+
+# Asegurarse de que las predicciones sean factores
+ypred <- factor(ypred, levels = levels(train_data$PriceCat))
+
+  # Calcular la matriz de confusión
+confusionMatrix(ypred, y)
+
+
+# ----------------------------
+# Ajuste de hiperparámetros usando mlr (para árboles de decisión) con PriceCat como target
+# ----------------------------
+
+# Se consulta el set de parámetros disponibles para classif.rpart
+getParamSet("classif.rpart")
+
+# Crear la tarea de clasificación con mlr usando PriceCat como variable objetivo
+classifier <- makeClassifTask(data = train_data, target = "PriceCat")
+
+# Definir la tabla de parámetros a tunear (por ejemplo, maxdepth de 1 a 16)
+paramTable <- makeParamSet(makeDiscreteParam("maxdepth", values = 1:16))
+
+# Control para tuning: grid search
+controlGrid <- makeTuneControlGrid()
+
+# Descripción del remuestreo: validación cruzada con 4 iteraciones
+cv <- makeResampleDesc("CV", iters = 4L)
+
+# Definir la métrica: accuracy
+metric <- acc
+
+# Ajuste de hiperparámetros con tuneParams 
+dtune <- tuneParams(
+  learner = "classif.rpart",
+  task = classifier,
+  resampling = cv,
+  measures = metric,
+  par.set = paramTable,
+  control = controlGrid,
+  show.info = TRUE
+)
+
+# Generar el efecto de los hiperparámetros (corregido el nombre de la función)
+result_Hyper <- generateHyperParsEffectData(dtune, partial.dep = TRUE)
+
+library(ggplot2)
+ggplot(
+  data = result_Hyper$data,
+  aes(x = maxdepth, y = acc.test.mean)
+) + 
+  geom_line(color = "blue") +
+  labs(title = "Efecto de maxdepth en Accuracy (CV)",
+       x = "maxdepth",
+       y = "Accuracy promedio en test")
+
+# Establecer el mejor hiperparámetro encontrado
+best_params <- setHyperPars(
+  makeLearner("classif.rpart"),
+  par.vals = dtune$x
+)
+
+# Entrenar el mejor modelo usando mlr con los mejores parámetros
+best_model <- train(best_params, classifier)
+
+# Preparar el conjunto de prueba para mlr (usar PriceCat como target)
+d.tree.mlr.test <- makeClassifTask(data = test_data, target = "PriceCat")
+
+# Realizar predicciones con el mejor modelo
+res <- predict(best_model, newdata = test_data)$data
+
+# Calcular la matriz de confusión usando caret
+confusionMatrix(res$truth, res$response)

@@ -263,7 +263,7 @@ legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch
 
 comparemodels <- c(rmse_reg_test, rmse_reg_cv_test, rmse_reg3)
 names(comparemodels) <- c("Modelo Base", "Modelo CV", "Modelo maxdepth = 3")
-print(comparemodels)
+  print(comparemodels)
 
 
 ```
