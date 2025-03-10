@@ -3068,6 +3068,518 @@ legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pc
 summary
 ```
 
-
-
 ## Arboles de Decisión
+
+```{r setupDT, echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
+library(mlr)
+
+
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+
+test_data$Condition2 <- factor(test_data$Condition2, levels = levels(train_data$Condition2))
+test_data$RoofMatl   <- factor(test_data$RoofMatl,   levels = levels(train_data$RoofMatl))
+test_data$Condition2 <- factor(test_data$Condition2, levels = levels(train_data$Condition2))
+test_data$RoofMatl   <- factor(test_data$RoofMatl,   levels = levels(train_data$RoofMatl))
+train_data <- na.omit(train_data)
+test_data  <- na.omit(test_data)
+factor_vars <- names(train_data)[sapply(train_data, is.factor)]
+for (var in factor_vars) {
+  if (var %in% names(test_data)) {
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+
+```
+
+### Modelo Base: Arbol de Regresión
+
+```{r arbol_reg_base, echo=FALSE, warning=FALSE}
+modelo_reg_base <- rpart(SalePrice ~ ., data = train_data, method = "anova")
+rpart.plot(modelo_reg_base, main = "Árbol de Regresión Base")
+
+
+```
+
+```{r arbol_reg_base2, echo=FALSE, warning=FALSE}
+
+pred_reg_test <- predict(modelo_reg_base, newdata = test_data)
+rmse_reg_test <- RMSE(pred_reg_test, test_data$SalePrice)
+mse_reg_test  <- mean((pred_reg_test - test_data$SalePrice)^2)
+
+resultados_modelo_base <- data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg_test, mse_reg_test)
+)
+
+knitr::kable(resultados_modelo_base, digits = 2, caption = "Métricas del Árbol de Regresión (Modelo Base)")
+
+```
+
+#### Datos de Entrenamiento
+
+```{r arbol_reg_base3, echo=FALSE, warning=FALSE}
+pred_reg_train <- predict(modelo_reg_base, newdata = train_data)
+rmse_reg_train <- RMSE(pred_reg_train, train_data$SalePrice)
+mse_reg_train  <- mean((pred_reg_train - train_data$SalePrice)^2)
+
+knitr::kable(data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg_train, mse_reg_train)
+), digits = 2, caption = "RMSE y MSE Base en Entrenamiento")
+
+
+```
+
+#### Gráfico de Predicciones
+
+```{r arbol_reg_base4, echo=FALSE, warning=FALSE}
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo Base)",
+     xlab = "Indice", ylab = "SalePrice")
+points(pred_reg_test, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+```
+
+-   Se comporta como un punto de partida para refinar el modelo.
+
+<!-- -->
+
+-   Las metricas sugieren que no parece existir sobreajuste.
+
+-   Las predicciones parecen ser acertadas, por lo que se puede concluir que el modelo base es un buen punto de partida.
+
+### Modelo con tuneo de parámetros
+
+```{r arbol_reg_tuneo, echo=FALSE, warning=FALSE}
+train_data <- na.omit(train_data)
+
+# Definir control de validación cruzada
+control_cv <- trainControl(method = "cv", number = 15)
+
+# Entrenar modelo con caret usando rpart
+modelo_reg_cv <- caret::train(SalePrice ~ ., 
+                              data = train_data, 
+                              method = "rpart", 
+                              trControl = control_cv)
+
+kable(modelo_reg_cv$results, caption = "Resultados de la Validación Cruzada")
+```
+
+```{r arbol_reg_tuneo2, echo=FALSE, warning=FALSE}
+
+rpart.plot(modelo_reg_cv$finalModel, main = "Arbol de Regresion Tuned con CV")
+
+```
+
+#### Predicciones y Métricas
+
+```{r arbol_reg_tuneo3, echo=FALSE, warning=FALSE}
+
+
+pred_reg_cv_test <- predict(modelo_reg_cv, newdata = test_data)
+rmse_reg_cv_test <- RMSE(pred_reg_cv_test, test_data$SalePrice)
+mse_reg_cv_test  <- mean((pred_reg_cv_test - test_data$SalePrice)^2)
+
+
+resultados_modelo_cv <- data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg_cv_test, mse_reg_cv_test)
+)
+
+knitr::kable(resultados_modelo_cv, digits = 2, caption = "Métricas del Árbol de Regresión (Modelo Tuned)")
+
+
+
+```
+
+#### Datos de Entrenamiento
+
+```{r arbol_reg_tuneo4, echo=FALSE, warning=FALSE}
+pred_reg_cv_train <- predict(modelo_reg_cv, newdata = train_data)
+rmse_reg_cv_train <- RMSE(pred_reg_cv_train, train_data$SalePrice)
+mse_reg_cv_train  <- mean((pred_reg_cv_train - train_data$SalePrice)^2)
+
+
+knitr::kable(data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg_cv_train, mse_reg_cv_train)
+), digits = 2, caption = "RMSE y MSE Tuned en Entrenamiento")
+
+
+
+```
+
+#### Gráfico de Predicciones
+
+```{r arbol_reg_tuneo5, echo=FALSE, warning=FALSE}
+
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo CV)",
+     xlab = "Indice", ylab = "SalePrice")
+points(pred_reg_cv_test, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+```
+
+-   Comparando la dispersión de los puntos rojos respecto a los azules, se ve si hay una mejora frente al modelo base.
+
+<!-- -->
+
+-   Si se ve una menor brecha en la mayoría de los casos, indica que el “árbol tunado” está prediciendo mejor.
+
+-   Parece existir un grado de sobreajuste al comparar métricas de entrenamiento con las de prueba
+
+-   Se observa un árbol que suele ser **menos profundo** que el árbol base, dada la validación cruzada.
+
+### Árbol de Regresión con diferentes profundidades
+
+```{r arbol_reg_prof, echo=FALSE, warning=FALSE}
+
+depths <- data.frame(maxdepth = c(1,3, 5, 7))
+modelo_reg_depth3 <- caret::train(SalePrice ~ ., 
+                                  data = train_data, 
+                                  method = "rpart2", 
+                                  trControl = control_cv,
+                                  metric = "RMSE", 
+                                  tuneGrid = depths)
+
+plot(modelo_reg_depth3)
+
+
+```
+
+### Modelo Greedy
+
+```{r arbol_reg_greedy, echo=FALSE, warning=FALSE}
+modelo_reg3 <- predict(modelo_reg_depth3, newdata = test_data)
+rmse_reg3 <- RMSE(modelo_reg3, test_data$SalePrice)
+mse_reg3  <- mean((modelo_reg3 - test_data$SalePrice)^2)
+knitr::kable(data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg3, mse_reg3)
+), digits = 2, caption = "Métricas del Árbol de Regresión (Modelo Greedy)")
+
+
+```
+
+#### Datos de Entrenamiento
+
+```{r arbol_reg_greedy2, echo=FALSE, warning=FALSE}
+pred_reg3_train <- predict(modelo_reg_depth3, newdata = train_data)
+rmse_reg3_train <- RMSE(pred_reg3_train, train_data$SalePrice)
+mse_reg3_train  <- mean((pred_reg3_train - train_data$SalePrice)^2)
+
+knitr::kable(data.frame(
+  Métrica = c("RMSE", "MSE"),
+  Valor = c(rmse_reg3_train, mse_reg3_train)
+), digits = 2, caption = "RMSE y MSE Greedy en Entrenamiento")
+
+
+
+```
+
+#### Gráfico de Predicciones
+
+```{r arbol_reg_greedy3, echo=FALSE, warning=FALSE}
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real ",
+     xlab = "Indice", ylab = "SalePrice")
+points(modelo_reg3, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+
+
+```
+
+-   Se forzan diferentes profundidades para el árbol y se puede observar que las predicciones son bastante acertadas.
+
+## Comparación de Modelos
+
+```{r comp_modelos3, echo=FALSE, warning=FALSE}
+
+comparemodels <- c(rmse_reg_test, rmse_reg_cv_test, rmse_reg3)
+names(comparemodels) <- c("RMSE Modelo Base", "RMSE Modelo CV", "RMSE Modelo maxdepth")
+knitr::kable(data.frame(Métrica = names(comparemodels), Valor = comparemodels), digits = 2, caption = "Comparación de Modelos de Árbol de Regresión")
+```
+
+## Comparación con modelos Lineales
+
+Se procede a usar el modelo lineal Stepwise el cual presentó un mejor desempeño en comparación a los demás modelos lineales.
+
+### Gráfico de predicciones
+
+#### Modelo Lineal Stepwise
+
+Las predicciones en el modelo lineal eran bastante acertadas.
+
+#### Modelo Base
+
+```{r comp_modelos4, echo=FALSE, warning=FALSE}
+
+
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real (Modelo Base)",
+     xlab = "Indice", ylab = "SalePrice")
+points(pred_reg_test, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+```
+
+##### Greedy
+
+```{r comp_modelos6, echo=FALSE, warning=FALSE}
+
+plot(test_data$SalePrice, col = "blue", main = "Prediccion vs Real ",
+     xlab = "Indice", ylab = "SalePrice")
+points(modelo_reg3, col = "red")
+legend("topright", legend = c("Real", "Prediccion"), col = c("blue", "red"), pch = 1)
+
+
+```
+
+El modelo greedy es el modelo el cual parece predecir de manera más acertada en comparación al modelo lineal, siendo el modelo lineal el que tiene mejores predicciones.
+
+## Creacion de una variable de respuesta
+
+A partir de la variable SalePrice, podemos proponer:
+
+Económicas: casas con SalePrice \< 130,000 (aprox. primer cuartil) Intermedias: casas con SalePrice \>= 130,000 y \< 215,000 (entre el primer y el tercer cuartil) Caras: casas con SalePrice \>= 215,000 (por encima del tercer cuartil)
+
+```{r classtree1, echo=FALSE, warning=FALSE}
+# Tomar cuartiles como referencia (ejemplo)
+cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75))
+lower_threshold <- cuartiles[1]  # ~ primer cuartil
+upper_threshold <- cuartiles[2]  # ~ tercer cuartil
+
+knitr::kable(data.frame(
+  Cuartil = c("Primer", "Tercer"),
+  Valor = cuartiles
+), digits = 2, caption = "Cuartiles de SalePrice")
+
+```
+
+Se crea la variable de respuesta y se ajusta un árbol de clasificación.
+
+```{r classtree2, echo=FALSE, warning=FALSE}
+# Crear la nueva variable categórica en train_data
+train_data$PriceCat <- case_when(
+  train_data$SalePrice < lower_threshold ~ "Economicas",
+  train_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+# Crear la misma variable en test_data
+test_data$PriceCat <- case_when(
+  test_data$SalePrice < lower_threshold ~ "Economicas",
+  test_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+test_data$PriceCat <- factor(test_data$PriceCat, levels = c("Economicas","Intermedias","Caras"))
+
+knitr::kable(table(train_data$PriceCat), caption = "Distribución de la variable de respuesta(train)")
+
+knitr::kable(table(test_data$PriceCat), caption = "Distribución de la variable de respuesta(test)")
+```
+
+### Árbol de Clasificación para PriceCat
+
+```{r classtree3, echo=FALSE, warning=FALSE}
+formula_class <- PriceCat ~ . - SalePrice
+modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+rpart.plot(modelo_class_base, main = "Arbol de Clasificacion Base (PriceCat)")
+
+```
+
+El árbol evidencia que la combinación de calidad (OverallQual) y área habitable constituye el núcleo de la separación de precios en “Económicas”, “Intermedias” y “Caras”. Variables secundarias (baños, remodelaciones, etc.) van ajustando la clasificación dentro de esos grandes grupos.
+
+#### Predicciones y Métricas
+
+```{r classtree4, echo=FALSE, warning=FALSE}
+pred_class_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+conf_matrix_base <- confusionMatrix(pred_class_base, test_data$PriceCat)
+knitr::kable(conf_matrix_base$overall, caption = "Métricas del Árbol de Clasificación (Modelo Base)")
+
+```
+
+```{r classtree5, echo=FALSE, warning=FALSE}
+accuracy <- conf_matrix_base$overall
+
+knitr::kable(data.frame(
+  Métrica = c("Accuracy"),
+  Valor = c(accuracy)
+), digits = 2, caption = "Métricas del Árbol de Clasificación (Modelo Base)")
+
+```
+
+```{r classtree6, echo=FALSE, warning=FALSE}
+
+knitr::kable(conf_matrix_base$byClass, digits = 2, caption = "Métricas por Clase del Árbol de Clasificación (Modelo Base)")
+```
+
+-   Con un Accuracy de \~72% y un Kappa de \~0.54, el árbol de clasificación muestra un desempeño moderado.
+
+-   Es especialmente eficaz en distinguir casas Caras, razonable para Intermedias, y tiene más dificultades para etiquetar Económicas.
+
+-   La prueba de significancia (p-value \~ 0) confirma que el modelo supera al azar.
+
+### Modelo con validación cruzada
+
+Se consideran profundidades de 2, 4, 6, 8 y 10 niveles utilizando validación cruzada, optimizando específicamente la métrica de precisión global.
+
+```{r classtree7, echo=FALSE, warning=FALSE}
+depths <- expand.grid(maxdepth = c(2,4,6,8,10))
+
+system.time(modelo_class_cv <- caret::train(formula_class, 
+                                            data = train_data, 
+                                            method = "rpart2",      
+                                            tuneGrid = expand.grid(maxdepth = 2:10),
+                                            trControl = control_cv,
+                                            metric = "Accuracy")
+)
+
+
+
+
+#Ajuste del tama;o de la grafica
+rpart.plot(modelo_class_cv$finalModel, main = "Arbol de Clasificacion Tuned con CV (PriceCat)")
+                                     
+
+kable(modelo_class_cv$results, caption = "Resultados de la Validación Cruzada")
+
+```
+
+-   **Exactitud** ≈78\approx 78%≈78 y **Kappa** ≈0.645\approx 0.645≈0.645 representan un **avance** notable respecto al modelo base sin tuning.
+
+<!-- -->
+
+-   La **validación cruzada** confirma que el árbol no está sobreajustando de forma grave, pues mantiene su rendimiento estable en las diferentes particiones.
+
+<!-- -->
+
+-   Se consolida la importancia de las variables de **calidad**, **área** y **acabados** para discriminar los rangos de precio. El árbol examina múltiples umbrales de estas variables para separar con precisión “Económicas”, “Intermedias” y “Caras”.
+
+## Modelo de Clasificación con tuneo de parámetros
+
+```{r classtree8, echo=FALSE, warning=FALSE}
+
+depths <- c(3, 5, 7)
+resultados_depth <- data.frame(Profundidad = depths, Accuracy = NA)
+for (i in seq_along(depths)) {
+  modelo_temp <- rpart(formula_class, data = train_data, method = "class",
+                       control = rpart.control(maxdepth = depths[i]))
+  pred_temp <- predict(modelo_temp, newdata = test_data, type = "class")
+  cm_temp <- confusionMatrix(pred_temp, test_data$PriceCat)
+  resultados_depth$Accuracy[i] <- cm_temp$overall["Accuracy"]
+  cat("Modelo con maxdepth =", depths[i], "tiene Accuracy =", round(cm_temp$overall["Accuracy"],4), "\n")
+}
+kable(resultados_depth, caption = "Resultados de la Validación Cruzada")
+
+```
+
+## Random Forest
+
+### Regresión
+
+Se define el control de validación cruzada y se entrena el modelo,se considera el número de árboles en el bosque y la cantidad de predictores a considerar en cada división.
+
+```{r rf_reg1, echo=FALSE, warning=FALSE}
+library(randomForest)
+library(caret)
+
+set.seed(123)
+# Definir control de validación cruzada para regresión (por ejemplo, 10-fold CV)
+control_cv_reg <- trainControl(method = "cv", number = 10)
+
+# Definir un grid para tunear el parámetro mtry (número de variables a considerar en cada división)
+grid_rf <- expand.grid(mtry = c(2, 4, 6, 8))
+
+# Entrenar el modelo de Random Forest para predecir SalePrice usando caret
+modelo_rf_reg <- caret::train(SalePrice ~ ., 
+                              data = train_data, 
+                              method = "rf",
+                              trControl = control_cv_reg,
+                              tuneGrid = grid_rf,
+                              metric = "RMSE")
+
+# Mostrar los resultados del tuning
+knitr::kable(modelo_rf_reg$results, caption = "Resultados de la Validación Cruzada")
+knitr::kable(modelo_rf_reg$bestTune, caption = "Mejor hiperparámetro mtry")
+
+# En lugar de intentar convertir el modelo completo a data.frame, mostramos un resumen
+print(modelo_rf_reg$finalModel)
+
+# Mostrar la importancia de las variables
+knitr::kable(modelo_rf_reg$finalModel$importance, 
+             caption = "Importancia de las variables en el modelo de Random Forest (Regresión)")
+
+
+```
+
+### Gráfico
+
+```{r rf_reggraph, echo=FALSE, warning=FALSE}
+
+plot(modelo_rf_reg, main = "Tuning de Random Forest para Regresión")
+
+```
+
+### Predicciones y Métricas
+
+Se calculan predicciones sobre el conjunto de testeo y se evalúa el desempeño del modelo.
+
+```{r rf_reg2, echo=FALSE, warning=FALSE}
+ypred_rf_reg <- predict(modelo_rf_reg, newdata = test_data)
+rmse_rf_reg <- RMSE(ypred_rf_reg, test_data$SalePrice)
+kable(data.frame(RMSE = rmse_rf_reg), caption = "RMSE del modelo de Random Forest (Regresión)")
+
+```
+
+
+#### Gráfico de Predicciones
+
+
+```{r rf_reg3, echo=FALSE, warning=FALSE}
+plot(test_data$SalePrice, col = "blue", main = "Predicción vs Real (Modelo maxdepth = 3)",
+     xlab = "Índice", ylab = "SalePrice")
+points(ypred_rf_reg, col = "red", pch = 1)
+legend("topright", legend = c("Real", "Predicción"), col = c("blue", "red"), pch = 1)
+
+
+
+```
+
+
+### clasificación
+Usando la variable de respuesta creada previamente se clasifican el modelo. 
+
+```{r rf_class1, echo=FALSE, warning=FALSE}
+
+# Extraer la variable de referencia del conjunto de prueba
+y <- test_data[,"PriceCat"]
+
+# Entrenar modelo de Random Forest para clasificación 
+# (se excluye SalePrice, ya que PriceCat se deriva de él)
+modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+
+# Realizar predicciones en el conjunto de prueba
+ypred <- predict(modelo_rf, newdata = test_data)
+
+# Asegurarse de que las predicciones sean factores
+ypred <- factor(ypred, levels = levels(train_data$PriceCat))
+
+# Matriz de confusión
+conf_matrix <- confusionMatrix(ypred, y)
+
+
+```
+
+

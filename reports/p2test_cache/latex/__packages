@@ -38,3 +38,8 @@ car
 Matrix
 glmnet
 broom
+rpart
+rpart.plot
+randomForest
+ParamHelpers
+mlr

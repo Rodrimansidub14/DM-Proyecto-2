@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  2 MAR 2025 19:10
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2025.2.15)  9 MAR 2025 23:46
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1499,8 +1499,179 @@ File: p2test_files/figure-latex/modeladoSTP23-1.pdf Graphic file (type pdf)
 
 
 [88]
+File: p2test_files/figure-latex/arbol_reg_base-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_base-1.pdf>
+File: p2test_files/figure-latex/arbol_reg_base4-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_base4-1.pdf>
 
-[89] (./p2test.aux)
+
+[89]
+File: p2test_files/figure-latex/arbol_reg_tuneo2-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_tuneo2-1.pdf>
+
+
+[90]
+File: p2test_files/figure-latex/arbol_reg_tuneo5-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_tuneo5-1.pdf>
+
+
+[91]
+File: p2test_files/figure-latex/arbol_reg_prof-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_prof-1.pdf>
+
+
+[92]
+File: p2test_files/figure-latex/arbol_reg_greedy3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/arbol_reg_greedy3-1.pdf>
+
+
+[93]
+File: p2test_files/figure-latex/comp_modelos4-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/comp_modelos4-1.pdf>
+File: p2test_files/figure-latex/comp_modelos6-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/comp_modelos6-1.pdf>
+
+
+[94]
+
+[95]
+File: p2test_files/figure-latex/classtree3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/classtree3-1.pdf>
+
+
+[96]
+Overfull \hbox (20.56943pt too wide) in paragraph at lines 3737--3738
+ []\TU/lmr/m/n/10 Sensitivity
+ []
+
+
+Overfull \hbox (19.39941pt too wide) in paragraph at lines 3739--3740
+ []\TU/lmr/m/n/10 Specificity
+ []
+
+
+Overfull \hbox (18.56032pt too wide) in paragraph at lines 3745--3746
+ []\TU/lmr/m/n/10 Precision
+ []
+
+
+Overfull \hbox (12.0088pt too wide) in paragraph at lines 3747--3748
+ []\TU/lmr/m/n/10 Recall
+ []
+
+
+Overfull \hbox (0.99062pt too wide) in paragraph at lines 3749--3750
+ []\TU/lmr/m/n/10 F1
+ []
+
+
+Overfull \hbox (23.31183pt too wide) in paragraph at lines 3751--3752
+ []\TU/lmr/m/n/10 Prevalence
+ []
+
+
+Overfull \hbox (10.40001pt too wide) in paragraph at lines 3753--3754
+ []\TU/lmr/m/n/10 Detection
+ []
+
+
+Overfull \hbox (1.86154pt too wide) in paragraph at lines 3757--3758
+ []\TU/lmr/m/n/10 Balanced
+ []
+
+
+Overfull \hbox (20.56943pt too wide) in paragraph at lines 3764--3765
+ []\TU/lmr/m/n/10 Sensitivity
+ []
+
+
+Overfull \hbox (19.39941pt too wide) in paragraph at lines 3766--3767
+ []\TU/lmr/m/n/10 Specificity
+ []
+
+
+Overfull \hbox (18.56032pt too wide) in paragraph at lines 3772--3773
+ []\TU/lmr/m/n/10 Precision
+ []
+
+
+Overfull \hbox (12.0088pt too wide) in paragraph at lines 3774--3775
+ []\TU/lmr/m/n/10 Recall
+ []
+
+
+Overfull \hbox (0.99062pt too wide) in paragraph at lines 3776--3777
+ []\TU/lmr/m/n/10 F1
+ []
+
+
+Overfull \hbox (23.31183pt too wide) in paragraph at lines 3778--3779
+ []\TU/lmr/m/n/10 Prevalence
+ []
+
+
+Overfull \hbox (10.40001pt too wide) in paragraph at lines 3780--3781
+ []\TU/lmr/m/n/10 Detection
+ []
+
+
+Overfull \hbox (1.86154pt too wide) in paragraph at lines 3784--3785
+ []\TU/lmr/m/n/10 Balanced
+ []
+
+
+Overfull \hbox (2.9888pt too wide) in paragraph at lines 3790--3790
+ []|\TU/lmr/m/n/10 0.59|
+ []
+
+
+Overfull \hbox (7.24062pt too wide) in paragraph at lines 3790--3790
+ []|\TU/lmr/m/n/10 0.65|
+ []
+
+
+Overfull \hbox (2.9888pt too wide) in paragraph at lines 3792--3792
+ []|\TU/lmr/m/n/10 0.79|
+ []
+
+
+Overfull \hbox (7.24062pt too wide) in paragraph at lines 3792--3792
+ []|\TU/lmr/m/n/10 0.73|
+ []
+
+
+Overfull \hbox (2.9888pt too wide) in paragraph at lines 3794--3794
+ []|\TU/lmr/m/n/10 0.70|
+ []
+
+
+Overfull \hbox (7.24062pt too wide) in paragraph at lines 3794--3794
+ []|\TU/lmr/m/n/10 0.76|
+ []
+
+File: p2test_files/figure-latex/classtree7-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/classtree7-1.pdf>
+
+
+[97]
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+Missing character: There is no ≈ (U+2248) in font [lmroman10-regular]:mapping=tex-text;!
+
+
+[98] [99] [100] [101] [102] [103]
+File: p2test_files/figure-latex/rf_reggraph-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/rf_reggraph-1.pdf>
+File: p2test_files/figure-latex/rf_reg3-1.pdf Graphic file (type pdf)
+<use p2test_files/figure-latex/rf_reg3-1.pdf>
+
+
+[104]
+
+[105] (./p2test.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -1510,12 +1681,12 @@ LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 20388 strings out of 475846
- 420739 string characters out of 5773211
- 953724 words of memory out of 5000000
- 42953 multiletter control sequences out of 15000+600000
+ 20586 strings out of 475846
+ 428235 string characters out of 5773211
+ 956097 words of memory out of 5000000
+ 43139 multiletter control sequences out of 15000+600000
  562525 words of font info for 69 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,8n,114p,405b,485s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on p2test.pdf (89 pages).
+Output written on p2test.pdf (105 pages).
