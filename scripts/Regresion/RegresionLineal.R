@@ -208,6 +208,10 @@ test_stepwise_mse <- mean((prediccion_test2 - test_filtered$SalePrice)^2)
 cat("MSE en entrenamiento:", train_stepwise, "\n")
 cat("MSE en prueba:", test_stepwise_mse, "\n")
 
+plot(test_filtered$SalePrice, col = "blue")
+points(prediccion_test2, col = "red")
+
+
 
 # 7. Regularización con Ridge y Lasso
 x_train <- model.matrix(SalePrice ~ ., data = train_filtered)[, -1]
