@@ -1,0 +1,690 @@
+---
+title: "Entrega 3- Naive Bayes"
+author: "Rodrigo Mansilla, Javier Chen"
+date: "2025-02-25"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%"
+)
+
+library(e1071)      # Para naiveBayes
+library(dplyr)      # Para manipulación de datos
+library(caret)      # Para RMSE, validación y Random Forest
+library(ggplot2)    # Para gráficos
+library(rpart)      # Para Árbol de Regresión
+library(rpart.plot) # Para visualizar árboles
+
+```
+
+## Metodología
+
+Se cargan los datos, se limpian y se dividen en train y test. Luego se entrena un modelo de Naive Bayes y se evalúa su desempeño.
+
+```{r met , echo=FALSE, warning=FALSE, message=FALSE}
+
+# --- Cargar datos originales ---
+train_data_original <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data_original  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+
+# Guardar dimensiones originales
+dim_train_before <- dim(train_data_original)
+dim_test_before  <- dim(test_data_original)
+
+# Imprimir tabla de dimensiones originales (ANTES)
+library(knitr)
+tabla_antes <- data.frame(
+  Dataset  = c("Train", "Test"),
+  Filas    = c(dim_train_before[1], dim_test_before[1]),
+  Columnas = c(dim_train_before[2], dim_test_before[2])
+)
+knitr::kable(tabla_antes, caption = "Dimensiones originales (ANTES del preprocesamiento)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# --- Procesamiento de los datos ---
+
+# Asegurar consistencia: ajustar niveles de los factores en test_data
+factor_vars <- names(train_data_original)[sapply(train_data_original, is.factor)]
+for (var in factor_vars) {
+  if (var %in% names(test_data_original)) {
+    test_data_original[[var]] <- factor(test_data_original[[var]], levels = levels(train_data_original[[var]]))
+  }
+}
+
+# Eliminar filas con NA en ambos conjuntos
+train_data_clean <- train_data_original[complete.cases(train_data_original), ]
+test_data_clean  <- test_data_original[complete.cases(test_data_original), ]
+
+# Definir los predictores: todas las variables excepto "SalePrice"
+predictors <- setdiff(names(train_data_clean), "SalePrice")
+
+# Para modelos que usan los datos originales (Regresión Lineal, Árbol, RF)
+# Se elimina la variable "SalesPrice_bin" si existe
+train_filtered <- train_data_clean[, !(names(train_data_clean) %in% "SalesPrice_bin")]
+test_filtered  <- test_data_clean[, !(names(test_data_clean) %in% "SalesPrice_bin")]
+
+# --- Imprimir dimensiones después del preprocesamiento ---
+dim_train_after <- dim(train_data_clean)
+dim_test_after  <- dim(test_data_clean)
+tabla_despues <- data.frame(
+  Dataset  = c("Train", "Test"),
+  Filas    = c(dim_train_after[1], dim_test_after[1]),
+  Columnas = c(dim_train_after[2], dim_test_after[2])
+)
+knitr::kable(tabla_despues, caption = "Dimensiones después del preprocesamiento (Eliminación de NA y ajuste de niveles)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# --- Mostrar las columnas eliminadas en train_filtered ---
+cols_eliminadas <- setdiff(names(train_data_clean), names(train_filtered))
+cols_eliminadas
+
+```
+
+## Entrenamiento del modelo
+
+Se entrena un modelo de regresión usando Naive Bayes.Establecemos una cantidad de 50 bins para la variable objetivo "SalePrice" y se ajusta el modelo.
+
+```{r regNB1, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Definir el número máximo de bins deseados
+n_bins <- 50  
+
+# Calcular el número de valores únicos en SalePrice
+unique_vals <- length(unique(train_data$SalePrice))
+
+# Ajustar el número de bins: no puede ser mayor que unique_vals - 1
+n_bins <- min(n_bins, unique_vals - 1)
+
+# Crear cortes basados en quantiles para que cada bin tenga frecuencia similar
+bins <- quantile(train_data$SalePrice, 
+                 probs = seq(0, 1, length.out = n_bins + 1), 
+                 na.rm = TRUE)
+
+# Eliminar cortes repetidos (en caso de que existan)
+bins <- unique(bins)
+
+# Asignar a cada observación de SalePrice un bin (categoría) correspondiente
+# include.lowest = TRUE asegura que el valor mínimo se incluya en el primer intervalo
+# dig.lab = 10 especifica el número de dígitos para etiquetar los cortes
+train_data$SalesPrice_bin <- cut(train_data$SalePrice, 
+                                 breaks = bins, 
+                                 include.lowest = TRUE, 
+                                 dig.lab = 10)
+
+
+
+```
+
+Se realiza el cálculo de los centroides de cada bin y se ajusta el modelo de Naive Bayes.
+
+```{r regNB2, echo=FALSE, warning=FALSE, message=FALSE}
+# Calcular el centro de cada bin
+bin_centers <- (head(bins, -1) + tail(bins, -1)) / 2
+
+# Limitar a los primeros 10 centros
+bin_centers_limite <- head(bin_centers, 10)
+
+# Crear un data frame con los centros limitados
+centros_df <- data.frame("Centro_Bin" = bin_centers_limite)
+
+# Imprimir la tabla de centros usando knitr::kable()
+knitr::kable(centros_df, caption = "Centros de cada bin (limitado a 10) - Naive Bayes",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+### Predicciones y Evaluación
+
+Se entrena el modelo de Naive Bayes y se evalúa su desempeño.
+
+```{r regNB3, echo=FALSE, warning=FALSE, message=FALSE}
+# Calcular RMSE, MAE, MAPE y R-squared
+rmse_nb <- RMSE(nb_pred_reg, test_data$SalePrice)
+mae_nb  <- mean(abs(nb_pred_reg - test_data$SalePrice))
+mape_nb <- mean(abs((nb_pred_reg - test_data$SalePrice) / test_data$SalePrice)) * 100
+r2_nb   <- cor(nb_pred_reg, test_data$SalePrice)^2
+
+# Organizar las métricas en un data frame
+metrics_df <- data.frame(
+  "Métrica" = c("RMSE", "MAE", "MAPE (%)", "R-squared"),
+  "Valor"   = c(round(rmse_nb, 4),
+                round(mae_nb, 4),
+                round(mape_nb, 2),
+                round(r2_nb, 4))
+)
+
+# Imprimir la tabla de métricas de evaluación
+knitr::kable(metrics_df, 
+             caption = "Métricas de Evaluación del Modelo Naive Bayes (Regresión)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+
+```
+
+Dentro de los primeros hallazgos del modelo segun las metricas se destaca lo siguiente:
+
+-   **RMSE:** La desviacion entre los valores reales sugiere que las predicciones son bastante acertadas.
+
+-   **MAE:** Indica un rendimiento bueno y que hay errores absolutos bajos.
+
+-   **MAPE:** El error es positivo, indicando que las predicciones estan cerca de los valores reales.
+
+-   **R-SQUARED:** Las predicciones presentan una variabilidad aceptable.
+
+### Gráfico de predicciones
+
+Se grafican las predicciones del modelo de Naive Bayes.
+
+```{r regNB4, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+
+# Crear un data frame con los valores reales y las predicciones
+df_plot <- data.frame(
+  Real = test_data$SalePrice,
+  Pred = nb_pred_reg
+)
+
+# Generar el gráfico de dispersión con línea de regresión
+ggplot(df_plot, aes(x = Real, y = Pred)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Valores Reales vs Predicción (Modelo Naive Bayes - Regresión)",
+       x = "Valor Real",
+       y = "Predicción") +
+  theme_minimal()
+
+
+```
+
+-   La distribución de las predicciones se encuentra alrededor de la linea de tendencia, confirmando que el modelo capta la relación entre la variable objetivo y las predicciones.
+
+En conjunto, el modelo presenta errores moderados , indicando predicciones consistentes. A pesar de dejar una porción de la varianza sin explicar, el modelo ofrece un desempeño aceptable y un buen ajuste a los datos.
+
+## Comparación con Modelos Anteriores
+
+### Modelo de Regresión Lineal
+
+Se entrena un modelo de regresión lineal stepwise y se evalúa su desempeño.
+
+```{r reglin1, echo=FALSE, warning=FALSE, message=FALSE}
+# Ajustar el modelo de regresión lineal utilizando la técnica stepwise (backward)
+modelo_stepwise <- step(
+  lm(SalePrice ~ ., data = train_filtered),
+  direction = "backward",
+  scope = list(upper = ~ ., lower = ~ 1),
+  trace = FALSE
+)
+
+         
+```
+
+```{r reglin2, echo=FALSE, warning=FALSE, message=FALSE}
+# Predicción en el conjunto de prueba
+pred_lin <- predict(modelo_stepwise, newdata = test_filtered)
+
+# Calcular el RMSE del modelo stepwise
+rmse_lin <- RMSE(pred_lin, test_filtered$SalePrice)
+
+# Organizar y presentar el RMSE en una tabla elegante
+rmse_df <- data.frame(
+  Modelo = "Regresión Lineal (Stepwise)",
+  RMSE   = round(rmse_lin, 4)
+)
+
+knitr::kable(rmse_df, 
+             caption = "RMSE del Modelo de Regresión Lineal (Stepwise)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+### Modelo de Árbol de Regresión
+
+```{r arbol1, echo=FALSE, warning=FALSE, message=FALSE}
+# Se ajusta un árbol de regresión usando rpart (método "anova")
+tree_model <- rpart(SalePrice ~ ., data = train_filtered, method = "anova")
+# (Opcional: visualizar el árbol)
+rpart.plot(tree_model, main = "Árbol de Regresión: Modelo Base")
+```
+
+```{r arbol2, echo=FALSE, warning=FALSE, message=FALSE}
+# Realizar la predicción con el modelo de árbol en el conjunto de prueba
+pred_tree <- predict(tree_model, newdata = test_filtered)
+
+# Calcular el RMSE del modelo de árbol
+rmse_tree <- RMSE(pred_tree, test_filtered$SalePrice)
+
+# Organizar la métrica en un data frame
+rmse_tree_df <- data.frame(
+  Modelo = "Árbol de Regresión (Modelo Base)",
+  RMSE   = round(rmse_tree, 4)
+)
+
+# Imprimir la tabla de RMSE usando knitr::kable()
+knitr::kable(rmse_tree_df, 
+             caption = "RMSE del Árbol de Regresión (Modelo Base)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+### Modelo de Random Forest
+
+```{r rf1, echo=FALSE, warning=FALSE, message=FALSE}
+set.seed(123)
+control_cv_reg <- trainControl(method = "cv", number = 10)
+grid_rf <- expand.grid(mtry = c(2, 4, 6, 8))
+rf_model <- caret::train(SalePrice ~ ., 
+                         data = train_filtered, 
+                         method = "rf",
+                         trControl = control_cv_reg,
+                         tuneGrid = grid_rf,
+                         metric = "RMSE")
+
+```
+
+```{r rf2, echo=FALSE, warning=FALSE, message=FALSE}
+# Realizar la predicción con el modelo Random Forest en el conjunto de prueba
+pred_rf <- predict(rf_model, newdata = test_filtered)
+
+# Calcular el RMSE del modelo Random Forest
+rmse_rf <- RMSE(pred_rf, test_filtered$SalePrice)
+
+# Organizar la métrica en un data frame
+rmse_rf_df <- data.frame(
+  Modelo = "Random Forest",
+  RMSE   = round(rmse_rf, 4)
+)
+
+# Imprimir la tabla de RMSE utilizando knitr::kable() y kableExtra
+knitr::kable(rmse_rf_df, 
+             caption = "RMSE del Random Forest",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+
+```
+
+## Comparación de Modelos
+
+Para comparar los modelos , se presentan las métricas de evaluación de cada uno de ellos y los gráficos de dispersión de las predicciones.
+
+### Métricas de Evaluación
+
+```{r comp1, echo=FALSE, warning=FALSE, message=FALSE}
+
+calculate_metrics <- function(actual, predicted) {
+  rmse <- RMSE(predicted, actual)
+  mae <- mean(abs(predicted - actual))
+  mape <- mean(abs((predicted - actual)/actual)) * 100
+  r2 <- 1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
+  return(data.frame(RMSE = rmse, MAE = mae, MAPE = mape, R2 = r2))
+}
+
+```
+
+```{r comp2, echo=FALSE, warning=FALSE, message=FALSE}
+metrics_nb <- calculate_metrics(test_data$SalePrice, nb_pred_reg)
+metrics_lin <- calculate_metrics(test_filtered$SalePrice, pred_lin)
+metrics_tree <- calculate_metrics(test_filtered$SalePrice, pred_tree)
+metrics_rf <- calculate_metrics(test_filtered$SalePrice, pred_rf)
+
+
+
+```
+
+```{r comp3, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Combinar las métricas de los diferentes modelos en un solo data frame
+df_metrics <- rbind(
+  cbind(Modelo = "Naive Bayes", metrics_nb),
+  cbind(Modelo = "Regresión Lineal (Stepwise)", metrics_lin),
+  cbind(Modelo = "Árbol de Regresión", metrics_tree),
+  cbind(Modelo = "Random Forest", metrics_rf)
+)
+
+# Imprimir la comparación final de métricas en una tabla elegante
+knitr::kable(df_metrics, 
+             caption = "Comparación Final de Métricas",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+```
+
+### Gráficos de Predicciones
+
+```{r comp4, echo=FALSE, warning=FALSE, message=FALSE}
+df_nb <- data.frame(Actual = test_data$SalePrice, Predicted = nb_pred_reg, Modelo = "Naive Bayes")
+df_lin <- data.frame(Actual = test_filtered$SalePrice, Predicted = pred_lin, Modelo = "Regresión Lineal (Stepwise)")
+df_tree <- data.frame(Actual = test_filtered$SalePrice, Predicted = pred_tree, Modelo = "Árbol de Regresión")
+df_rf <- data.frame(Actual = test_filtered$SalePrice, Predicted = pred_rf, Modelo = "Random Forest")
+
+df_completo <- rbind(df_nb, df_lin, df_tree, df_rf)
+
+# Gráfico por facetas: cada modelo en su panel
+ggplot(df_completo, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed", size = 1) +
+  facet_wrap(~ Modelo, scales = "free") +
+  labs(title = "Predicción vs. Valor Real por Modelo",
+       x = "Valor Real (SalePrice)",
+       y = "Valor Predicho") +
+  theme_minimal()
+
+
+
+
+```
+
+```{r comp5, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Gráfico combinado: todos los modelos en un mismo panel
+ggplot(df_completo, aes(x = Actual, y = Predicted, color = Modelo)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Comparación de Predicción vs. Valor Real: NB, Lineal, Árbol y RF",
+       x = "Valor Real (SalePrice)",
+       y = "Valor Predicho") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## Entrenamiento de un Modelo de Naive Bayes de clasificación
+
+Se entrena el modelo con la variable PriceCat creada previamente la cual comprende una clasificación de los precios de las casas en 5las siguientes categorías: A partir de la variable SalePrice, podemos proponer:
+
+-   **Económicas:** casas con SalePrice \< 130,000 (aprox. primer cuartil)
+
+-   **Intermedias**: casas con SalePrice \>= 130,000 y \< 215,000 (entre el primer y el tercer cuartil)
+
+-   **Caras:** casas con SalePrice \>= 215,000 (por encima del tercer cuartil)
+
+
+```{r clasif1, echo=FALSE, warning=FALSE, message=FALSE}
+# Generar el resumen de la variable SalePrice
+resumen <- summary(train_data$SalePrice)
+
+# Convertir el resumen en un data frame para facilitar su visualización
+df_resumen <- data.frame(
+  Estadística = names(resumen),
+  Valor = as.vector(resumen)
+)
+
+# Imprimir la tabla con knitr::kable() y estilizarla con kableExtra
+knitr::kable(df_resumen, 
+             caption = "Resumen de SalePrice en train", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+
+
+```
+Se calculan los cuantiles para definir los límites de las categorías.
+```{r clasif2, echo=FALSE, warning=FALSE, message=FALSE}
+# Calcular los cuartiles (25% y 75%) para definir los umbrales
+cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75), na.rm = TRUE)
+lower_threshold <- cuartiles[1]
+upper_threshold <- cuartiles[2]
+
+# Organizar la información en un data frame
+df_umbrales <- data.frame(
+  Categoría   = c("Económicas", "Intermedias", "Caras"),
+  Descripción = c(paste("<", lower_threshold),
+                  paste("[", lower_threshold, ",", upper_threshold, ")"),
+                  paste(">=", upper_threshold))
+)
+
+# Imprimir la tabla de umbrales con knitr::kable()
+knitr::kable(df_umbrales, 
+             caption = "Umbrales elegidos para clasificar",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+
+```
+
+
+Se crea la variable PriceCat en el conjunto de entrenamiento y se ajusta el modelo de Naive Bayes.
+
+```{r clasif3, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Crear la variable categórica PriceCat en el conjunto de entrenamiento
+train_data$PriceCat <- dplyr::case_when(
+  train_data$SalePrice < lower_threshold ~ "Economicas",
+  train_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+
+# Crear la misma variable en el conjunto de prueba
+test_data$PriceCat <- dplyr::case_when(
+  test_data$SalePrice < lower_threshold ~ "Economicas",
+  test_data$SalePrice < upper_threshold ~ "Intermedias",
+  TRUE ~ "Caras"
+)
+test_data$PriceCat <- factor(test_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+
+# Obtener la distribución en el conjunto de entrenamiento y convertirla en data frame
+dist_train <- as.data.frame(table(train_data$PriceCat))
+names(dist_train) <- c("PriceCat", "Frecuencia")
+
+# Obtener la distribución en el conjunto de prueba y convertirla en data frame
+dist_test <- as.data.frame(table(test_data$PriceCat))
+names(dist_test) <- c("PriceCat", "Frecuencia")
+
+# Imprimir la distribución en train usando knitr::kable()
+knitr::kable(dist_train, 
+             caption = "Distribución de PriceCat en train", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Imprimir la distribución en test usando knitr::kable()
+knitr::kable(dist_test, 
+             caption = "Distribución de PriceCat en test", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+
+Finalmente, se entrena el modelo de Naive Bayes 
+```{r clasif4, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Asegurarse de que 'predictors' no incluya "SalePrice"
+# Se ajusta el modelo Naive Bayes para clasificación utilizando PriceCat como variable respuesta
+nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+
+# Predicción en el conjunto de prueba (usando únicamente los predictores)
+nb_pred_class <- predict(nb_model_class, newdata = test_data[, predictors])
+
+# Evaluación del modelo mediante matriz de confusión
+cm_nb_class <- confusionMatrix(nb_pred_class, test_data$PriceCat)
+
+# Extraer la matriz de confusión en formato data frame
+conf_table <- as.data.frame(cm_nb_class$table)
+names(conf_table) <- c("Referencia", "Predicción", "Frecuencia")
+
+# Extraer las métricas globales y transponerlas para mejor visualización
+overall_metrics <- as.data.frame(t(cm_nb_class$overall))
+overall_metrics$Métrica <- rownames(overall_metrics)
+overall_metrics <- overall_metrics[, c("Métrica", names(overall_metrics)[1:length(cm_nb_class$overall)])]
+
+# Extraer las métricas por clase
+byClass_metrics <- as.data.frame(cm_nb_class$byClass)
+byClass_metrics$Métrica <- rownames(byClass_metrics)
+byClass_metrics <- byClass_metrics[, c("Métrica", setdiff(names(byClass_metrics), "Métrica"))]
+
+# Imprimir la matriz de confusión en una tabla elegante
+knitr::kable(conf_table, 
+             caption = "Matriz de Confusión del Modelo Naive Bayes (Clasificación)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Imprimir las métricas globales del modelo
+knitr::kable(overall_metrics, 
+             caption = "Métricas Globales del Modelo Naive Bayes (Clasificación)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Imprimir las métricas por clase (opcional)
+knitr::kable(byClass_metrics, 
+             caption = "Métricas por Clase del Modelo Naive Bayes (Clasificación)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+
+### Metrícas de Evaluación
+Se evalua en el conjunto de entrenamiento el modelo de Naive Bayes de clasificación.
+```{r clasif5, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Predicción en el conjunto de entrenamiento usando los mismos predictores
+nb_pred_train <- predict(nb_model_class, newdata = train_data[, predictors])
+
+# Generar la matriz de confusión en entrenamiento
+cm_train <- confusionMatrix(nb_pred_train, train_data$PriceCat)
+
+# Convertir la matriz de confusión a data frame para presentar de forma elegante
+conf_table_train <- as.data.frame(cm_train$table)
+names(conf_table_train) <- c("Referencia", "Predicción", "Frecuencia")
+
+# Extraer las métricas globales del modelo en entrenamiento y transponerlas para facilitar su lectura
+overall_metrics_train <- as.data.frame(t(cm_train$overall))
+overall_metrics_train$Métrica <- rownames(overall_metrics_train)
+overall_metrics_train <- overall_metrics_train[, c("Métrica", names(cm_train$overall))]
+
+# Extraer las métricas por clase
+byClass_metrics_train <- as.data.frame(cm_train$byClass)
+byClass_metrics_train$Métrica <- rownames(byClass_metrics_train)
+byClass_metrics_train <- byClass_metrics_train[, c("Métrica", setdiff(names(byClass_metrics_train), "Métrica"))]
+
+# Imprimir la matriz de confusión en una tabla elegante
+knitr::kable(conf_table_train, 
+             caption = "Matriz de Confusión del Modelo Naive Bayes (Entrenamiento)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "
+
+```
+
+Luego se evalua el modelo de Naive Bayes de clasificación en el conjunto de prueba.
+
+```{r clasif6, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Predicción en el conjunto de prueba utilizando los mismos predictores
+nb_pred_test <- predict(nb_model_class, newdata = test_data[, predictors])
+
+# Generar la matriz de confusión en el conjunto de prueba
+cm_test <- confusionMatrix(nb_pred_test, test_data$PriceCat)
+
+# Convertir la matriz de confusión a data frame para presentarla de forma elegante
+conf_table_test <- as.data.frame(cm_test$table)
+names(conf_table_test) <- c("Referencia", "Predicción", "Frecuencia")
+
+# Extraer las métricas globales del modelo en prueba y transponerlas para facilitar su lectura
+overall_metrics_test <- as.data.frame(t(cm_test$overall))
+overall_metrics_test$Métrica <- rownames(overall_metrics_test)
+overall_metrics_test <- overall_metrics_test[, c("Métrica", names(cm_test$overall))]
+
+# Extraer las métricas por clase
+byClass_metrics_test <- as.data.frame(cm_test$byClass)
+byClass_metrics_test$Métrica <- rownames(byClass_metrics_test)
+byClass_metrics_test <- byClass_metrics_test[, c("Métrica", setdiff(names(byClass_metrics_test), "Métrica"))]
+
+# Imprimir la matriz de confusión en una tabla elegante
+knitr::kable(conf_table_test, 
+             caption = "Matriz de Confusión del Modelo Naive Bayes (Prueba)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Imprimir las métricas globales en prueba
+knitr::kable(overall_metrics_test, 
+             caption = "Métricas Globales del Modelo Naive Bayes (Prueba)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Imprimir las métricas por clase (opcional)
+knitr::kable(byClass_metrics_test, 
+             caption = "Métricas por Clase del Modelo Naive Bayes (Prueba)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+### Comparación de Accuracy
+
+```{r clasif7, echo=FALSE, warning=FALSE, message=FALSE}
+# Extraer la Accuracy del conjunto de entrenamiento y prueba
+train_accuracy <- cm_train$overall["Accuracy"]
+test_accuracy  <- cm_test$overall["Accuracy"]
+
+# Crear un data frame con la comparación de Accuracy
+accuracy_df <- data.frame(
+  Dataset  = c("Entrenamiento", "Prueba"),
+  Accuracy = c(round(train_accuracy, 4), round(test_accuracy, 4))
+)
+
+# Imprimir la tabla de comparación de Accuracy usando knitr::kable()
+knitr::kable(accuracy_df, 
+             caption = "Comparación de Accuracy en Entrenamiento y Prueba",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+```
+
+
+### Gráfico de Accuracy
+```{r clasif8, echo=FALSE, warning=FALSE, message=FALSE}
+
+accuracy_df <- data.frame(
+  Conjunto = c("Entrenamiento", "Prueba"),
+  Accuracy = c(as.numeric(train_accuracy), as.numeric(test_accuracy))
+)
+
+ggplot(accuracy_df, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 1) +
+  labs(title = "Comparación de Accuracy: Entrenamiento vs. Prueba",
+       y = "Accuracy") +
+  theme_minimal()
+
+```
+
+
+## Modelo de Clasificación con Validación Cruzada
+
+
+
+## Variación de HiperParámetros
+### Modelo de Regresión
+
+
+### Modelo de Clasificación
+
+### Naive Bayes vs Arboles y Random Forest
