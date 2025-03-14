@@ -604,7 +604,7 @@ cm_test <- confusionMatrix(nb_pred_test, test_data$PriceCat)
 
 # Convertir la matriz de confusión a data frame para presentarla de forma elegante
 conf_table_test <- as.data.frame(cm_test$table)
-names(conf_table_test) <- c("Referencia", "Predicción", "Frecuencia")
+names(conf_table_test) <- c("Referencia","Predicción","Frecuencia")
 
 # Extraer las métricas globales del modelo en prueba y transponerlas para facilitar su lectura
 overall_metrics_test <- as.data.frame(t(cm_test$overall))

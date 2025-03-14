@@ -76,6 +76,9 @@ nb_pred_reg <- apply(nb_pred_probs, 1, function(prob_vec) sum(prob_vec * bin_cen
 rmse_nb <- RMSE(nb_pred_reg, test_data$SalePrice)
 cat("RMSE del Modelo Naive Bayes (Regresión):", rmse_nb, "\n")
 
+
+
+
 # ====================================================
 # Sección 3: Modelo de Regresión Lineal (Stepwise)
 # ====================================================
@@ -99,7 +102,7 @@ cat("RMSE del Modelo de Regresión Lineal (Stepwise):", rmse_lin, "\n")
 # Se ajusta un árbol de regresión usando rpart (método "anova")
 tree_model <- rpart(SalePrice ~ ., data = train_filtered, method = "anova")
 # (Opcional: visualizar el árbol)
-# rpart.plot(tree_model, main = "Árbol de Regresión: Modelo Base")
+rpart.plot(tree_model, main = "Árbol de Regresión: Modelo Base")
 pred_tree <- predict(tree_model, newdata = test_filtered)
 rmse_tree <- RMSE(pred_tree, test_filtered$SalePrice)
 cat("RMSE del Árbol de Regresión (Modelo Base):", rmse_tree, "\n")
@@ -145,6 +148,7 @@ df_metrics <- rbind(
 )
 cat("\nComparación Final de Métricas:\n")
 print(df_metrics)
+
 
 # ====================================================
 # Sección 7: Gráficos Comparativos
@@ -291,4 +295,63 @@ ggplot(accuracy_df, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
 # Sección 8: Modelo de Naive Bayes con Validación Cruzada y Comparación
 # ====================================================
 
+### Modelo de Regresion con variacion de Hiperparametros 
 
+
+# Por ejemplo, el preprocesamiento previo:
+n_bins <- 50  
+unique_vals <- length(unique(train_data$SalePrice))
+n_bins <- min(n_bins, unique_vals - 1)
+bins <- quantile(train_data$SalePrice, probs = seq(0, 1, length.out = n_bins + 1), na.rm = TRUE)
+bins <- unique(bins)
+train_data$SalesPrice_bin <- cut(train_data$SalePrice, breaks = bins, include.lowest = TRUE, dig.lab = 10)
+bin_centers <- (head(bins, -1) + tail(bins, -1)) / 2
+cat("Centros de cada bin (Naive Bayes):\n")
+print(bin_centers)
+
+# Definir el grid de hiperparámetros a evaluar:
+# - usekernel: TRUE o FALSE
+# - fL: 0, 1 o 2 (valor de Laplace)
+# - adjust: 0.5, 1 o 2
+grid <- expand.grid(usekernel = c(TRUE, FALSE),
+                    fL = c(0, 1, 2),
+                    adjust = c(0.5, 1, 2))
+
+# Inicializar un data frame para almacenar los resultados
+results <- data.frame(usekernel = logical(),
+                      fL = numeric(),
+                      adjust = numeric(),
+                      RMSE = numeric())
+
+# Recorrer el grid de hiperparámetros
+for (i in 1:nrow(grid)) {
+  params <- grid[i, ]
+  cat("Evaluando: usekernel =", params$usekernel, 
+      " fL =", params$fL, 
+      " adjust =", params$adjust, "\n")
+  
+  # Entrenar el modelo Naive Bayes con la combinación actual
+  nb_model <- naiveBayes(SalesPrice_bin ~ ., 
+                         data = train_data[, c(predictors, "SalesPrice_bin")],
+                         usekernel = params$usekernel, 
+                         fL = params$fL, 
+                         adjust = params$adjust)
+  
+  # Predecir en el conjunto de prueba: obtener probabilidades para cada bin
+  nb_pred_probs <- predict(nb_model, newdata = test_data[, predictors], type = "raw")
+  
+  # Calcular la predicción final como el valor esperado
+  nb_pred <- apply(nb_pred_probs, 1, function(prob_vec) sum(prob_vec * bin_centers))
+  
+  # Calcular el RMSE para esta combinación de hiperparámetros
+  rmse_val <- RMSE(nb_pred, test_data$SalePrice)
+  cat("RMSE:", rmse_val, "\n\n")
+  
+  # Almacenar el resultado
+  results <- rbind(results, cbind(params, RMSE = rmse_val))
+}
+
+# Mostrar los resultados ordenados por RMSE
+results <- results[order(results$RMSE), ]
+cat("Resultados de la búsqueda de hiperparámetros:\n")
+print(results)
