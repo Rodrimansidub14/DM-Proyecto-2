@@ -1064,7 +1064,7 @@ knitr::kable(df_sin_cv,
 
 #### Modelo con Validación Cruzada
 
-```{r clasif10, echo=FALSE, warning=FALSE, message=FALSE}
+```{r clasif10cv, echo=FALSE, warning=FALSE, message=FALSE}
 # RMSE sin validación cruzada
 rmse_cv <- 0.6231303  # tomado del texto
 
@@ -1100,7 +1100,7 @@ df_cv <- data.frame(
 )
 
 knitr::kable(
-  df_final,
+  df_cv,
   caption = "Busqueda de Hiperparámetros para Naive Bayes",
   align = "c"
 ) %>%

@@ -294,64 +294,227 @@ ggplot(accuracy_df, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
 # ====================================================
 # Sección 8: Modelo de Naive Bayes con Validación Cruzada y Comparación
 # ====================================================
+# ====================================================
+# Comparar Naive Bayes con y sin Validación Cruzada
+# ====================================================
 
-### Modelo de Regresion con variacion de Hiperparametros 
+# Cargar librerías necesarias
+library(e1071)      # Para naiveBayes
+library(caret)      # Para RMSE, validación cruzada y otros
+library(dplyr)      # Para manipulación de datos
 
+# Cargar datos preprocesados
+train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
 
-# Por ejemplo, el preprocesamiento previo:
-n_bins <- 50  
+factor_vars <- names(train_data)[sapply(train_data, is.factor)]
+for (var in factor_vars) {
+  if (var %in% names(test_data)) {
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+# Eliminar filas con NA en ambos conjuntos
+train_data <- train_data[complete.cases(train_data), ]
+test_data  <- test_data[complete.cases(test_data), ]
+
+# Definir los predictores: todas las variables excepto "SalePrice"
+predictors <- setdiff(names(train_data), "SalePrice")
+
+# Definir los bins para la variable "SalePrice" (discretización)
+n_bins <- 50
 unique_vals <- length(unique(train_data$SalePrice))
 n_bins <- min(n_bins, unique_vals - 1)
 bins <- quantile(train_data$SalePrice, probs = seq(0, 1, length.out = n_bins + 1), na.rm = TRUE)
-bins <- unique(bins)
+bins <- unique(bins)  # Evitar cortes repetidos
 train_data$SalesPrice_bin <- cut(train_data$SalePrice, breaks = bins, include.lowest = TRUE, dig.lab = 10)
 bin_centers <- (head(bins, -1) + tail(bins, -1)) / 2
-cat("Centros de cada bin (Naive Bayes):\n")
-print(bin_centers)
 
-# Definir el grid de hiperparámetros a evaluar:
-# - usekernel: TRUE o FALSE
-# - fL: 0, 1 o 2 (valor de Laplace)
-# - adjust: 0.5, 1 o 2
-grid <- expand.grid(usekernel = c(TRUE, FALSE),
-                    fL = c(0, 1, 2),
+# ====================================================
+# Versión sin Validación Cruzada
+# ====================================================
+
+# Entrenar el modelo Naive Bayes sin validación cruzada
+nb_model_no_cv <- naiveBayes(SalesPrice_bin ~ ., data = train_data[, c(predictors, "SalesPrice_bin")])
+
+# Predecir en el conjunto de prueba sin validación cruzada
+nb_pred_probs_no_cv <- predict(nb_model_no_cv, newdata = test_data[, predictors], type = "raw")
+
+# Calcular las predicciones como valor esperado
+nb_pred_no_cv <- apply(nb_pred_probs_no_cv, 1, function(prob_vec) sum(prob_vec * bin_centers))
+
+# Calcular el RMSE para el modelo sin validación cruzada
+rmse_no_cv <- RMSE(nb_pred_no_cv, test_data$SalePrice)
+cat("RMSE sin validación cruzada:", rmse_no_cv, "\n")
+
+# ====================================================
+# Versión con Validación Cruzada
+# ====================================================
+
+control_cv <- trainControl(method = "cv", number = 10)
+
+# Entrenar el modelo Naive Bayes con validación cruzada
+grid <- expand.grid(laplace = c(0, 1, 2),
+                    usekernel = c(TRUE, FALSE),
                     adjust = c(0.5, 1, 2))
 
-# Inicializar un data frame para almacenar los resultados
-results <- data.frame(usekernel = logical(),
-                      fL = numeric(),
-                      adjust = numeric(),
-                      RMSE = numeric())
+results_cv <- data.frame(laplace = numeric(),
+                         usekernel = logical(),
+                         adjust = numeric(),
+                         RMSE = numeric())
 
-# Recorrer el grid de hiperparámetros
 for (i in 1:nrow(grid)) {
   params <- grid[i, ]
-  cat("Evaluando: usekernel =", params$usekernel, 
-      " fL =", params$fL, 
+  cat("Evaluando con validación cruzada: laplace =", params$laplace,
+      " usekernel =", params$usekernel,
       " adjust =", params$adjust, "\n")
   
-  # Entrenar el modelo Naive Bayes con la combinación actual
-  nb_model <- naiveBayes(SalesPrice_bin ~ ., 
-                         data = train_data[, c(predictors, "SalesPrice_bin")],
-                         usekernel = params$usekernel, 
-                         fL = params$fL, 
-                         adjust = params$adjust)
+  nb_model_cv <- train(SalesPrice_bin ~ .,
+                       data = train_data[, c(predictors, "SalesPrice_bin")],
+                       method = "naive_bayes",
+                       trControl = control_cv,
+                       tuneGrid = params)
   
-  # Predecir en el conjunto de prueba: obtener probabilidades para cada bin
-  nb_pred_probs <- predict(nb_model, newdata = test_data[, predictors], type = "raw")
+  # Predecir en el conjunto de prueba con el modelo de validación cruzada
+  nb_pred_probs_cv <- predict(nb_model_cv, newdata = test_data[, predictors], type = "prob")
   
-  # Calcular la predicción final como el valor esperado
-  nb_pred <- apply(nb_pred_probs, 1, function(prob_vec) sum(prob_vec * bin_centers))
+  nb_pred_cv <- apply(nb_pred_probs_cv, 1, function(prob_vec) sum(prob_vec * bin_centers))
   
-  # Calcular el RMSE para esta combinación de hiperparámetros
-  rmse_val <- RMSE(nb_pred, test_data$SalePrice)
-  cat("RMSE:", rmse_val, "\n\n")
+  # Calcular el RMSE para esta combinación
+  rmse_cv <- RMSE(nb_pred_cv, test_data$SalePrice)
+  cat("RMSE con validación cruzada:", rmse_cv, "\n")
   
   # Almacenar el resultado
-  results <- rbind(results, cbind(params, RMSE = rmse_val))
+  results_cv <- rbind(results_cv, cbind(params, RMSE = rmse_cv))
 }
 
-# Mostrar los resultados ordenados por RMSE
-results <- results[order(results$RMSE), ]
-cat("Resultados de la búsqueda de hiperparámetros:\n")
-print(results)
+# Mostrar los resultados ordenados por RMSE de la validación cruzada
+results_cv <- results_cv[order(results_cv$RMSE), ]
+cat("Resultados de la búsqueda de hiperparámetros con validación cruzada:\n")
+print(results_cv)
+
+# ====================================================
+# Comparación de Resultados
+# ====================================================
+
+cat("\nComparación de RMSE:\n")
+cat("RMSE sin validación cruzada:", rmse_no_cv, "\n")
+cat("Mejor RMSE con validación cruzada:", min(results_cv$RMSE), "\n")
+
+
+
+# ====================================================
+# Sección 10: Comparación de Modelos de Regresión con Métricas Adicionales
+# ====================================================
+
+# ====================================================
+# Script: Comparación de Modelos de Clasificación
+# ====================================================
+# Se comparan tres modelos de clasificación:
+#   1. Árbol de Decisión Tuned (usando rpart2 y validación cruzada)
+#   2. Random Forest
+#   3. Naïve Bayes
+#
+# Se evalúan utilizando la matriz de confusión (accuracy, Kappa, etc.)
+# y se grafican los resultados para comparar su desempeño.
+
+# Cargar librerías necesarias
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(e1071)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+
+# ----------------------------
+# Asumimos que:
+# - train_data y test_data ya están cargados, limpios y con la variable PriceCat creada.
+# - 'predictors' es un vector con el nombre de todas las variables predictoras (excluyendo "SalePrice").
+# - La fórmula para clasificación es:
+formula_class <- PriceCat ~ . - SalePrice
+
+# ----------------------------
+# Configurar validación cruzada para el modelo de árbol
+# ----------------------------
+control_cv <- trainControl(method = "cv", number = 10, verboseIter = TRUE)
+
+# ----------------------------
+# Modelo 1: Árbol de Decisión Tuned (usando rpart2 y CV)
+# ----------------------------
+set.seed(123)
+# Entrenar el modelo usando caret y variando la profundidad máxima de 2 a 10
+modelo_class_cv <- caret::train(formula_class, 
+                                data = train_data, 
+                                method = "rpart2",      
+                                tuneGrid = expand.grid(maxdepth = 2:10),
+                                trControl = control_cv,
+                                metric = "Accuracy")
+rpart.plot(modelo_class_cv$finalModel, main = "Árbol de Clasificación Tuned (PriceCat)")
+
+# Predicción en el conjunto de prueba
+pred_tree_class <- predict(modelo_class_cv, newdata = test_data)
+
+# ----------------------------
+# Modelo 2: Random Forest para Clasificación
+# ----------------------------
+set.seed(123)
+modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+ypred_rf <- predict(modelo_rf, newdata = test_data)
+ypred_rf <- factor(ypred_rf, levels = levels(train_data$PriceCat))
+
+# ----------------------------
+# Modelo 3: Naïve Bayes para Clasificación
+# ----------------------------
+nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+nb_pred_class <- predict(nb_model_class, newdata = test_data[, predictors])
+
+# ----------------------------
+# Evaluación: Matrices de Confusión para cada modelo
+# ----------------------------
+cm_tree <- confusionMatrix(pred_tree_class, test_data$PriceCat)
+cm_rf   <- confusionMatrix(ypred_rf, test_data$PriceCat)
+cm_nb   <- confusionMatrix(nb_pred_class, test_data$PriceCat)
+
+# Mostrar cada matriz de confusión
+cat("\nMatriz de Confusión - Árbol de Decisión Tuned:\n")
+print(cm_tree)
+
+cat("\nMatriz de Confusión - Random Forest:\n")
+print(cm_rf)
+
+cat("\nMatriz de Confusión - Naïve Bayes:\n")
+print(cm_nb)
+
+# ----------------------------
+# Extraer métricas globales: Accuracy y Kappa
+# ----------------------------
+metrics_class <- data.frame(
+  Modelo   = c("Árbol Tuned", "Random Forest", "Naïve Bayes"),
+  Accuracy = c(as.numeric(cm_tree$overall["Accuracy"]),
+               as.numeric(cm_rf$overall["Accuracy"]),
+               as.numeric(cm_nb$overall["Accuracy"])),
+  Kappa    = c(as.numeric(cm_tree$overall["Kappa"]),
+               as.numeric(cm_rf$overall["Kappa"]),
+               as.numeric(cm_nb$overall["Kappa"]))
+)
+
+cat("\nComparación de Métricas Globales para Modelos de Clasificación:\n")
+print(metrics_class)
+knitr::kable(metrics_class, 
+             caption = "Comparación de Métricas Globales (Accuracy y Kappa)",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# ----------------------------
+# Gráfico comparativo de Accuracy
+# ----------------------------
+ggplot(metrics_class, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 1) +
+  labs(title = "Comparación de Accuracy: Modelos de Clasificación",
+       y = "Accuracy") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
