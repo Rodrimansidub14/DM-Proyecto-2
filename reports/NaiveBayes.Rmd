@@ -35,8 +35,8 @@ Se cargan los datos, se limpian y se dividen en train y test. Luego se entrena u
 ```{r met , echo=FALSE, warning=FALSE, message=FALSE}
 
 # --- Cargar datos originales ---
-train_data_original <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
-test_data_original  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+train_data_original <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data_original  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
 
 # Guardar dimensiones originales
 dim_train_before <- dim(train_data_original)
@@ -98,6 +98,29 @@ cols_eliminadas
 Se entrena un modelo de regresión usando Naive Bayes.Establecemos una cantidad de 50 bins para la variable objetivo "SalePrice" y se ajusta el modelo.
 
 ```{r regNB1, echo=FALSE, warning=FALSE, message=FALSE}
+# Cargar los datos preprocesados para el entrenamiento
+# Cargar datos preprocesados
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+
+# Asegurar consistencia: ajustar niveles de los factores en test_data
+factor_vars <- names(train_data)[sapply(train_data, is.factor)]
+for (var in factor_vars) {
+  if (var %in% names(test_data)) {
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+# Eliminar filas con NA en ambos conjuntos
+train_data <- train_data[complete.cases(train_data), ]
+test_data  <- test_data[complete.cases(test_data), ]
+
+# Definir los predictores: todas las variables excepto "SalePrice"
+predictors <- setdiff(names(train_data), "SalePrice")
+
+# Para modelos que usan los datos originales (Regresión Lineal, Árbol, RF)
+train_filtered <- train_data[, !(names(train_data) %in% "SalesPrice_bin")]
+test_filtered  <- test_data[, !(names(test_data) %in% "SalesPrice_bin")]
 
 # Definir el número máximo de bins deseados
 n_bins <- 50  
@@ -153,6 +176,16 @@ knitr::kable(centros_df, caption = "Centros de cada bin (limitado a 10) - Naive 
 Se entrena el modelo de Naive Bayes y se evalúa su desempeño.
 
 ```{r regNB3, echo=FALSE, warning=FALSE, message=FALSE}
+# 2.3. Entrenar el modelo Naive Bayes (regresión) usando la variable discretizada
+nb_model_reg <- naiveBayes(SalesPrice_bin ~ ., data = train_data[, c(predictors, "SalesPrice_bin")])
+
+# 2.4. Predecir en el conjunto de prueba: obtener probabilidades para cada bin
+nb_pred_probs <- predict(nb_model_reg, newdata = test_data[, predictors], type = "raw")
+
+# 2.5. Calcular la predicción final como el valor esperado
+nb_pred_reg <- apply(nb_pred_probs, 1, function(prob_vec) sum(prob_vec * bin_centers))
+
+
 # Calcular RMSE, MAE, MAPE y R-squared
 rmse_nb <- RMSE(nb_pred_reg, test_data$SalePrice)
 mae_nb  <- mean(abs(nb_pred_reg - test_data$SalePrice))
@@ -371,6 +404,22 @@ knitr::kable(df_metrics,
 
 ```
 
+Las métricas presentan los siguientes resultados:
+
+-   **Regresión Lineal (Stepwise)** logra el menor RMSE y la menor MAPE, además del R² más alto. Esto sugiere que el modelo captura de forma muy precisa las variaciones de precio, con errores bajos tanto absolutos como relativos.
+
+<!-- -->
+
+-   **Random Forest** se ubica segundo en desempeño. Aunque no alcanza la precisión de la regresión lineal stepwise, ofrece un resultado sólido e incorpora no linealidades de forma más robusta que un modelo lineal puro.
+
+<!-- -->
+
+-   **Árbol de Regresión (modelo base)** queda por detrás en términos de RMSE y R² . Al ser un árbol único, presenta más sesgo y fragmenta el espacio de predicción de forma más burda; de ahí los escalones en la gráfica de “Predicción vs. Valor Real”.
+
+<!-- -->
+
+-   **Naive Bayes (Regresión)** es el que muestra **mayor error** y menor R². Esto concuerda con la naturaleza del método, que en su versión “regresión” requiere binning de la variable objetivo y puede perder detalle al modelar precios.
+
 ### Gráficos de Predicciones
 
 ```{r comp4, echo=FALSE, warning=FALSE, message=FALSE}
@@ -410,6 +459,40 @@ ggplot(df_completo, aes(x = Actual, y = Predicted, color = Modelo)) +
 
 ```
 
+**Árbol de Regresión**
+
+-   Se ven “niveles”horizontales claras, reflejo de la naturaleza escalonada de las reglas de partición de un solo árbol.
+
+-   Existe mayor dispersión lejos de la diagonal en ciertos rangos, mostrando que el modelo puede subestimar o sobreestimar el valor real.
+
+**Naive Bayes**
+
+-   Los puntos tienden a formar nubes dispersas, con varios valores concentrados por debajo de 11.5 y por encima de 12.5 que se alejan de la diagonal.
+
+-   Esto coincide con un error porcentual más alto (MAPE=1.367%), indicando que para valores “extremos” el modelo falla más.
+
+**Random Forest**
+
+-   La nube de puntos está más concentrada alrededor de la diagonal. Se observa que el modelo capta bastante bien la tendencia, si bien aún hay cierta dispersión para precios muy altos.
+
+-   El RMSE cercano a 0.146 es bastante bueno, sugiriendo un balance entre sesgo y varianza mejor que el árbol único.
+
+**Regresión Lineal (Stepwise)**
+
+-   Visualmente, es el que muestra mayor alineación con la línea roja. La mayoría de puntos se concentran muy cerca de la diagonal, confirmando su RMSE y MAPE más bajos.
+
+-   El R² elevado (0.8644) indica que el modelo logra explicar más del 86% de la variabilidad de los precios.
+
+1.  **El precio de la vivienda parece tener relaciones bastante lineales con varias variables** (por ejemplo, área total, área habitable, características de calidad como “OverallQual”, etc.). Esto favorece a la regresión lineal stepwise, que captura con precisión dichas relaciones.
+
+2.  **Los modelos de árbole** ofrecen la posibilidad de capturar interacciones y no linealidades. En este caso:
+
+    -   El **árbol único** no logra la complejidad necesaria para capturar la diversidad de factores que influyen en el precio .
+
+    -   El **random forest**, en cambio, reduce la varianza combinando múltiples árboles; por eso su desempeño es notable .
+
+3.  **Naive Bayes** parte de supuestos de independencia condicional y de discretización , por lo que no resulta ideal para pronosticar precios continuos y con muchas interacciones. Los resultados confirman que es el más débil de los cuatro.
+
 ## Entrenamiento de un Modelo de Naive Bayes de clasificación
 
 Se entrena el modelo con la variable PriceCat creada previamente la cual comprende una clasificación de los precios de las casas en 5las siguientes categorías: A partir de la variable SalePrice, podemos proponer:
@@ -419,7 +502,6 @@ Se entrena el modelo con la variable PriceCat creada previamente la cual compren
 -   **Intermedias**: casas con SalePrice \>= 130,000 y \< 215,000 (entre el primer y el tercer cuartil)
 
 -   **Caras:** casas con SalePrice \>= 215,000 (por encima del tercer cuartil)
-
 
 ```{r clasif1, echo=FALSE, warning=FALSE, message=FALSE}
 # Generar el resumen de la variable SalePrice
@@ -441,7 +523,9 @@ knitr::kable(df_resumen,
 
 
 ```
+
 Se calculan los cuantiles para definir los límites de las categorías.
+
 ```{r clasif2, echo=FALSE, warning=FALSE, message=FALSE}
 # Calcular los cuartiles (25% y 75%) para definir los umbrales
 cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75), na.rm = TRUE)
@@ -465,7 +549,6 @@ knitr::kable(df_umbrales,
 
 
 ```
-
 
 Se crea la variable PriceCat en el conjunto de entrenamiento y se ajusta el modelo de Naive Bayes.
 
@@ -510,12 +593,17 @@ knitr::kable(dist_test,
 
 ```
 
+Finalmente, se entrena el modelo de Naive Bayes
 
-Finalmente, se entrena el modelo de Naive Bayes 
-```{r clasif4, echo=FALSE, warning=FALSE, message=FALSE}
+```{r clasif4, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=6, fig.height=4}
+# 1. Ajustar opciones de figura (si hubiera algún gráfico en este chunk)
+# fig.align='center' centra la figura
+# fig.width y fig.height definen las dimensiones en pulgadas
+# out.width y out.height podrían usarse si quieres un % del ancho, por ejemplo out.width='80%'
+
+# -- Modelo Naive Bayes Clasificación --
 
 # Asegurarse de que 'predictors' no incluya "SalePrice"
-# Se ajusta el modelo Naive Bayes para clasificación utilizando PriceCat como variable respuesta
 nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
 
 # Predicción en el conjunto de prueba (usando únicamente los predictores)
@@ -542,26 +630,71 @@ byClass_metrics <- byClass_metrics[, c("Métrica", setdiff(names(byClass_metrics
 knitr::kable(conf_table, 
              caption = "Matriz de Confusión del Modelo Naive Bayes (Clasificación)",
              align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),  # Ajusta la escala si excede el ancho
+    full_width = FALSE
+  )
 
-# Imprimir las métricas globales del modelo
-knitr::kable(overall_metrics, 
-             caption = "Métricas Globales del Modelo Naive Bayes (Clasificación)",
-             align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-
-# Imprimir las métricas por clase (opcional)
-knitr::kable(byClass_metrics, 
-             caption = "Métricas por Clase del Modelo Naive Bayes (Clasificación)",
-             align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
 
 ```
 
+```{r globalmetr, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(
+  overall_metrics, 
+  caption = "Métricas Globales del Modelo Naive Bayes (Clasificación)",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),  # Escala la tabla si excede el ancho
+    font_size = 8,                    # Disminuye el tamaño de fuente
+    full_width = FALSE
+  )
 
-### Metrícas de Evaluación
+```
+
+#### Métricas por clase
+
+```{r byclassmetr, echo=FALSE, warning=FALSE, message=FALSE}
+# Suponiendo que 'byClass_metrics' es el data frame de métricas por clase
+# y que ya agregaste la columna "Métrica" con rownames
+
+# 1. Dividir las columnas en dos grupos
+byClass_part1 <- byClass_metrics[, c("Métrica", "Sensitivity", "Specificity", 
+                                     "Pos Pred Value", "Neg Pred Value")]
+byClass_part2 <- byClass_metrics[, c("Métrica", "Precision", "Recall", "F1")]
+
+# 2. Imprimir la primera parte
+knitr::kable(byClass_part1,
+             caption = "Métricas por Clase - Parte 1",
+             align = "c") %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+# 3. Imprimir la segunda parte
+knitr::kable(byClass_part2,
+             caption = "Métricas por Clase - Parte 2",
+             align = "c") %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+
+```
+
+### Metrícas de Evaluación Entrenamiento
+
 Se evalua en el conjunto de entrenamiento el modelo de Naive Bayes de clasificación.
+
 ```{r clasif5, echo=FALSE, warning=FALSE, message=FALSE}
 
 # Predicción en el conjunto de entrenamiento usando los mismos predictores
@@ -588,9 +721,70 @@ byClass_metrics_train <- byClass_metrics_train[, c("Métrica", setdiff(names(byC
 knitr::kable(conf_table_train, 
              caption = "Matriz de Confusión del Modelo Naive Bayes (Entrenamiento)",
              align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
 ```
+
+#### Métricas por clase
+
+```{r byclassmetr2, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+## 2. Extraer y presentar las métricas globales
+overall_metrics_train <- as.data.frame(t(cm_train$overall))
+overall_metrics_train$Métrica <- rownames(overall_metrics_train)
+overall_metrics_train <- overall_metrics_train[, c("Métrica", names(cm_train$overall))]
+
+knitr::kable(overall_metrics_train, 
+             caption = "Métricas Globales del Modelo Naive Bayes (Entrenamiento)",
+             align = "c") %>% 
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"), 
+    latex_options = c("scale_down"), 
+    font_size = 8,
+    full_width = FALSE
+  )
+
+# 1. Crear el data frame con las métricas por clase
+byClass_metrics_train <- as.data.frame(cm_train$byClass)
+byClass_metrics_train$Métrica <- rownames(byClass_metrics_train)
+byClass_metrics_train <- byClass_metrics_train[, c("Métrica", setdiff(names(byClass_metrics_train), "Métrica"))]
+
+# 2. Dividir las columnas en dos grupos
+#    Ajusta estas columnas según tus necesidades o la cantidad de métricas que tengas.
+byClass_part1 <- byClass_metrics_train[, c("Métrica", "Sensitivity", "Specificity", 
+                                           "Pos Pred Value", "Neg Pred Value")]
+byClass_part2 <- byClass_metrics_train[, c("Métrica", "Precision", "Recall", "F1", "Balanced Accuracy")]
+
+# 3. Imprimir la primera parte
+knitr::kable(
+  byClass_part1,
+  caption = "Métricas por Clase (Parte 1) - Entrenamiento",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),  # Escala la tabla si es muy ancha
+    font_size = 8,                    # Reducir el tamaño de fuente
+    full_width = FALSE
+  )
+
+# 4. Imprimir la segunda parte
+knitr::kable(
+  byClass_part2,
+  caption = "Métricas por Clase (Parte 2) - Entrenamiento",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+```
+
+### Metrícas de Evaluación Prueba
 
 Luego se evalua el modelo de Naive Bayes de clasificación en el conjunto de prueba.
 
@@ -622,20 +816,122 @@ knitr::kable(conf_table_test,
              align = "c") %>% 
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
-# Imprimir las métricas globales en prueba
-knitr::kable(overall_metrics_test, 
-             caption = "Métricas Globales del Modelo Naive Bayes (Prueba)",
-             align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-
-# Imprimir las métricas por clase (opcional)
-knitr::kable(byClass_metrics_test, 
-             caption = "Métricas por Clase del Modelo Naive Bayes (Prueba)",
-             align = "c") %>% 
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
 
 ```
+
+#### Métricas por clase
+
+```{r byclassmetr3, echo=FALSE, warning=FALSE, message=FALSE}
+## 2. Métricas Globales
+overall_metrics_test <- as.data.frame(t(cm_test$overall))
+overall_metrics_test$Métrica <- rownames(overall_metrics_test)
+overall_metrics_test <- overall_metrics_test[, c("Métrica", names(cm_test$overall))]
+
+knitr::kable(overall_metrics_test, 
+             caption = "Métricas Globales del Modelo Naive Bayes (Prueba)",
+             align = "c") %>% 
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+## 1. Extraer las métricas por clase del objeto cm_test
+byClass_metrics_test <- as.data.frame(cm_test$byClass)
+byClass_metrics_test$Métrica <- rownames(byClass_metrics_test)
+byClass_metrics_test <- byClass_metrics_test[, c("Métrica", setdiff(names(byClass_metrics_test), "Métrica"))]
+
+## 2. Dividir las columnas en dos partes (ajusta según tus columnas)
+byClass_test_part1 <- byClass_metrics_test[, c("Métrica", "Sensitivity", "Specificity",
+                                               "Pos Pred Value", "Neg Pred Value")]
+byClass_test_part2 <- byClass_metrics_test[, c("Métrica", "Precision", "Recall", "F1",
+                                               "Balanced Accuracy")]
+
+## 2A. Primera parte
+knitr::kable(
+  byClass_test_part1, 
+  caption = "Métricas por Clase (Parte 1) - Prueba",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+## 2B. Segunda parte
+knitr::kable(
+  byClass_test_part2, 
+  caption = "Métricas por Clase (Parte 2) - Prueba",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+
+```
+
+## Desempeño Global del Modelo
+
+### 2.1 En Entrenamiento
+
+**Accuracy \~ 0.672 y Kappa \~ 0.525:**
+
+El accuracy indica que, en promedio, un 67.2% de las observaciones del conjunto de entrenamiento se clasifican correctamente. El valor de Kappa de \~0.525 sugiere un acuerdo moderado entre las predicciones y las clases reales, por encima de lo que se esperaría al azar, pero aún no muy alto.
+
+La Matriz de Confusión en entrenamiento muestra que:
+
+-   "Económicas" y "Caras" tienen sensibilidades altas , es decir, el modelo identifica correctamente a la mayoría de las viviendas muy baratas o muy caras.
+-   "Intermedias" presenta la sensibilidad más baja , lo que indica confusión al clasificar casas con un precio medio, posiblemente debido a que muchos atributos se solapan con las otras dos categorías.
+
+### 2.2 En Prueba
+
+**Accuracy \~ 0.629 y Kappa \~ 0.463:**
+
+Como suele ocurrir, el desempeño baja un poco fuera de la muestra de entrenamiento, quedando en un \~62.9% de acierto y un acuerdo moderado de 0.46. La pequeña reducción respecto a entrenamiento sugiere cierta pérdida de generalización, aunque no es drástica.
+
+La Matriz de Confusión (Tabla 21) confirma esta tendencia:
+
+-   Las casas marcadas realmente como "Económicas" se aciertan la gran mayoría de las veces como "Económicas" , mostrando una sensibilidad muy alta (0.9718).
+-   Las casas "Caras" se clasifican como "Caras" 52 veces, lo que también da una sensibilidad notable .
+-   Las "Intermedias" siguen siendo el principal foco de confusión, pues 40 se predicen como "Económicas" y 44 como "Intermedias", pero otras 47 que eran realmente Intermedias se equivocan en otras categorías o viceversa .
+
+## 3. Métricas por Clase en Prueba
+
+### Económicas
+
+-   **Sensibilidad** : casi todas las casas económicas se detectan correctamente.
+-   **Especificidad**: el modelo descarta razonablemente bien las no "Económicas".
+-   **Precisión** : de todas las predichas como "Económicas", solo \~63% son efectivamente económicas. Esto se explica porque parte de las "Intermedias" tienden a clasificarse como "Económicas".
+-   **F1=0.7624**: se ubica en un punto intermedio, reflejando alto recall y moderada precisión.
+
+### Intermedias
+
+-   **Sensibilidad**: solo un 35.9% de las casas realmente Intermedias se catalogan así, evidenciando la principal debilidad del modelo; parece confundir las intermedias con "Económicas" o "Caras".
+-   **Especificidad**: cuando una casa no es Intermedia, el modelo lo suele reconocer bien.
+-   **Precisión**: de las que se predicen Intermedias, un 77% sí lo son; sin embargo, el bajo recall reduce la efectividad global para esa clase.
+-   **F1**: es la categoría con F1 más baja, derivado de un balance deficiente entre precisión y recall.
+
+### Caras
+
+-   **Sensibilidad** : el modelo identifica el 80% de las casas caras correctamente.
+-   **Precisión**: de las viviendas que se predicen "Caras", solo el 54% en realidad lo son.
+-   **F1=0.6460**: un valor moderado que expresa la tensión entre un buen recall y una precisión mejorable.
+
+## 4. Interpretación de los Resultados
+
+-   El alto acierto en "Económicas" se explica porque tienen atributos muy definidos como menor área, menor calidad global, que las distinguen de los otros segmentos.
+-   Las "Caras" también muestran una aceptable identificabilidad, seguramente relacionadas con características premium como número de autos en garaje, acabados, calidades.
+-   El punto débil del modelo son las "Intermedias", pues sus atributos se solapan en parte con las categorías adyacentes, haciendo difícil para Naive Bayes separar claramente si un valor medio se parece más a uno bajo o alto.
+
+Además, el modelo presenta un sesgo al sobrediagnosticar “Económicas” o “Caras” cuando en realidad son “Intermedias”, reflejado en la sensibilidad particularmente baja de la clase Intermedia.
 
 ### Comparación de Accuracy
 
@@ -658,8 +954,8 @@ knitr::kable(accuracy_df,
 
 ```
 
-
 ### Gráfico de Accuracy
+
 ```{r clasif8, echo=FALSE, warning=FALSE, message=FALSE}
 
 accuracy_df <- data.frame(
@@ -676,15 +972,176 @@ ggplot(accuracy_df, aes(x = Conjunto, y = Accuracy, fill = Conjunto)) +
 
 ```
 
+Basándonos en la comparación de accuracy entre entrenamiento (0.6721) y prueba (0.6292), no se observa un salto drástico que sugiera un sobreajuste extremo. Un modelo sobreajustado suele presentar un desempeño claramente superior en entrenamiento respecto al conjunto de prueba (a veces, diferencias de 10%–20% o más en la métrica).
+
+En este caso, la reducción de la accuracy de \~0.67 en entrenamiento a \~0.63 en prueba indica que el modelo sí se ajusta ligeramente mejor a los datos de entrenamiento lo cual es normal, pero esa brecha de menos de 5 puntos porcentuales es moderada y esperable en escenarios reales. Por tanto:
+
+-   Hay un mínimo indicio de sobreajuste, pero no es pronunciado.
+-   El modelo retiene razonablemente su capacidad de generalización al pasar del conjunto de entrenamiento al de prueba.
 
 ## Modelo de Clasificación con Validación Cruzada
 
+### Modelo sin Validación Cruzada
+
+```{r clasif9stp, echo=FALSE, warning=FALSE, message=FALSE}
 
 
-## Variación de HiperParámetros
-### Modelo de Regresión
+# Cargar librerías necesarias
+library(e1071)      # Para naiveBayes
+library(caret)      # Para RMSE, validación cruzada y otros
+library(dplyr)      # Para manipulación de datos
+
+# Cargar datos preprocesados
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+
+factor_vars <- names(train_data)[sapply(train_data, is.factor)]
+for (var in factor_vars) {
+  if (var %in% names(test_data)) {
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+# Eliminar filas con NA en ambos conjuntos
+train_data <- train_data[complete.cases(train_data), ]
+test_data  <- test_data[complete.cases(test_data), ]
+
+# Definir los predictores: todas las variables excepto "SalePrice"
+predictors <- setdiff(names(train_data), "SalePrice")
+
+# Definir los bins para la variable "SalePrice" (discretización)
+n_bins <- 50
+unique_vals <- length(unique(train_data$SalePrice))
+n_bins <- min(n_bins, unique_vals - 1)
+bins <- quantile(train_data$SalePrice, probs = seq(0, 1, length.out = n_bins + 1), na.rm = TRUE)
+bins <- unique(bins)  # Evitar cortes repetidos
+train_data$SalesPrice_bin <- cut(train_data$SalePrice, breaks = bins, include.lowest = TRUE, dig.lab = 10)
+bin_centers <- (head(bins, -1) + tail(bins, -1)) / 2
+
+```
+
+```{r clasif9cv, echo=FALSE, warning=FALSE, message=FALSE}
+# Entrenar el modelo Naive Bayes sin validación cruzada
+nb_model_no_cv <- naiveBayes(SalesPrice_bin ~ ., data = train_data[, c(predictors, "SalesPrice_bin")])
+
+# Predecir en el conjunto de prueba sin validación cruzada
+nb_pred_probs_no_cv <- predict(nb_model_no_cv, newdata = test_data[, predictors], type = "raw")
+
+# Calcular las predicciones como valor esperado
+nb_pred_no_cv <- apply(nb_pred_probs_no_cv, 1, function(prob_vec) sum(prob_vec * bin_centers))
+
+# Calcular el RMSE para el modelo sin validación cruzada
+rmse_no_cv <- RMSE(nb_pred_no_cv, test_data$SalePrice)
+
+knitr::kable(data.frame(RMSE = rmse_no_cv), 
+             caption = "RMSE del Modelo Naive Bayes sin Validación Cruzada",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 
 
-### Modelo de Clasificación
+```
 
-### Naive Bayes vs Arboles y Random Forest
+### Modelo con Validación Cruzada
+
+#### Modelo sin Validación Cruzada
+
+```{r clasif10, echo=FALSE, warning=FALSE, message=FALSE}
+# RMSE sin validación cruzada
+rmse_no_cv <- 0.6245234  # tomado del texto
+
+df_sin_cv <- data.frame(
+  Metodo    = "Sin CV",
+  RMSE      = rmse_no_cv
+)
+
+# Imprimir la tabla con knitr::kable()
+
+knitr::kable(df_sin_cv, 
+             caption = "RMSE del Modelo Naive Bayes sin Validación Cruzada",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+#### Modelo con Validación Cruzada
+
+```{r clasif10, echo=FALSE, warning=FALSE, message=FALSE}
+# RMSE sin validación cruzada
+rmse_cv <- 0.6231303  # tomado del texto
+
+df_sin_cv <- data.frame(
+  Metodo    = "Con CV",
+  RMSE      = rmse_cv
+)
+
+# Imprimir la tabla con knitr::kable()
+
+knitr::kable(df_sin_cv, 
+             caption = "RMSE del Modelo Naive Bayes con Validación Cruzada",
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Al utilizar validación cruzada para entrenar el modelo, el RMSE con validación cruzada fue 0.6231303, mientras que el RMSE sin validación cruzada fue 0.6245234. Aunque la diferencia en el RMSE es pequeña, el modelo con validación cruzada funcionó mejor, ya que obtuvo un RMSE más bajo. Además, la validación cruzada proporciona una evaluación más robusta y generalizable del modelo, ayudando a evitar el sobreajuste al evaluar el modelo en múltiples particiones del conjunto de datos.
+
+### Busqueda de Hiperparámetros
+
+```{r clasif11, echo=FALSE, warning=FALSE, message=FALSE}
+
+df_cv <- data.frame(
+  laplace   = c(0,1,2, 0,1,2, 0,1,2, 0,1,2, 0,1,2, 0,1,2),
+  usekernel = c(TRUE,TRUE,TRUE, FALSE,FALSE,FALSE, TRUE,TRUE,TRUE, FALSE,FALSE,FALSE, TRUE,TRUE,TRUE, FALSE,FALSE,FALSE),
+  adjust    = c(0.5,0.5,0.5, 0.5,0.5,0.5, 1,1,1, 1,1,1, 2,2,2, 2,2,2),
+  RMSE      = c(0.6231303,0.6231303,0.6231303,
+                0.7472468,0.7472468,0.7472468,
+                0.6305801,0.6305801,0.6305801,
+                0.7472468,0.7472468,0.7472468,
+                0.6623692,0.6623692,0.6623692,
+                0.7472468,0.7472468,0.7472468)
+)
+
+knitr::kable(
+  df_final,
+  caption = "Busqueda de Hiperparámetros para Naive Bayes",
+  align = "c"
+) %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    latex_options = "scale_down",
+    full_width = FALSE
+  )
+
+```
+
+De la búsqueda de parámetros se determina lo siguiente:
+
+1.  Se observa que el modelo mejora en términos de RMSE al aplicar la validación cruzada y al afinar parámetros, lo cual implica una mayor confiabilidad de la clasificación.
+
+2.  El mejor set de hiperparámetros es:
+
+    -   `usekernel = TRUE` (estimación no paramétrica),
+
+    -   `adjust = 0.5` (ancho de banda más reducido),
+
+    -   `laplace` puede ser cualquiera de [0, 1, 2] sin afectar significativamente el RMSE.
+
+3.  La reducción de RMSE sugiere que las probabilidades estimadas se ajustan mejor a las verdaderas etiquetas.
+
+4.  La menor diferencia en RMSEes indicativa de que la CV reduce sobreajuste y encuentra un modelo más estable.
+
+Por lo tanto, la búsqueda de hiperparámetros para Naive Bayes con validación cruzada sí trajo una ligera mejora y confirmó que **usekernel=TRUE** y **adjust=0.5** ofrecen la mejor configuración para clasificar.
+
+## Naive Bayes vs Arboles y Random Forest
+
+Previamente se realizaron modelos de clasificación con arboles de decisión y random forest, a continuación se comparan los resultados obtenidos con el modelo de Naive Bayes y se determina cual de los modelos predice mejor en términos de desempeño y tiempo de predicción.
+
+-   **Naive Bayes:** Se observó un accuracy cercano a 0.63 en prueba y una Kappa alrededor de 0.46. Presentó un buen reconocimiento de los extremos (casas muy económicas o muy caras), pero su debilidad fue la clase “Intermedias”, con mucha confusión. El modelo fue el más rápido en predecir dado a que el modelo es sencillo por naturaleza.
+
+-    **Árbol de Clasificación**: Alcanzó aproximadamente un accuracy de 0.72 y una Kappa de \~0.54. En general, mejora al Naive Bayes, sobre todo para la clase “Intermedias”; aun así, no es perfecto y suele tener puntos ciegos en los límites entre categorías. Al ser el conjunto de datos de un tamaño considerable, la predicción de este fue mayor a Naive Bayes, sin embargo es relativamente ligero en terminos de computo.
+
+-    **Random Forest de Clasificación:** Supera a un solo árbol gracias a la combinación de múltiples árboles . El modelo usa un numero de 500 arboles, por lo cual es el más lento de los tres dado a la evaluación de particiones y submuestras de la variable.
+
+####  **Conclusión de desempeño:**
+
+El Random Forest suele ser el ganador en términos de exactitud y robustez. El Árbol de Clasificación se ubica en un nivel intermedio. Naive Bayes es el menos preciso de los tres para este problema, aunque muy rápido y sencillo de interpretar en su estructura probabilística.
+
+Si la prioridad es la exactitud en la clasificación, sobre todo para precios de casas que presenten alta variabilidad y características no lineales, el Random Forest habitualmente da los mejores resultados. Si se requiere un modelo sencillo, rápido y con interpretaciones probabilísticas básicas, Naive Bayes es la alternativa más simple. El Árbol de Clasificación ofrece un equilibrio razonable entre interpretabilidad y desempeño, no llega a la precisión del Random Forest. Por lo que la decisión recae entre Modelos predictivos de Naive Bayes y Random Forest, cuya combinación ofrece una predicción sobre las clases bastante acertada.
