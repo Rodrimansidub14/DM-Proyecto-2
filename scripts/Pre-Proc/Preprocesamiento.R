@@ -139,7 +139,7 @@ df[num_cols] <- lapply(df[num_cols], scale)
 # 9. Validación: Separación en train y test ---------------
 
 set.seed(123)
-train_index <- createDataPartition(df$SalePrice, p = 0.8, list = FALSE)
+train_index <- createDataPartition(df$SalePrice, p = 0.7, list = FALSE)
 train_data <- df[train_index, ]
 test_data  <- df[-train_index, ]
 
