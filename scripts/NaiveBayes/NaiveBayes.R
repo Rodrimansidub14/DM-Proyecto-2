@@ -518,3 +518,9 @@ ggplot(metrics_class, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
        y = "Accuracy") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+### KNN con mejor k
+
+

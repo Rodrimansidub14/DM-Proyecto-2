@@ -77,7 +77,7 @@ train_complete <- train_data_clean[complete.cases(train_data_clean), ]
 
 # Calcular el valor de k (se usa la raíz cuadrada del número de observaciones)
 k_value <- round(sqrt(nrow(train_data_clean)), 0)
-params <- expand.grid(k = k_value)
+params <- expand.grid(k = 9)
 
 set.seed(123)
 knn_reg1 <- train(SalePrice ~ ., 
@@ -297,7 +297,7 @@ mse_nb  <- mean((test_data$SalePrice - nb_pred_reg)^2)
 r2_nb   <- 1 - sum((test_data$SalePrice - nb_pred_reg)^2) / sum((test_data$SalePrice - mean(test_data$SalePrice))^2)
 
 # ====================================================
-# Sección 3: Modelo de Regresión Lineal (Stepwise)
+# Sección 3: Modelos de Regresión Lineal (Stepwise)
 # ====================================================
 modelo_stepwise <- step(lm(SalePrice ~ ., data = train_filtered),
                         direction = "backward",
@@ -308,6 +308,9 @@ rmse_lin <- RMSE(pred_lin, test_filtered$SalePrice)
 mae_lin  <- mae(test_filtered$SalePrice, pred_lin)
 mse_lin  <- mean((test_filtered$SalePrice - pred_lin)^2)
 r2_lin   <- 1 - sum((test_filtered$SalePrice - pred_lin)^2) / sum((test_filtered$SalePrice - mean(test_filtered$SalePrice))^2)
+
+
+
 
 # ====================================================
 # Sección 4: Modelo de Árbol de Regresión (Base)
@@ -342,11 +345,12 @@ r2_rf   <- 1 - sum((test_filtered$SalePrice - pred_rf)^2) / sum((test_filtered$S
 # ====================================================
 df_metrics <- data.frame(
   Model = c("Naive Bayes", "Linear Regression", "Tree Regression", "Random Forest", "KNN"),
-  RMSE = c(rmse_nb, rmse_lin, rmse_tree, rmse_rf, rmse_value3),
-  MAE  = c(mae_nb, mae_lin, mae_tree, mae_rf),
-  MSE  = c(mse_nb, mse_lin, mse_tree, mse_rf),
-  R2   = c(r2_nb, r2_lin, r2_tree, r2_rf)
+  RMSE  = c(rmse_nb, rmse_lin, rmse_tree, rmse_rf, rmse_value3),
+  MAE   = c(mae_nb, mae_lin, mae_tree, mae_rf, mae_value3),
+  MSE   = c(mse_nb, mse_lin, mse_tree, mse_rf, mse_value3),
+  R2    = c(r2_nb, r2_lin, r2_tree, r2_rf, r2_value3)
 )
+
 
 cat("Comparación Final de Métricas:\n")
 print(df_metrics)
@@ -355,12 +359,14 @@ print(df_metrics)
 # Sección 7: Gráficos Comparativos
 # ====================================================
 # Crear un data frame con las predicciones de cada modelo y los valores reales
+common_idx <- 1:length(nb_pred_reg)
 df_pred <- data.frame(
-  Actual = test_filtered$SalePrice,
+  Actual = test_filtered$SalePrice[common_idx],
   NaiveBayes = nb_pred_reg,
-  Linear = pred_lin,
-  Tree = pred_tree,
-  RF = pred_rf
+  Linear = pred_lin[common_idx],
+  Tree = pred_tree[common_idx],
+  RF = pred_rf[common_idx],
+  KNN = pred_knn_reg1[common_idx]
 )
 # Reorganizar en formato largo
 df_pred_melt <- melt(df_pred, id.vars = "Actual", variable.name = "Model", value.name = "Predicted")
