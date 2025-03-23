@@ -381,6 +381,124 @@ ggplot(df_pred_melt, aes(x = Actual, y = Predicted, color = Model)) +
        y = "Valor Predicho") +
   theme_minimal()
 
+# ------------------------------------------------------------------
+# Sección 9: Prueba de HIPERPARÁMETROS PARA TODOS LOS MODELOS DE REGRESIÓN
+# ------------------------------------------------------------------
+library(kknn)
+
+# ====================================================
+# 1. Tuning Avanzado KNN con "kknn"
+# ====================================================
+grid_knn_tuning <- expand.grid(
+  kmax = seq(5, 13, 4),
+  distance = c(1, 2),
+  kernel = c("rectangular", "triangular")
+)
+
+set.seed(123)
+knn_tuned_model <- train(
+  SalePrice ~ .,
+  data = train_complete,
+  method = "kknn",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = grid_knn_tuning,
+  preProcess = c("center", "scale")
+)
+
+pred_knn_tuned <- predict(knn_tuned_model, newdata = test_data_clean)
+rmse_knn_tuned <- rmse(test_data_clean$SalePrice, pred_knn_tuned)
+mae_knn_tuned  <- mae(test_data_clean$SalePrice, pred_knn_tuned)
+mse_knn_tuned <- mean((test_data_clean$SalePrice - pred_knn_tuned)^2)
+r2_knn_tuned   <- 1 - sum((test_data_clean$SalePrice - pred_knn_tuned)^2) / sum((test_data_clean$SalePrice - mean(test_data_clean$SalePrice))^2)
+
+# ====================================================
+# 2. Tuning Random Forest
+# ====================================================
+grid_rf <- expand.grid(mtry = c(2, 4, 6, 8))
+
+set.seed(123)
+rf_model_tuned <- train(
+  SalePrice ~ .,
+  data = train_filtered,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = grid_rf,
+  metric = "RMSE"
+)
+
+pred_rf_tuned <- predict(rf_model_tuned, newdata = test_filtered)
+rmse_rf_tuned <- RMSE(pred_rf_tuned, test_filtered$SalePrice)
+mae_rf_tuned  <- mae(test_filtered$SalePrice, pred_rf_tuned)
+mse_rf_tuned <- mean((test_filtered$SalePrice - pred_rf_tuned)^2)
+r2_rf_tuned   <- 1 - sum((test_filtered$SalePrice - pred_rf_tuned)^2) / sum((test_filtered$SalePrice - mean(test_filtered$SalePrice))^2)
+
+# ====================================================
+# 3. Tuning Árbol de Regresión
+# ====================================================
+grid_tree <- expand.grid(cp = seq(0.001, 0.05, length.out = 6))
+
+tree_model_tuned <- train(
+  SalePrice ~ .,
+  data = train_filtered,
+  method = "rpart",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = grid_tree
+)
+
+pred_tree_tuned <- predict(tree_model_tuned, newdata = test_filtered)
+rmse_tree_tuned <- RMSE(pred_tree_tuned, test_filtered$SalePrice)
+mae_tree_tuned  <- mae(test_filtered$SalePrice, pred_tree_tuned)
+mse_tree_tuned <- mean((test_filtered$SalePrice - pred_tree_tuned)^2)
+r2_tree_tuned   <- 1 - sum((test_filtered$SalePrice - pred_tree_tuned)^2) / sum((test_filtered$SalePrice - mean(test_filtered$SalePrice))^2)
+
+# ====================================================
+# 4. Tuning Naive Bayes (variando número de bins)
+# ====================================================
+bin_options <- c(25, 50, 75, 100)
+results_nb <- data.frame()
+
+for (b in bin_options) {
+  bins <- quantile(train_data$SalePrice, probs = seq(0, 1, length.out = b + 1), na.rm = TRUE)
+  bins <- unique(bins)
+  if (length(bins) < 3) next
+  
+  train_data$SalePrice_bin <- cut(train_data$SalePrice, breaks = bins, include.lowest = TRUE, dig.lab = 10)
+  bin_centers <- (head(bins, -1) + tail(bins, -1)) / 2
+  
+  nb_model <- naiveBayes(SalePrice_bin ~ ., data = train_data[, c(predictors, "SalePrice_bin")])
+  nb_probs <- predict(nb_model, newdata = test_data[, predictors], type = "raw")
+  nb_pred <- apply(nb_probs, 1, function(prob_vec) sum(prob_vec * bin_centers))
+  
+  rmse <- RMSE(nb_pred, test_data$SalePrice)
+  mae  <- mae(test_data$SalePrice, nb_pred)
+  mse  <- mean((test_data$SalePrice - nb_pred)^2)
+  r2   <- 1 - sum((test_data$SalePrice - nb_pred)^2) / sum((test_data$SalePrice - mean(test_data$SalePrice))^2)
+  
+  results_nb <- rbind(results_nb, data.frame(Bins = b, RMSE = rmse, MAE = mae, MSE = mse, R2 = r2))
+}
+
+best_nb_row <- results_nb[which.min(results_nb$RMSE), ]
+
+mse_nb_tuned <- best_nb_row$MSE
+
+# ====================================================
+# Comparación Final de TODOS los modelos Tuned
+# ====================================================
+
+
+df_metrics_tuned <- data.frame(
+  Model = c("KNN Tuned", "Random Forest Tuned", "Tree Tuned", "Naive Bayes Tuned"),
+  RMSE  = c(rmse_knn_tuned, rmse_rf_tuned, rmse_tree_tuned, best_nb_row$RMSE),
+  MAE   = c(mae_knn_tuned, mae_rf_tuned, mae_tree_tuned, best_nb_row$MAE),
+  MSE   = c(mse_knn_tuned, mse_rf_tuned, mse_tree_tuned, mse_nb_tuned),
+  R2    = c(r2_knn_tuned, r2_rf_tuned, r2_tree_tuned, best_nb_row$R2)
+)
+
+
+cat("\nComparación de Modelos Ajustados (Tuned):\n")
+print(df_metrics_tuned)
+
+
 
 
   
