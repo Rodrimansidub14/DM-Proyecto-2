@@ -11,8 +11,8 @@ modelo_knn_simple <- function() {
   # 1. Cargar y preparar los datos
   # ====================================================
   
-  train_data <- read.csv("train_preprocessed.csv", stringsAsFactors = TRUE)
-  test_data  <- read.csv("test_preprocessed.csv", stringsAsFactors = TRUE)
+  train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
   
   # Ajustar los niveles de las variables categóricas
   factor_vars <- names(train_data)[sapply(train_data, is.factor)]
@@ -96,12 +96,12 @@ modelo_knn_simple <- function() {
 }
 
 #================================================================
-# Modelo de KNN Validacion Cruzada
+# Modelo de KNN Validacion Cruzada (Corregido para clasificación)
 #================================================================
 modelo_knn_cv <- function() {
   # Cargar datos
-  train_data <- read.csv("train_preprocessed.csv", stringsAsFactors = TRUE)
-  test_data  <- read.csv("test_preprocessed.csv", stringsAsFactors = TRUE)
+  train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
   
   # Eliminar variables con varianza cero o casi cero
   cols_to_remove <- nearZeroVar(train_data)
@@ -138,12 +138,31 @@ modelo_knn_cv <- function() {
   train_data <- train_data[complete.cases(train_data), ]
   test_data  <- test_data[complete.cases(test_data), ]
   
-  # Configuración de validación cruzada con 10 pliegues
+  # Crear la variable de clasificación PriceCat en el conjunto de entrenamiento y prueba
+  cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75), na.rm = TRUE)
+  lower_threshold <- cuartiles[1]
+  upper_threshold <- cuartiles[2]
+  
+  train_data$PriceCat <- case_when(
+    train_data$SalePrice < lower_threshold ~ "Economicas",
+    train_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  )
+  train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+  
+  test_data$PriceCat <- case_when(
+    test_data$SalePrice < lower_threshold ~ "Economicas",
+    test_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  )
+  test_data$PriceCat <- factor(test_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+  
+  # Configuración de validación cruzada con 10 pliegues para clasificación
   train_control <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
   
-  # Entrenar el modelo KNN con validación cruzada
+  # Entrenar el modelo KNN con validación cruzada utilizando PriceCat como variable respuesta
   set.seed(123)
-  knn_cv <- train(SalePrice ~ ., 
+  knn_cv <- train(PriceCat ~ ., 
                   data = train_data, 
                   method = "knn", 
                   preProcess = c("center", "scale"),
@@ -151,17 +170,16 @@ modelo_knn_cv <- function() {
   
   pred_cv <- predict(knn_cv, newdata = test_data)
   
-  # Calcular métricas para el modelo con validación cruzada
-  rmse_cv <- rmse(test_data$SalePrice, pred_cv)
-  mae_cv  <- mae(test_data$SalePrice, pred_cv)
-  r2_cv   <- 1 - sum((test_data$SalePrice - pred_cv)^2) / sum((test_data$SalePrice - mean(test_data$SalePrice))^2)
-  mse_cv  <- mean((test_data$SalePrice - pred_cv)^2) 
+  # Evaluar el modelo con la matriz de confusión
+  cm_cv <- confusionMatrix(pred_cv, test_data$PriceCat)
   
-  # Imprimir métricas finales
-  cat("KNN con Validación Cruzada - RMSE: ", rmse_cv, "\n")
-  cat("KNN con Validación Cruzada - MAE: ", mae_cv, "\n")
-  cat("KNN con Validación Cruzada - MSE: ", mse_cv, "\n") 
-  cat("KNN con Validación Cruzada - R²: ", r2_cv, "\n")
+  # Imprimir la matriz de confusión
+  print(cm_cv)
+  
+  # Calcular y mostrar otras métricas de clasificación
+  cat("KNN con Validación Cruzada - Accuracy: ", cm_cv$overall['Accuracy'], "\n")
+  cat("KNN con Validación Cruzada - Kappa: ", cm_cv$overall['Kappa'], "\n")
+  cat("KNN con Validación Cruzada - Error: ", 1 - cm_cv$overall['Accuracy'], "\n")
 }
 
 modelo_knn_simple()   
