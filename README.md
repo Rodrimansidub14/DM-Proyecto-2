@@ -16,21 +16,23 @@ Este proyecto utiliza técnicas avanzadas de análisis predictivo y clasificaci�
 - **Regresión Lineal Múltiple (OLS, Stepwise, Lasso, Ridge)**
 - **Árboles de Decisión**
 - **Random Forest para Regresión**
-- **Naive Bayes **
+- **Naive Bayes**
+- **KNN**
 
 
 ### Modelos de Clasificación
 - **Árboles de Decisión con Validación Cruzada**
 - **Random Forest para Clasificación**
 - **Naive Bayes para Clasificación**
+- **knn para Clasificación**
 
 
 ### Navegación en el protyecto
 
 Para ver el reporte del proyecto navegar a :
 -  **reports/pdtest.pdf -> Modelos Lineales , arboles y Random Forest
--   
--  -  **reports/NaiveBayes -> Modelo de Naive Bayes
+-  **reports/NaiveBayes -> Modelo de Naive Bayes
+-  **reports/KNN -> Modelo de knn
 
 Los scripts de cada etapa estan documentados en carpetas dentro de /Scripts
 
