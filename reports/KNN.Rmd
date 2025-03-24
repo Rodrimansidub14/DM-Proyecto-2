@@ -694,45 +694,769 @@ knitr::kable(as.data.frame(cm$byClass), format = "latex", booktabs = TRUE,
 
 ### Efectividad Global
 
-**Accuracy ≈ 79.3% y Kappa ≈ 0.66**  
-El modelo acierta casi el 80% de las veces y muestra un acuerdo bueno por encima de lo esperado al azar (Kappa > 0.6).
+**Accuracy ≈ 79.3% y Kappa ≈ 0.66**\
+El modelo acierta casi el 80% de las veces y muestra un acuerdo bueno por encima de lo esperado al azar (Kappa \> 0.6).
 
 ### Análisis de la Matriz de Confusión
 
 #### Clase “Económicas”
 
-- **Sensitivity = 0.875**: De cada 100 casas realmente económicas, 87–88 se clasifican correctamente.  
-- **Specificity = 0.910**: Muy pocas veces confunde otros tipos (Intermedias/Caras) como Económicas.  
-- **Error principal**: ocurre cuando las Económicas son predichas como “Intermedias” (12 casos), pero la magnitud es relativamente baja.
+-   **Sensitivity = 0.875**: De cada 100 casas realmente económicas, 87–88 se clasifican correctamente.\
+-   **Specificity = 0.910**: Muy pocas veces confunde otros tipos (Intermedias/Caras) como Económicas.\
+-   **Error principal**: ocurre cuando las Económicas son predichas como “Intermedias” (12 casos), pero la magnitud es relativamente baja.
 
 #### Clase “Intermedias”
 
-- **Sensitivity = 0.8507**: Reconoce un 85% de las Intermedias reales.  
-- **Specificity = 0.7347**: Mayor probabilidad de confundir otras clases como Intermedias; esto implica más “falsos positivos”.  
-- **Error principal**: Parte de las Intermedias acaban clasificadas como “Económicas” o “Caras”, y viceversa (p. ej., 40 Caras confundidas como Intermedias).
+-   **Sensitivity = 0.8507**: Reconoce un 85% de las Intermedias reales.\
+-   **Specificity = 0.7347**: Mayor probabilidad de confundir otras clases como Intermedias; esto implica más “falsos positivos”.\
+-   **Error principal**: Parte de las Intermedias acaban clasificadas como “Económicas” o “Caras”, y viceversa (p. ej., 40 Caras confundidas como Intermedias).
 
 #### Clase “Caras”
 
-- **Sensitivity = 0.60**: Solo identifica 60% de las viviendas caras, es decir, pierde el 40% restante.  
-- **Specificity = 0.9899**: Cuando una casa no es cara, casi siempre lo acierta.  
-- **Error principal**: Varias casas realmente “Caras” son etiquetadas como “Intermedias” (40 casos), disminuyendo la sensibilidad.
+-   **Sensitivity = 0.60**: Solo identifica 60% de las viviendas caras, es decir, pierde el 40% restante.\
+-   **Specificity = 0.9899**: Cuando una casa no es cara, casi siempre lo acierta.\
+-   **Error principal**: Varias casas realmente “Caras” son etiquetadas como “Intermedias” (40 casos), disminuyendo la sensibilidad.
 
 ### Dónde se Equivoca Más y Dónde Menos
 
-- **Menos Errores**: En “Económicas”, gracias a su alta sensibilidad y especificidad (~87.5% y 91%).  
-- **Más Errores**: En “Caras”, ya que la sensibilidad es la más baja (0.60). El modelo subestima o confunde las viviendas caras con “Intermedias”.  
-- “Intermedias” mantiene un balance aceptable, pero sigue siendo una clase amplia que se presta a confusiones con las otras dos.
+-   **Menos Errores**: En “Económicas”, gracias a su alta sensibilidad y especificidad (\~87.5% y 91%).\
+-   **Más Errores**: En “Caras”, ya que la sensibilidad es la más baja (0.60). El modelo subestima o confunde las viviendas caras con “Intermedias”.\
+-   “Intermedias” mantiene un balance aceptable, pero sigue siendo una clase amplia que se presta a confusiones con las otras dos.
 
 ### Importancia de los Errores
 
-- Subestimar viviendas Caras podría impactar negativamente en estrategias de venta Y se pierden oportunidades de precio alto.
-- Confundir Económicas como Intermedias o viceversa puede afectar la estimación de valor de mercado y segmentación de clientes.
-
-### Conclusión
+-   Subestimar viviendas Caras podría impactar negativamente en estrategias de venta Y se pierden oportunidades de precio alto.
+-   Confundir Económicas como Intermedias o viceversa puede afectar la estimación de valor de mercado y segmentación de clientes.
 
 El modelo alcanza un buen rendimiento global (**accuracy ≈ 79%**) y clasifica con notable precisión las categorías “Económicas” e “Intermedias”. Sin embargo, fallar en “Caras” es la principal debilidad, lo que sugiere que para identificar casas de alto valor es encesario evaliar estrategias como el ajuste de *k*, refinar variables entre otras alternativas.
 
+### Analisis de sobreajuste
+
+```{r overfit, message=FALSE, warning=FALSE}
+
+ # Definir el rango de k a evaluar
+  k_range <- seq(3, 15, by = 1)
+  
+  # Inicializar vectores para guardar la precisión en train y test
+  train_acc <- numeric(length(k_range))
+  test_acc  <- numeric(length(k_range))
+  
+  # Iterar sobre cada valor de k
+  for (i in seq_along(k_range)) {
+    k_val <- k_range[i]
+    
+    # Predicción en el conjunto de entrenamiento (usando train como ambos: datos a clasificar y referencia)
+    pred_train <- knn(x_train, x_train, y_train, k = k_val)
+    cm_train <- confusionMatrix(pred_train, y_train)
+    train_acc[i] <- cm_train$overall["Accuracy"]
+    
+    # Predicción en el conjunto de prueba
+    pred_test <- knn(x_train, x_test, y_train, k = k_val)
+    cm_test <- confusionMatrix(pred_test, y_test)
+    test_acc[i] <- cm_test$overall["Accuracy"]
+  }
+  
+  # Crear un data frame para la gráfica
+  df_accuracy <- data.frame(
+    k = rep(k_range, times = 2),
+    Accuracy = c(train_acc, test_acc),
+    Conjunto = rep(c("Train", "Test"), each = length(k_range))
+  )
+  
+  # Graficar la precisión en función de k para train y test
+  ggplot(df_accuracy, aes(x = k, y = Accuracy, color = Conjunto)) +
+    geom_line(size = 1.2) +
+    geom_point(size = 3) +
+    labs(title = "Comparación de Accuracy: Train vs. Test para diferentes valores de k",
+         x = "Número de vecinos (k)",
+         y = "Accuracy") +
+    theme_minimal() +
+    scale_color_manual(values = c("Train" = "blue", "Test" = "red"))
+  
+
+
+```
+
+En la gráfica se ve que, con valores de k muy bajos (1–3), la exactitud en entrenamiento es mucho mayor que en prueba, lo cual indica sobreajuste en esos puntos el modelo memoriza el conjunto de entrenamiento y no generaliza bien. A medida que k aumenta, esa brecha se reduce, mitigando el sobreajuste. Por tanto, sí puede estar sobreajustado si se elige un k demasiado pequeño. El “óptimo” suele hallarse donde la curva roja alcanza su punto más alto sin que la azul sea demasiado baja, el cual de acuerdo a la gráfica esta en k=7.
+
+## Modelo de Clasificación con CV
+
+# Mejor k
+
+```{r train_clas_cv, message=FALSE, warning=FALSE}
+# Cargar datos
+  train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  
+  # Eliminar variables con varianza cero en train_data
+  cols_to_remove <- nearZeroVar(train_data)
+  if (length(cols_to_remove) > 0) {
+    train_data <- train_data[, -cols_to_remove, drop = FALSE]
+    
+    # Asegurar que test_data también elimine las mismas columnas
+    common_cols <- intersect(names(train_data), names(test_data))
+    test_data <- test_data[, common_cols, drop = FALSE]
+  }
+  
+  # Manejo de valores NA en datos numéricos
+  numeric_cols <- names(train_data)[sapply(train_data, is.numeric)]
+  for (col in numeric_cols) {
+    train_data[[col]][is.na(train_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+    test_data[[col]][is.na(test_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)  # Usar la mediana de train
+  }
+
+  factor_cols <- names(train_data)[sapply(train_data, is.factor)]
+  for (col in factor_cols) {
+    mode_value <- names(sort(table(train_data[[col]]), decreasing = TRUE))[1]
+    train_data[[col]][is.na(train_data[[col]])] <- mode_value
+    test_data[[col]][is.na(test_data[[col]])] <- mode_value
+  }
+  
+  # Crear la variable de clasificación PriceCat
+  cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75), na.rm = TRUE)
+  lower_threshold <- cuartiles[1]
+  upper_threshold <- cuartiles[2]
+  
+  train_data$PriceCat <- factor(case_when(
+    train_data$SalePrice < lower_threshold ~ "Economicas",
+    train_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  ), levels = c("Economicas", "Intermedias", "Caras"))
+  
+  test_data$PriceCat <- factor(case_when(
+    test_data$SalePrice < lower_threshold ~ "Economicas",
+    test_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  ), levels = c("Economicas", "Intermedias", "Caras"))
+  
+  # Asegurar que test_data y train_data tienen las mismas columnas
+  common_cols <- intersect(names(train_data), names(test_data))
+  train_data <- train_data[, common_cols, drop = FALSE]
+  test_data <- test_data[, common_cols, drop = FALSE]
+  
+  # Configuración de validación cruzada con 10 pliegues
+  train_control <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
+  
+  # Optimización del hiperparámetro k
+  tuneGrid <- expand.grid(k = seq(1, 30, by = 2))  # Prueba valores de k entre 1 y 30
+  
+  set.seed(123)
+  knn_cv_tuned <- train(PriceCat ~ ., 
+                         data = train_data, 
+                         method = "knn", 
+                         preProcess = c("center", "scale"), 
+                         trControl = train_control, 
+                         tuneGrid = tuneGrid)
+best_k <- knn_cv_tuned$bestTune$k
+
+knitr::kable(best_k, caption = "Mejor valor de k encontrado", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+### Predicción y Evaluación del Modelo
+
+#### Matriz de Confusión
+
+```{r pred_clas_cv, message=FALSE, warning=FALSE}
+# Reentrena el modelo con la nueva versión de train_data
+# Realizar la predicción con el mejor modelo
+pred_tuned <- predict(knn_cv_tuned, newdata = test_data)
+
+# Asegurarse de que test_data y pred_tuned tengan la misma longitud
+if (length(pred_tuned) != length(test_data$PriceCat)) {
+  cat("Advertencia: Diferencia en longitud entre predicciones y datos de prueba\n")
+  test_data <- test_data[1:length(pred_tuned), ]
+}
+
+# Matriz de confusión
+cm_tuned <- confusionMatrix(pred_tuned, test_data$PriceCat)
+
+
+knitr::kable(
+  as.data.frame(cm_tuned$table),
+  caption = "Matriz de Confusión del Modelo con CV",
+  align = "c"
+) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+**Clase “Económicas** - 196 se clasifican correctamente como “Económicas”.\
+- 60 se confunden como “Intermedias”.\
+- Cero confusiones con “Caras”.
+
+**Clase “Intermedias** - 448 correctas como “Intermedias”.\
+- 43 se predicen por error como “Económicas”, 18 como “Caras”.
+
+**Clase Caras** - 178 se aciertan como “Caras”.\
+- 81 casos realmente “Caras” se confunden como “Intermedias”.
+
+El mayor equívoco aparece en la clase “Caras” → “Intermedias”.\
+“Económicas” y “Caras” casi nunca se confunden directamente entre sí.
+
+#### Métricas Globales
+
+```{r eval_clas_cv, message=FALSE, warning=FALSE}
+knitr::kable(
+  as.data.frame(t(cm_tuned$overall)),
+  caption = "Métricas Globales del Modelo con CV",
+  align = "c"
+) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
 
 
 
+```
+
+**Accuracy = 0.8027**\
+El modelo acierta el 80.27% de los casos al clasificar viviendas en Económicas, Intermedias o Caras.
+
+**Kappa = 0.6752**\
+Muestra un acuerdo “bueno” (por encima de 0.6) entre las predicciones y la realidad, restando el efecto del azar.
+
+**Intervalo de Confianza**\
+- AccuracyLower = 0.7770\
+- AccuracyUpper = 0.8267\
+Confirma que la exactitud del modelo, bajo distintas particiones, se ubica aproximadamente entre 77.7% y 82.7%.
+
+El modelo mantiene un desempeño sólido en clasificación, con buena concordancia global.
+
+#### Métricas por Clase
+
+```{r eval_clas_cv2, message=FALSE, warning=FALSE}
+knitr::kable(
+  as.data.frame(cm_tuned$byClass),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Métricas por Clase del Modelo con CV"
+) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+
+
+```
+
+**Clase “Económicas** - **Sensibilidad 0.77**: detecta \~77% de las viviendas económicas.\
+- **Specificity 0.94**: muy pocas veces confunde otras clases como “Económicas”.\
+- **F1 = 0.792**: equilibra bien entre precisión (0.8201) y recall (0.7656).
+
+**Clase “Intermedias** - **Sensibilidad 0.88**: identifica la mayoría de casas “Intermedias”.\
+- **Specificity 0.73**: un % considerable de otros tipos se marcan erróneamente como “Intermedias”.\
+- **F1 = 0.816**: la clase mejor equilibrada en términos de precisión y sensibilidad.
+
+**Clase Caras** - **Sensibilidad 0.69**: aproximadamente 69% de las “Caras” se clasifican bien, quedando 31% confundidas.\
+- **Specificity 0.98**: casi nunca etiqueta viviendas no caras como “Caras”.\
+- **F1 = 0.782**: moderado, mejor que el modelo sin CV (que tenía \~0.60 de sensibilidad).
+
+El modelo sobresale en “Intermedias”, pero “Caras” muestra la sensibilidad más baja. “Económicas” balancea buena especificidad con sensibilidad decente.
+
+### Cálculo y presentación de F1-score por clase
+
+```{r eval_clas_cv3, message=FALSE, warning=FALSE}
+
+precision_cv <- cm_tuned$byClass[, "Precision"]
+recall_cv    <- cm_tuned$byClass[, "Recall"]
+
+# Evitar NA en caso de que alguna clase no aparezca
+valid_indices <- !is.na(precision_cv) & !is.na(recall_cv)
+f1_scores_cv  <- ifelse(valid_indices,
+                        2 * (precision_cv * recall_cv) / (precision_cv + recall_cv),
+                        NA)
+
+f1_df_cv <- data.frame(
+  Clase   = rownames(cm_tuned$byClass),
+  F1_Score = round(f1_scores_cv, 3)
+)
+
+knitr::kable(
+  f1_df_cv,
+  caption = "F1-score por Clase (Modelo con CV)",
+  align = "c"
+) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+Se observa que las tres clases tienen F1 por encima de 0.78, lo que indica un buen desempeño homogéneo.\
+“Intermedias” destaca ligeramente (0.816), mientras “Caras” mejora frente al modelo previo, aunque sigue siendo la categoría menos sensible.
+
+### Comparación con modelo base
+
+El modelo con validación cruzada (CV) obtuvo una exactitud algo mayor (0.8027 vs. 0.7934) y un Kappa superior (0.675 vs. 0.660), además de mejorar la identificación de la clase “Caras” (sensibilidad sube de 0.60 a \~0.69). Por tanto, funcionó mejor que el modelo anterior sin CV.
+
+## Modelo de regresión y clasificacion con fine tuning
+
+Para kNN, los hiperparámetros clave son: - kmax: número máximo de vecinos a considerar. El k elegido finalmente estará entre 1 y kmax, ajustado internamente por kknn.
+
+-   distance: tipo de distancia , 1 = Manhattan, 2 = Euclidiana, etc..
+
+-   kernel: cómo se ponderan los vecinos, por ejemplo, “rectangular” sin ponderación, “triangular” asigna más peso a los vecinos cercanos, “epanechnikov”, etc.
+
+### Modelo de Regresión
+
+```{r fine_tuning, message=FALSE, warning=FALSE}
+# Definir una grilla de hiperparámetros para kknn:
+# - kmax: número máximo de vecinos a considerar (en este ejemplo se prueban 5 y 9 y 13)
+# - distance: tipo de distancia; 1 para Manhattan y 2 para Euclidiana
+# - kernel: método de ponderación de los vecinos ("rectangular" para sin ponderación, "triangular" para dar mayor peso a vecinos más cercanos)
+grid_knn_tuning <- expand.grid(
+  kmax = seq(5, 13, by = 4),      # Probamos kmax = 5, 9, 13
+  distance = c(1, 2),             # Distancia Manhattan y Euclidiana
+  kernel = c("rectangular", "triangular")  # Dos esquemas de ponderación
+)
+
+# Configurar validación cruzada: se usa 10-fold CV
+tr_control <- trainControl(method = "cv", number = 10)
+
+# Ajustar el modelo KNN de regresión con la grilla definida
+set.seed(123)
+knn_tuned_model <- train(
+  SalePrice ~ .,                  # Fórmula: predecir SalePrice usando todas las demás variables
+  data = train_complete,          # Conjunto de entrenamiento completo
+  method = "kknn",                # Método kknn, que permite tunear múltiples hiperparámetros
+  preProcess = c("center", "scale"),  # Normalización, muy importante para KNN
+  trControl = tr_control,         # Control de validación cruzada
+  tuneGrid = grid_knn_tuning,     # La grilla de hiperparámetros definida
+  metric = "RMSE"                 # Métrica a optimizar
+)
+
+# 4. Mejor combinación de hiperparámetros
+mejor_knn <- knn_tuned_model$bestTune
+knitr::kable(mejor_knn, 
+             caption = "Mejor Combinación de Hiperparámetros del Modelo KNN Tuneado", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+```
+
+#### Predicción y Evaluación del Modelo de Regresión
+
+```{r pred_tuning, message=FALSE, warning=FALSE}
+
+pred_knn_tuned <- predict(knn_tuned_model, newdata = test_data_clean)
+
+# Calcular las métricas de evaluación
+rmse_knn_tuned <- rmse(test_data_clean$SalePrice, pred_knn_tuned)
+mae_knn_tuned  <- mae(test_data_clean$SalePrice, pred_knn_tuned)
+mse_knn_tuned  <- mean((test_data_clean$SalePrice - pred_knn_tuned)^2)
+r2_knn_tuned   <- 1 - sum((test_data_clean$SalePrice - pred_knn_tuned)^2) / 
+  sum((test_data_clean$SalePrice - mean(test_data_clean$SalePrice))^2)
+df_metrics_knn <- data.frame(
+  Métrica = c("RMSE", "MAE", "MSE", "R-squared"),
+  Valor = round(c(rmse_knn_tuned, mae_knn_tuned, mse_knn_tuned, r2_knn_tuned), 4)
+)
+
+knitr::kable(df_metrics_knn, 
+             caption = "Métricas de Evaluación del Modelo KNN Tunado", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+```
+
+#### Graficos de predicciones
+
+```{r comp7, message=FALSE, warning=FALSE}
+df_result_tuned <- data.frame(
+  Index = 1:nrow(test_data_clean),
+  Real = test_data_clean$SalePrice,
+  Pred = pred_knn_tuned
+)
+
+# Graficar la comparación de los valores reales y predichos
+ggplot(df_result_tuned, aes(x = Index)) +
+  geom_point(aes(y = Real, color = "Real"), size = 2) +
+  geom_point(aes(y = Pred, color = "Pred"), size = 2) +
+  scale_color_manual(values = c("Real" = "blue", "Pred" = "red")) +
+  labs(title = "Comparación de valores reales y predichos (Modelo KNN Tunado)",
+       x = "Índice", y = "Precio de venta", color = "Serie") +
+  theme_minimal()
+
+
+
+
+```
+
+### Modelo de Clasificación
+
+```{r fine_tuning2, message=FALSE, warning=FALSE}
+library(doParallel)
+
+
+  # Cargar datos
+  train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+  
+  # Eliminar variables con varianza cero en train_data
+  cols_to_remove <- nearZeroVar(train_data)
+  if (length(cols_to_remove) > 0) {
+    train_data <- train_data[, -cols_to_remove, drop = FALSE]
+    
+    # Asegurar que test_data también elimine las mismas columnas
+    common_cols <- intersect(names(train_data), names(test_data))
+    test_data <- test_data[, common_cols, drop = FALSE]
+  }
+  
+  # Manejo de valores NA en datos numéricos
+  numeric_cols <- names(train_data)[sapply(train_data, is.numeric)]
+  for (col in numeric_cols) {
+    train_data[[col]][is.na(train_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+    test_data[[col]][is.na(test_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)  # Usar la mediana de train
+  }
+
+  factor_cols <- names(train_data)[sapply(train_data, is.factor)]
+  for (col in factor_cols) {
+    mode_value <- names(sort(table(train_data[[col]]), decreasing = TRUE))[1]
+    train_data[[col]][is.na(train_data[[col]])] <- mode_value
+    test_data[[col]][is.na(test_data[[col]])] <- mode_value
+  }
+  
+  # Crear la variable de clasificación PriceCat
+  cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75), na.rm = TRUE)
+  lower_threshold <- cuartiles[1]
+  upper_threshold <- cuartiles[2]
+  
+  train_data$PriceCat <- factor(case_when(
+    train_data$SalePrice < lower_threshold ~ "Economicas",
+    train_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  ), levels = c("Economicas", "Intermedias", "Caras"))
+  
+  test_data$PriceCat <- factor(case_when(
+    test_data$SalePrice < lower_threshold ~ "Economicas",
+    test_data$SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  ), levels = c("Economicas", "Intermedias", "Caras"))
+  
+  # Asegurar que test_data y train_data tienen las mismas columnas
+  common_cols <- intersect(names(train_data), names(test_data))
+  train_data <- train_data[, common_cols, drop = FALSE]
+  test_data <- test_data[, common_cols, drop = FALSE]
+  
+# Iniciar un cluster paralelo usando todos los núcleos menos 1
+cl <- makePSOCKcluster(detectCores() - 1)
+registerDoParallel(cl)
+
+# ---------------------------------------------------------
+# 1. Definir la fórmula del modelo
+# ---------------------------------------------------------
+predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+formula_kknn <- as.formula(paste("PriceCat ~", paste(predictors, collapse = " + ")))
+
+# ---------------------------------------------------------
+# 2. Configurar validación cruzada (menos folds, sin repeticiones)
+# ---------------------------------------------------------
+tr_control <- trainControl(
+  method = "cv",         # Validación cruzada simple
+  number = 3,            # Menos folds (3 en lugar de 5)
+  verboseIter = FALSE,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+# ---------------------------------------------------------
+# 3. Definir una grilla de hiperparámetros más reducida
+# ---------------------------------------------------------
+# Se reducen las combinaciones: por ejemplo, probar dos valores de kmax,
+# usar solo la distancia Euclidiana (2) y dos kernels
+tune_grid <- expand.grid(
+  kmax     = c(3, 5),
+  distance = 2,
+  kernel   = c("rectangular", "triangular")
+)
+
+# ---------------------------------------------------------
+# 4. Entrenar el modelo con caret usando el método "kknn"
+# ---------------------------------------------------------
+set.seed(123)
+model_kknn <- train(
+  formula_kknn,
+  data       = train_data,
+  method     = "kknn",
+  preProcess = c("center", "scale"),
+  trControl  = tr_control,
+  tuneGrid   = tune_grid,
+  metric     = "Accuracy"
+)
+
+# Mostrar la mejor combinación de hiperparámetros encontrada
+
+knitr::kable(model_kknn$bestTune, 
+             caption = "Mejor Combinación de Hiperparámetros del Modelo KNN Tuneado", 
+             align = "c") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+stopCluster(cl)
+
+
+```
+
+### Predicción y Evaluación del Modelo de Clasificación
+
+```{r pred_tuning2, message=FALSE, warning=FALSE}
+  # ---------------------------------------------------------
+  # Asumiendo que test_data está preprocesado de forma similar
+  pred_kknn <- predict(model_kknn, newdata = test_data)
+  
+  # Matriz de confusión
+  cm_kknn <- confusionMatrix(pred_kknn, test_data$PriceCat)
+
+
+```
+
+#### Matriz de Confusión
+
+```{r eval_tuning2, message=FALSE, warning=FALSE}
+
+conf_table_kknn <- as.data.frame(cm_kknn$table)
+names(conf_table_kknn) <- c("Referencia", "Predicción", "Frecuencia")
+
+# Imprimir matriz con kable
+knitr::kable(conf_table_kknn, 
+             caption = "Matriz de Confusión del Modelo KNN (Clasificación)",
+             align = "c") %>% 
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"), 
+    latex_options = c("scale_down"),
+    full_width = FALSE
+  )
+
+```
+
+#### Métricas Globales
+
+```{r eval_tuning3, message=FALSE, warning=FALSE}
+# Extraer métricas globales y transponer
+overall_kknn <- as.data.frame(t(cm_kknn$overall))
+overall_kknn$Métrica <- rownames(overall_kknn)
+overall_kknn <- overall_kknn[, c("Métrica", setdiff(names(overall_kknn), "Métrica"))]
+
+# Imprimir métricas globales
+knitr::kable(overall_kknn, 
+             caption = "Métricas Globales del Modelo KNN (Clasificación)",
+             align = "c") %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"), 
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+
+```
+
+#### Métricas por clase
+
+```{r eval_tuning4, message=FALSE, warning=FALSE}
+
+# Extraer métricas por clase
+byClass_kknn <- as.data.frame(cm_kknn$byClass)
+byClass_kknn$Métrica <- rownames(byClass_kknn)
+byClass_kknn <- byClass_kknn[, c("Métrica", setdiff(names(byClass_kknn), "Métrica"))]
+
+# Imprimir métricas por clase
+knitr::kable(byClass_kknn, 
+             caption = "Métricas por Clase",
+             align = "c") %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"), 
+    latex_options = c("scale_down"),
+    font_size = 8,
+    full_width = FALSE
+  )
+
+
+```
+
+### Comparación de Modelos de Regresión y Clasificación con el Modelo Base
+
+#### Modelo de Regresión
+
+-   **Modelo Base:**
+
+    -   RMSE ≈ 0.44, MAE ≈ 0.32, R² ≈ 0.79.
+
+    -   Gráficamente, se observa dispersión en los valores predichos frente a los reales; aunque el modelo capta la tendencia global, hay espacio para mejorar en los extremos.
+
+-   **Modelo Tuneado:**
+
+    -   RMSE baja a \~0.39, R² sube a \~0.83, y la MAE también se reduce (\~0.28).
+
+    -   Esto significa más precisióny mayor poder explicativo (R²).
+
+    -   La dispersión en los gráficos de “valores reales vs. predichos” disminuye, reflejando un ajuste más robusto.
+
+#### Modelo de Clasificación  
+
+-   **Modelo Base**
+
+    -   Accuracy \~0.79, Kappa \~0.66.
+
+    -   Sensibilidad de la clase “Caras” es el punto más débil.
+
+    -   El modelo confunde varias “Caras” como “Intermedias”.
+
+-   **Modelo Tuneado**:
+
+    -   Ajuste de kmax, distance, kernel con validación cruzada.
+
+    -   El **accuracy sube** hasta \~0.88, y la **Kappa** aumenta \>0.80 en ciertos casos.
+
+    -   La sensibilidad de “Caras” mejora significativamente en ≥0.85, indicando menos confusión de viviendas de alto precio con la categoría Intermedia.
+
+    -   Se logra un mejor equilibrio de sensibilidad y precisión en las tres clases.
+
+A partir de estos hallazgos es posible argumentar que en comparación a los modelos base el tuneo de los parámetros en knn aumenta el desempeño de manera más estable y evita un k que sobreajuste los datos.
+
+## Comparación de Modelos de Clasificación
+
+```{r comp8, message=FALSE, warning=FALSE}
+
+
+  predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+  # 2.1. Árbol de Clasificación Base (rpart)
+  formula_class <- PriceCat ~ . - SalePrice
+  modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+  # Predicción en test
+  pred_tree_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+  cm_tree_base <- confusionMatrix(pred_tree_base, test_data$PriceCat)
+  
+  # 2.2. Árbol Tuned con Validación Cruzada (rpart2)
+  set.seed(123)
+  control_cv <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+  modelo_class_cv <- train(formula_class, 
+                           data = train_data, 
+                           method = "rpart2",      
+                           tuneGrid = expand.grid(maxdepth = 2:10),
+                           trControl = control_cv,
+                           metric = "Accuracy")
+  pred_tree_cv <- predict(modelo_class_cv, newdata = test_data, type = "raw")
+  cm_tree_cv <- confusionMatrix(pred_tree_cv, test_data$PriceCat)
+  
+  # 2.3. Random Forest para Clasificación
+  set.seed(123)
+  modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+  pred_rf <- predict(modelo_rf, newdata = test_data)
+  cm_rf <- confusionMatrix(pred_rf, test_data$PriceCat)
+  
+  # 2.4. Naive Bayes para Clasificación
+  nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+  pred_nb <- predict(nb_model_class, newdata = test_data[, predictors])
+  cm_nb <- confusionMatrix(pred_nb, test_data$PriceCat)
+  
+  # 2.5. KNN para Clasificación (modelo simple)
+  # Seleccionar solo las variables numéricas de los predictores
+  numeric_predictors <- predictors[sapply(train_data[, predictors], is.numeric)]
+  x_train <- scale(train_data[, numeric_predictors])
+  x_test  <- scale(test_data[, numeric_predictors])
+  y_train <- train_data$PriceCat
+  y_test  <- test_data$PriceCat
+  # Elegir k como la raíz cuadrada del número de observaciones
+  k_simple <- round(sqrt(nrow(train_data)), 0)
+  pred_knn <- knn(x_train, x_test, y_train, k = k_simple)
+  cm_knn <- confusionMatrix(pred_knn, y_test)
+  
+  
+    calcular_f1_promedio <- function(cm) {
+    # En el caso multicategoría, cm$byClass es una matriz
+    if (is.matrix(cm$byClass)) {
+      # Extraer la columna "F1" y calcular la media
+      return(mean(cm$byClass[,"F1"], na.rm = TRUE))
+    } else {
+      # En caso de tener solo una clase (vector)
+      return(cm$byClass["F1"])
+    }
+  }
+
+```
+
+### Métricas de Evaluación
+
+```{r comp9, message=FALSE, warning=FALSE}
+  metrics_df <- data.frame(
+    Model = c("Tree Base", "Tree CV", "Random Forest", "Naive Bayes", "KNN"),
+    Accuracy = c(cm_tree_base$overall["Accuracy"],
+                 cm_tree_cv$overall["Accuracy"],
+                 cm_rf$overall["Accuracy"],
+                 cm_nb$overall["Accuracy"],
+                 cm_knn$overall["Accuracy"]),
+    Kappa = c(cm_tree_base$overall["Kappa"],
+              cm_tree_cv$overall["Kappa"],
+              cm_rf$overall["Kappa"],
+              cm_nb$overall["Kappa"],
+              cm_knn$overall["Kappa"]),
+    F1 = c(calcular_f1_promedio(cm_tree_base),
+           calcular_f1_promedio(cm_tree_cv),
+           calcular_f1_promedio(cm_rf),
+           calcular_f1_promedio(cm_nb),
+           calcular_f1_promedio(cm_knn))
+  )
+
+metrics_df[, 2:4] <- round(metrics_df[, 2:4], 4)
+
+# Mostrar tabla con kable
+knitr::kable(metrics_df,
+             caption = "Comparación de Métricas de Modelos de Clasificación",
+             align = "c") %>%
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  )
+```
+
+#### Gráficos de Predicciones
+
+```{r comp10, message=FALSE, warning=FALSE}
+  metrics_melt <- melt(metrics_df, id.vars = "Model", variable.name = "Metric", value.name = "Value")
+  
+  ggplot(metrics_melt, aes(x = Model, y = Value, fill = Metric)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(title = "Comparación de Modelos de Clasificación",
+         y = "Valor de la Métrica") +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Set3")
+```
+
+### Eficiencia y Métricas de Desempeño
+
+1.  **Random Forest**
+
+    -   **Accuracy = 1.00**, **Kappa = 1.00**, **F1 = 1.00**
+
+    -   Registra métricas perfectas en esta tabla. Puede deberse a un conjunto de datos relativamente pequeño o a un sobreajuste marcado; en cualquier caso, destaca como el de mayor exactitud.
+
+2.   **Árbol de Decisión (Base / CV)**
+
+    -    **Accuracy ≈ 0.8232**, **Kappa ≈ 0.71**, **F1 ≈ 0.817**
+
+    -   El mismo desempeño tanto en “Tree Base” como “Tree CV”.
+
+3.   **kNN**
+
+    -   **Accuracy ≈ 0.8037**, **Kappa ≈ 0.6767**, **F1 ≈ 0.798**
+
+    -   Un desempeño sólido: roza el 80% de exactitud, con un Kappa cerca de 0.68. Está por debajo del árbol y del random forest, pero supera a Naive Bayes.
+
+4.   **Naive Bayes**
+
+    -    **Accuracy ≈ 0.5986**, **Kappa ≈ 0.4386**, **F1 ≈ 0.597**
+
+    -    Menor exactitud y Kappa del grupo. Indica confusiones notables, especialmente en clases intermedias o con atributos muy correlacionados.
+
+### ¿Cuál Es Mejor para Predecir?
+
+-    **Random Forest** aparece como el ganador, sin embargo es posible que el modelo tenga un fuerte sobreajuste.
+
+-    El **árbol de decisión** base o con CV (∼82.3% Accuracy) se ubica en segundo lugar, con un Kappa notable (0.71).
+
+-    **kNN** (∼80.4% Accuracy) se ubica cerca del árbol, pero un poco por debajo.
+
+-   **Naive Bayes** es el de **menor** exactitud (∼60%) y tiende a confundir más las categorías.
+
+La elección radica entre Knn, arboles de desición y random forest , siendo este ultimo el mejor para predecir en la práctica. Por lo que elegir KNN no es una mala opción.
+
+## 3. ¿Cuál Se Demoró Más en Procesar? 
+
+-   En este caso el modelo con más tiempo de procesamiento fue KNN debido a que en etapas de prueba knn es más lento, específicamente si el conjunto de datos es considerablemente grande lo cual es el caso, por lo que el cálculo de distancias es mayor.

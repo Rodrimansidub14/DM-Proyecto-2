@@ -8,8 +8,8 @@ library(dplyr)
 library(tidyverse)
 
 # Cargar datos preprocesados
-train_data <- read.csv("data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
-test_data  <- read.csv("data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
 
 # ------------------------------------------------------------------
 #  Verificar estructura, resumen y valores faltantes
@@ -389,27 +389,70 @@ library(kknn)
 # ====================================================
 # 1. Tuning Avanzado KNN con "kknn"
 # ====================================================
+
+# Definir una grilla de hiperparámetros para kknn:
+# - kmax: número máximo de vecinos a considerar (en este ejemplo se prueban 5 y 9 y 13)
+# - distance: tipo de distancia; 1 para Manhattan y 2 para Euclidiana
+# - kernel: método de ponderación de los vecinos ("rectangular" para sin ponderación, "triangular" para dar mayor peso a vecinos más cercanos)
 grid_knn_tuning <- expand.grid(
-  kmax = seq(5, 13, 4),
-  distance = c(1, 2),
-  kernel = c("rectangular", "triangular")
+  kmax = seq(5, 13, by = 4),      # Probamos kmax = 5, 9, 13
+  distance = c(1, 2),             # Distancia Manhattan y Euclidiana
+  kernel = c("rectangular", "triangular")  # Dos esquemas de ponderación
 )
 
+# Configurar validación cruzada: se usa 10-fold CV
+tr_control <- trainControl(method = "cv", number = 10)
+
+# Ajustar el modelo KNN de regresión con la grilla definida
 set.seed(123)
 knn_tuned_model <- train(
-  SalePrice ~ .,
-  data = train_complete,
-  method = "kknn",
-  trControl = trainControl(method = "cv", number = 10),
-  tuneGrid = grid_knn_tuning,
-  preProcess = c("center", "scale")
+  SalePrice ~ .,                  # Fórmula: predecir SalePrice usando todas las demás variables
+  data = train_complete,          # Conjunto de entrenamiento completo
+  method = "kknn",                # Método kknn, que permite tunear múltiples hiperparámetros
+  preProcess = c("center", "scale"),  # Normalización, muy importante para KNN
+  trControl = tr_control,         # Control de validación cruzada
+  tuneGrid = grid_knn_tuning,     # La grilla de hiperparámetros definida
+  metric = "RMSE"                 # Métrica a optimizar
 )
 
+# Mostrar la mejor combinación de hiperparámetros encontrada
+cat("Mejor combinación de hiperparámetros (kmax, distance, kernel):\n")
+print(knn_tuned_model$bestTune)
+
+# Realizar predicciones en el conjunto de prueba
 pred_knn_tuned <- predict(knn_tuned_model, newdata = test_data_clean)
+
+# Calcular las métricas de evaluación
 rmse_knn_tuned <- rmse(test_data_clean$SalePrice, pred_knn_tuned)
 mae_knn_tuned  <- mae(test_data_clean$SalePrice, pred_knn_tuned)
-mse_knn_tuned <- mean((test_data_clean$SalePrice - pred_knn_tuned)^2)
-r2_knn_tuned   <- 1 - sum((test_data_clean$SalePrice - pred_knn_tuned)^2) / sum((test_data_clean$SalePrice - mean(test_data_clean$SalePrice))^2)
+mse_knn_tuned  <- mean((test_data_clean$SalePrice - pred_knn_tuned)^2)
+r2_knn_tuned   <- 1 - sum((test_data_clean$SalePrice - pred_knn_tuned)^2) / 
+  sum((test_data_clean$SalePrice - mean(test_data_clean$SalePrice))^2)
+
+# Imprimir las métricas obtenidas
+cat("\nResultados del modelo KNN tunado:\n")
+cat("RMSE:", round(rmse_knn_tuned, 2), "\n")
+cat("MAE:", round(mae_knn_tuned, 2), "\n")
+cat("MSE:", round(mse_knn_tuned, 2), "\n")
+cat("R-squared:", round(r2_knn_tuned, 2), "\n")
+
+
+# Crear un data frame con el índice, el valor real y el valor predicho
+df_result_tuned <- data.frame(
+  Index = 1:nrow(test_data_clean),
+  Real = test_data_clean$SalePrice,
+  Pred = pred_knn_tuned
+)
+
+# Graficar la comparación de los valores reales y predichos
+ggplot(df_result_tuned, aes(x = Index)) +
+  geom_point(aes(y = Real, color = "Real"), size = 2) +
+  geom_point(aes(y = Pred, color = "Pred"), size = 2) +
+  scale_color_manual(values = c("Real" = "blue", "Pred" = "red")) +
+  labs(title = "Comparación de valores reales y predichos (Modelo KNN Tunado)",
+       x = "Índice", y = "Precio de venta", color = "Serie") +
+  theme_minimal()
+
 
 # ====================================================
 # 2. Tuning Random Forest

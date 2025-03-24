@@ -20,3 +20,6 @@ randomForest
 reshape2
 knitr
 kableExtra
+foreach
+iterators
+doParallel
