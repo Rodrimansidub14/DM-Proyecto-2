@@ -1288,7 +1288,7 @@ knitr::kable(byClass_kknn,
 
     -   La dispersión en los gráficos de “valores reales vs. predichos” disminuye, reflejando un ajuste más robusto.
 
-#### Modelo de Clasificación  
+#### Modelo de Clasificación
 
 -   **Modelo Base**
 
@@ -1427,36 +1427,42 @@ knitr::kable(metrics_df,
 
     -   Registra métricas perfectas en esta tabla. Puede deberse a un conjunto de datos relativamente pequeño o a un sobreajuste marcado; en cualquier caso, destaca como el de mayor exactitud.
 
-2.   **Árbol de Decisión (Base / CV)**
+2.  **Árbol de Decisión (Base / CV)**
 
-    -    **Accuracy ≈ 0.8232**, **Kappa ≈ 0.71**, **F1 ≈ 0.817**
+```         
+-    **Accuracy ≈ 0.8232**, **Kappa ≈ 0.71**, **F1 ≈ 0.817**
 
-    -   El mismo desempeño tanto en “Tree Base” como “Tree CV”.
+-   El mismo desempeño tanto en “Tree Base” como “Tree CV”.
+```
 
-3.   **kNN**
+3.  **kNN**
 
-    -   **Accuracy ≈ 0.8037**, **Kappa ≈ 0.6767**, **F1 ≈ 0.798**
+```         
+-   **Accuracy ≈ 0.8037**, **Kappa ≈ 0.6767**, **F1 ≈ 0.798**
 
-    -   Un desempeño sólido: roza el 80% de exactitud, con un Kappa cerca de 0.68. Está por debajo del árbol y del random forest, pero supera a Naive Bayes.
+-   Un desempeño sólido: roza el 80% de exactitud, con un Kappa cerca de 0.68. Está por debajo del árbol y del random forest, pero supera a Naive Bayes.
+```
 
-4.   **Naive Bayes**
+4.  **Naive Bayes**
 
-    -    **Accuracy ≈ 0.5986**, **Kappa ≈ 0.4386**, **F1 ≈ 0.597**
+```         
+-    **Accuracy ≈ 0.5986**, **Kappa ≈ 0.4386**, **F1 ≈ 0.597**
 
-    -    Menor exactitud y Kappa del grupo. Indica confusiones notables, especialmente en clases intermedias o con atributos muy correlacionados.
+-    Menor exactitud y Kappa del grupo. Indica confusiones notables, especialmente en clases intermedias o con atributos muy correlacionados.
+```
 
 ### ¿Cuál Es Mejor para Predecir?
 
--    **Random Forest** aparece como el ganador, sin embargo es posible que el modelo tenga un fuerte sobreajuste.
+-   **Random Forest** aparece como el ganador, sin embargo es posible que el modelo tenga un fuerte sobreajuste.
 
--    El **árbol de decisión** base o con CV (∼82.3% Accuracy) se ubica en segundo lugar, con un Kappa notable (0.71).
+-   El **árbol de decisión** base o con CV (∼82.3% Accuracy) se ubica en segundo lugar, con un Kappa notable (0.71).
 
--    **kNN** (∼80.4% Accuracy) se ubica cerca del árbol, pero un poco por debajo.
+-   **kNN** (∼80.4% Accuracy) se ubica cerca del árbol, pero un poco por debajo.
 
 -   **Naive Bayes** es el de **menor** exactitud (∼60%) y tiende a confundir más las categorías.
 
 La elección radica entre Knn, arboles de desición y random forest , siendo este ultimo el mejor para predecir en la práctica. Por lo que elegir KNN no es una mala opción.
 
-## 3. ¿Cuál Se Demoró Más en Procesar? 
+## 3. ¿Cuál Se Demoró Más en Procesar?
 
 -   En este caso el modelo con más tiempo de procesamiento fue KNN debido a que en etapas de prueba knn es más lento, específicamente si el conjunto de datos es considerablemente grande lo cual es el caso, por lo que el cálculo de distancias es mayor.
