@@ -155,6 +155,7 @@ confusionMatrix(as.factor(test_pred_class), test_data$Es_Cara)
 # Paso A: Seleccionar únicamente las variables necesarias
 # --------------------------------------------------
 model_vars <- c("OverallQual", "GrLivArea", "YearBuilt", "Es_Cara")
+train_data_filtered <- train_data 
 train_model <- train_data_filtered[, model_vars]
 
 # Verificar que la variable target sea factor y tenga al menos dos niveles:
@@ -199,6 +200,39 @@ lc_data <- generateLearningCurveData(
 
 # Visualizar la curva de aprendizaje
 plotLearningCurve(lc_data, facet = "learner")
+
+# --------------------------------------------------
+# Paso F: Generar la curva de aprendizaje
+# --------------------------------------------------
+train_data$Es_Cara <- factor(train_data$Es_Cara, levels = c(0, 1), labels = c("No", "Sí"))
+
+test_data$Es_Cara <- factor(test_data$Es_Cara, levels = c(0, 1), labels = c("No", "Sí"))
+
+# Definir la fórmula del modelo
+model_formula <- Es_Cara ~ OverallQual + GrLivArea + YearBuilt
+
+# Validación cruzada
+cv_control <- trainControl(method = "cv", number = 10, classProbs = TRUE)
+
+# Grid de parámetros para regularización
+grid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = 10^seq(-4, 0, length = 10)
+)
+
+# Entrenamiento del modelo
+set.seed(123)
+logistic_reg_tuned <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  trControl = cv_control,
+  tuneGrid = grid,
+  family = "binomial"
+)
+
+# Ver los mejores parámetros encontrados
+print(logistic_reg_tuned$bestTune)
 
 
 
