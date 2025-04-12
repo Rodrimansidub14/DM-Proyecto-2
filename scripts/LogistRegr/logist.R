@@ -202,7 +202,7 @@ lc_data <- generateLearningCurveData(
 plotLearningCurve(lc_data, facet = "learner")
 
 # --------------------------------------------------
-# Paso F: Generar la curva de aprendizaje
+# Paso F: Tuneo del modelo
 # --------------------------------------------------
 train_data$Es_Cara <- factor(train_data$Es_Cara, levels = c(0, 1), labels = c("No", "Sí"))
 
@@ -234,7 +234,51 @@ logistic_reg_tuned <- caret::train(
 # Ver los mejores parámetros encontrados
 print(logistic_reg_tuned$bestTune)
 
+# --------------------------------------------------
+# Paso G: Matriz de Confusión
+# --------------------------------------------------
+  # Generar las probabilidades para el conjunto de prueba
+test_pred_probs <- predict(logistic_model, newdata = test_data, type = "prob")
 
+# Convertir probabilidades en clases usando el umbral de 0.5
+test_pred_class <- ifelse(test_pred_probs[, "1"] > 0.5, "Sí", "No")
+
+# Convertir en factor con los mismos niveles que la variable real
+test_pred_class <- factor(test_pred_class, levels = levels(test_data$Es_Cara))
+
+# Calcular la matriz de confusión
+conf_matrix_test <- table(Predicted = test_pred_class, Actual = test_data$Es_Cara)
+print(conf_matrix_test)
+
+# Usar confusionMatrix para obtener métricas de evaluación
+library(caret)
+confusion_results <- confusionMatrix(test_pred_class, test_data$Es_Cara)
+print(confusion_results)
+
+# Métricas de evaluación
+cat("Precisión:", confusion_results$overall['Accuracy'], "\n")
+cat("Recall (Sensibilidad):", confusion_results$byClass['Sensitivity'], "\n")
+cat("Especificidad:", confusion_results$byClass['Specificity'], "\n")
+cat("F1-Score:", confusion_results$byClass['F1'], "\n")
+
+# Medir el tiempo de ejecución del bloque completo
+system.time({
+  library(profvis)
+  
+  profvis({
+    # Ejecuta el proceso de predicción aquí
+    test_pred_probs <- predict(logistic_model, newdata = test_data, type = "prob")
+    
+    # Pausa de 2 segundos para dar tiempo a profvis
+    Sys.sleep(2)
+    
+    # El proceso posterior para calcular las clases
+    test_pred_class <- if_else(test_pred_probs[, 2] > 0.5, 1, 0)
+    
+    # Pausa de 2 segundos para dar tiempo a profvis
+    Sys.sleep(2)
+  })
+})
 
 
 
