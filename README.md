@@ -20,11 +20,14 @@ Este proyecto utiliza técnicas avanzadas de análisis predictivo y clasificaci�
 - **KNN**
 
 
+
 ### Modelos de Clasificación
 - **Árboles de Decisión con Validación Cruzada**
 - **Random Forest para Clasificación**
 - **Naive Bayes para Clasificación**
 - **knn para Clasificación**
+- - - **Regresión Logistica**
+
 
 
 ### Navegación en el protyecto
@@ -33,8 +36,10 @@ Para ver el reporte del proyecto navegar a :
 -  **reports/pdtest.pdf -> Modelos Lineales , arboles y Random Forest
 -  **reports/NaiveBayes -> Modelo de Naive Bayes
 -  **reports/KNN -> Modelo de knn
+-  **reports/LogRegression -> Regresi[on logistica
 
-Los scripts de cada etapa estan documentados en carpetas dentro de /Scripts
+
+Los scripts de cada etapa estan documentados en carpetas dentro de /Scripts/modelo
 
 
 
