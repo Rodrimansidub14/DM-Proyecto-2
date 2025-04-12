@@ -279,6 +279,49 @@ system.time({
     Sys.sleep(2)
   })
 })
+# -----------------------------
+# Paso H: Comparación de Modelos
+# -----------------------------
+
+# 1. Comparar AIC y BIC
+cat("=== AIC y BIC ===\n")
+cat("Modelo Base:\n")
+print(AIC(logistic_model$finalModel))
+print(BIC(logistic_model$finalModel))
+
+cat("\nModelo Regularizado (glmnet):\n")
+# glmnet no tiene AIC/BIC directamente; extraemos el modelo con coeficientes
+# y comparamos con el modelo base
+selected_model <- logistic_reg_tuned$finalModel
+coeficients <- coef(selected_model, s = logistic_reg_tuned$bestTune$lambda)
+print(coeficients)
+
+# 2. Matriz de confusión y métricas (modelo regularizado)
+cat("\n=== Matriz de Confusión y Métricas ===\n")
+
+# Predecir clases con modelo regularizado
+prob_regularizado <- predict(logistic_reg_tuned, newdata = test_data, type = "prob")[, "Sí"]
+class_regularizado <- ifelse(prob_regularizado > 0.5, "Sí", "No")
+class_regularizado <- factor(class_regularizado, levels = levels(test_data$Es_Cara))
+
+# Matriz de confusión
+conf_matrix_reg <- confusionMatrix(class_regularizado, test_data$Es_Cara)
+print(conf_matrix_reg)
+
+# 3. Profiler: comparar tiempos
+cat("\n=== Tiempos de Ejecución ===\n")
+
+library(profvis)
+
+cat("Modelo Base:\n")
+system.time({
+  predict(logistic_model, newdata = test_data, type = "prob")
+})
+
+cat("\nModelo Regularizado:\n")
+system.time({
+  predict(logistic_reg_tuned, newdata = test_data, type = "prob")
+})
 
 
 
