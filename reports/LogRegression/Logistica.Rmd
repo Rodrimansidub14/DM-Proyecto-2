@@ -1,0 +1,354 @@
+---
+title: "Entrega 5 - Regresion Logistica"
+author: "Rodrigo Mansilla, Javier Chen"
+date: "2025-02-25"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%",
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 300,
+  echo = TRUE,
+  results = "asis",
+  cache.lazy = FALSE,
+  cache.path = "cache/",
+  cache.rebuild = TRUE,
+  cache.comments = NA,
+  comment = NA,
+  tidy.opts = list(width.cutoff = 60),
+  tidy = TRUE,
+	echo = FALSE
+)
+library(tidyverse)    # Incluye dplyr y readr
+library(ggplot2)
+library(fastDummies)
+library(profvis)
+library(caret)
+library(mlr)
+library(knitr)        # Para usar kable
+library(corrplot)     # Para graficar matrices de correlación
+
+library(car)
+
+```
+
+```{r data, message=FALSE, warning=FALSE}
+set.seed(123)
+
+train_data <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv", stringsAsFactors = TRUE)
+test_data  <- read.csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv", stringsAsFactors = TRUE)
+
+
+```
+
+##Creación de las variables dicotomicas
+
+```{r varscat, message=FALSE, warning=FALSE}
+# Calcular los umbrales según los cuartiles
+cuartiles <- quantile(train_data$SalePrice, probs = c(0.25, 0.75))
+lower_threshold <- cuartiles[1]
+upper_threshold <- cuartiles[2]
+
+# Transformaciones en el conjunto de entrenamiento
+train_data <- train_data %>%
+  mutate(PriceCat = case_when(
+    SalePrice < lower_threshold ~ "Economicas",
+    SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  )) %>%
+  mutate(
+    PriceCat = factor(PriceCat, levels = c("Economicas", "Intermedias", "Caras")),
+    Es_Economica  = if_else(PriceCat == "Economicas", 1, 0),
+    Es_Intermedia = if_else(PriceCat == "Intermedias", 1, 0),
+    Es_Cara       = if_else(PriceCat == "Caras",       1, 0)
+  )
+
+# Transformaciones en el conjunto de prueba para consistencia
+test_data <- test_data %>%
+  mutate(PriceCat = case_when(
+    SalePrice < lower_threshold ~ "Economicas",
+    SalePrice < upper_threshold ~ "Intermedias",
+    TRUE ~ "Caras"
+  )) %>%
+  mutate(
+    PriceCat = factor(PriceCat, levels = c("Economicas", "Intermedias", "Caras")),
+    Es_Economica  = if_else(PriceCat == "Economicas", 1, 0),
+    Es_Intermedia = if_else(PriceCat == "Intermedias", 1, 0),
+    Es_Cara       = if_else(PriceCat == "Caras",       1, 0)
+  )
+
+
+```
+
+```{r varscat2, message=FALSE, warning=FALSE}
+
+# Distribución de PriceCat en train_data
+dist_pricecat <- as.data.frame(table(train_data$PriceCat))
+kable(dist_pricecat, caption = "Distribución de PriceCat en train_data")
+
+# Distribución de Es_Economica
+dist_econ <- as.data.frame(table(train_data$Es_Economica))
+kable(dist_econ, caption = "Distribución de Es_Economica en train_data")
+
+# Distribución de Es_Intermedia
+dist_inter <- as.data.frame(table(train_data$Es_Intermedia))
+kable(dist_inter, caption = "Distribución de Es_Intermedia en train_data")
+
+# Distribución de Es_Cara
+dist_cara <- as.data.frame(table(train_data$Es_Cara))
+kable(dist_cara, caption = "Distribución de Es_Cara en train_data")
+
+
+```
+
+Se crearon tres variables dicotómicas que indican la pertenencia o no a cada categoría:
+
+Es_Económica (1 si la vivienda es económica, 0 si no lo es)
+
+Es_Intermedia (1 si la vivienda es intermedia, 0 si no lo es)
+
+Es_Cara (1 si la vivienda es cara, 0 si no lo es) \## Modelo de regresión logística El modelo propuesto incluye como predictores a las variables:
+
+OverallQual (calidad global de la vivienda)
+
+GrLivArea (superficie habitable sobre rasante)
+
+YearBuilt (año de construcción de la vivienda)
+
+```{r varsel, message=FALSE, warning=FALSE}
+# Validar que las variables existan en train_data
+if (!all(c("OverallQual", "GrLivArea", "YearBuilt") %in% names(train_data))) {
+  stop("Una o más de las variables predictoras 'OverallQual', 'GrLivArea' o 'YearBuilt' no se encuentran en train_data.")
+}
+
+# Convertir la variable respuesta a factor
+train_data <- train_data %>% mutate(Es_Cara = factor(Es_Cara, levels = c(0, 1)))
+test_data  <- test_data %>% mutate(Es_Cara = factor(Es_Cara, levels = c(0, 1)))
+
+# Definir la fórmula del modelo
+model_formula <- Es_Cara ~ OverallQual + GrLivArea + YearBuilt
+
+# Control para validación cruzada
+cv_control <- trainControl(method = "cv", number = 10)
+
+# Entrenar el modelo logístico
+set.seed(123)
+logistic_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glm",
+  family = "binomial",
+  trControl = cv_control
+)
+summary_logistic <- summary(logistic_model$finalModel)
+summary_text <- data.frame(Line = capture.output(summary_logistic))
+kable(summary_text, caption = "Resumen del Modelo Logístico")
+
+
+
+```
+
+Se observa el resumen de la regresión logística:
+
+-   Intercept = -3.3155 (p \< 2e-16)
+
+-   OverallQual = 2.1529 (p \< 2e-16)
+
+-   GrLivArea = 2.4332 (p \< 2e-16)
+
+-   YearBuilt = 0.6520 (p = 3.17e-05)
+
+Todas las variables son estadísticamente significativas al nivel de p \< 0.001, lo que indica que tienen un efecto importante en la probabilidad de que una vivienda sea clasificada como “car, la probabilidad de ser “cara” es muy baja.
+
+-   Null deviance: 1158.21
+
+-   Residual deviance: 436.63
+
+-   AIC: 444.63
+
+La gran reducción de la deviance indica que el modelo está ajustando notablemente mejor que un modelo nulo sin predictores.
+
+**Interpretación de los coeficientes**
+
+-   OverallQual: Incrementar en 1 unidad esta variable multiplica las probabilidades de que una vivienda sea cara por exp ⁡ ( 2.1529 ) exp(2.1529).
+
+-   GrLivArea: Cada unidad adicional de GrLivArea aumenta las probabilidades de ser cara por exp ⁡ ( 2.4332 ) exp(2.4332).
+
+-   YearBuilt: Cada año adicional de antigüedad (más reciente) se asocia con un factor multiplicativo de exp ⁡ ( 0.6520 ) exp(0.6520) en las probabilidades de ser cara.
+
+Es importante revisar la escala real de cada predictor para interpretar correctamente el impacto absoluto. Sin embargo, el alto nivel de significancia de las variables confirma que las tres capturan factores relevantes para predecir si la vivienda se encuentra en la categoría de “caras”.
+
+### Predicción y evaluación del modelo
+
+```{r prediccion, message=FALSE, warning=FALSE}
+
+
+# Predicción de probabilidades en el entrenamiento
+pred_probs <- predict(logistic_model, newdata = train_data, type = "prob")
+
+# Convertir a clases: umbral de 0.5
+pred_class <- if_else(pred_probs[, 2] > 0.5, 1, 0)
+
+# Construir la matriz de confusión
+conf_matrix <- table(Predicted = pred_class, Actual = train_data$Es_Cara)
+conf_matrix_df <- as.data.frame(conf_matrix)
+kable(conf_matrix_df, caption = "Matriz de Confusión en Entrenamiento")
+
+# Calcular la precisión
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+accuracy_df <- data.frame(Metrica = "Precisión", Valor = accuracy)
+kable(accuracy_df, caption = "Precisión del Modelo en Entrenamiento")
+## Calcular la sensibilidad y especificidad
+sensitivity <- conf_matrix[2, 2] / sum(conf_matrix[2, ])
+specificity <- conf_matrix[1, 1] / sum(conf_matrix[1, ])
+sensitivity_df <- data.frame(Metrica = "Sensibilidad", Valor = sensitivity)
+specificity_df <- data.frame(Metrica = "Especificidad", Valor = specificity)
+kable(sensitivity_df, caption = "Sensibilidad del Modelo en Entrenamiento")
+kable(specificity_df, caption = "Especificidad del Modelo en Entrenamiento")
+
+
+
+```
+
+### Multicolinealidad
+
+```{r multicolinealidad, message=FALSE, warning=FALSE}
+vif_values <- vif(logistic_model$finalModel)
+vif_df <- data.frame(Variable = names(vif_values), VIF = as.vector(vif_values))
+kable(vif_df, caption = "Valores de VIF para el Modelo Logístico")
+
+
+
+```
+
+Un VIF inferior a 5 (incluso algunos autores toman 10) sugiere **ausencia de multicolinealidad severa**. En este caso, los valores están muy por debajo de 5, lo que indica que **no** hay problemas graves de multicolinealidad en las variables predictoras.
+
+### Matriz de correlación
+
+```{r corrplot, message=FALSE, warning=FALSE}
+
+predictors <- train_data %>% select(OverallQual, GrLivArea, YearBuilt)
+cor_matrix <- cor(predictors)
+# Mostrar la matriz en forma de tabla
+cor_df <- as.data.frame(cor_matrix)
+kable(cor_df, caption = "Matriz de Correlación de Predictores")
+
+# Visualización elegante con corrplot
+corrplot::corrplot(cor_matrix, method = "number")
+
+```
+
+Si bien las correlaciones entre **OverallQual** y **GrLivArea** (≈ 0.62) y entre **OverallQual** y **YearBuilt** (≈ 0.55) son moderadas, no son lo suficientemente altas como para suponer un problema de colinealidad. Esto coincide con los bajos valores de VIF.
+
+### Predicción en el conjunto de prueba
+
+```{r prediccion_test, message=FALSE, warning=FALSE}
+
+# Predicción de probabilidades en el conjunto de prueba
+test_pred_probs <- predict(logistic_model, newdata = test_data, type = "prob")
+
+# Convertir a clases usando el umbral de 0.5
+test_pred_class <- if_else(test_pred_probs[, 2] > 0.5, 1, 0)
+
+# Matriz de confusión en el conjunto de prueba
+conf_matrix_test <- table(Predicted = test_pred_class, Actual = test_data$Es_Cara)
+conf_matrix_test_df <- as.data.frame(conf_matrix_test)
+kable(conf_matrix_test_df, caption = "Matriz de Confusión en el Conjunto de Prueba")
+
+# Uso de confusionMatrix para métricas adicionales
+conf_mat_results <- confusionMatrix(as.factor(test_pred_class), test_data$Es_Cara)
+# Se capturan algunas métricas relevantes en un data frame
+overall_metrics <- data.frame(t(conf_mat_results$overall))
+kable(overall_metrics, caption = "Métricas Globales del Modelo en el Conjunto de Prueba")
+
+
+
+```
+
+```{}
+```
+
+Una exactitud de casi 90% en el conjunto de prueba indica que el modelo conserva un buen desempeño fuera de la muestra de entrenamiento. Además, el valor de **Kappa** de alrededor de 0.72 sugiere un acuerdo sustancial entre las predicciones y la realidad.
+
+### Curvas de Aprendizaje
+
+```{r curvas_aprendizaje, message=FALSE, warning=FALSE}
+# Seleccionar las variables necesarias para la tarea de aprendizaje
+model_vars <- c("OverallQual", "GrLivArea", "YearBuilt", "Es_Cara")
+# Asegurarse de que train_data_filtered esté definido; si no, se puede usar train_data
+train_model <- train_data %>% select(all_of(model_vars))
+
+# Verificar que la variable target sea factor
+train_model$Es_Cara <- as.factor(train_model$Es_Cara)
+if(nlevels(train_model$Es_Cara) < 2) {
+  stop("La variable target 'Es_Cara' no tiene dos niveles en el conjunto de entrenamiento.")
+}
+
+# Crear la tarea de clasificación
+task_lc <- makeClassifTask(data = as.data.frame(train_model), target = "Es_Cara")
+
+# Imputación de valores faltantes (en caso de existir)
+imputed <- impute(task_lc,
+                  classes = list(
+                    numeric = imputeMedian(),
+                    factor  = imputeMode()
+                  ))
+task_lc <- imputed$task
+
+# Definir la estrategia de resampling y el aprendiz
+rin_lc <- makeResampleDesc("CV", iters = 10, predict = "both")
+lrn_log_mlr <- makeLearner("classif.logreg", predict.type = "prob")
+
+# Generar la curva de aprendizaje
+lc_data <- generateLearningCurveData(
+  learners = lrn_log_mlr,
+  task = task_lc,
+  percs = seq(0.1, 1, by = 0.1),  # Evaluar desde el 10% hasta el 100% de los datos
+  measures = list(mmce, setAggregation(mmce, train.mean)),
+  resampling = rin_lc,
+  show.info = FALSE
+)
+
+# Visualizar la curva de aprendizaje
+plotLearningCurve(lc_data, facet = "learner")
+
+
+
+
+```
+
+Para determinar si existe sobreajuste, se comparan los resultados en entrenamiento y en prueba:
+
+-   **Entrenamiento**
+
+```         
+-    Precisión: 0.9082 (90.82%)
+```
+
+-   **Prueba**
+
+```         
+-    Precisión: 0.8968 (89.68%)
+```
+
+-   
+
+La diferencia entre 90.82% (entrenamiento) y 89.68% (prueba) es relativamente pequeña (≈ 1.14 puntos porcentuales). Esto sugiere que **no hay un sobreajuste considerable**, pues el modelo rinde de manera bastante uniforme tanto en el conjunto de entrenamiento como en el de prueba.
+
+El gráfico de las curvas de aprendizaje muestra la evolución del error de entrenamiento y de prueba a medida que aumenta el tamaño de los datos utilizados. Se observa que:
+
+-    Ambos errores (train y test) convergen a valores cercanos (≈ 0.08–0.09).
+
+-    No hay una gran brecha entre el error de entrenamiento y el error de prueba; esto confirma visualmente la **ausencia de sobreajuste** y la buena capacidad de generalización del modelo.
