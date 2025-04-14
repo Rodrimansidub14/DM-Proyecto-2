@@ -5,6 +5,7 @@ date: "2025-02-25"
 output:
   pdf_document:
     latex_engine: xelatex
+
   html_document:
     df_print: paged
 ---
@@ -277,7 +278,7 @@ kable(overall_metrics, caption = "Métricas Globales del Modelo en el Conjunto d
 
 ```
 
-```{}
+```         
 ```
 
 Una exactitud de casi 90% en el conjunto de prueba indica que el modelo conserva un buen desempeño fuera de la muestra de entrenamiento. Además, el valor de **Kappa** de alrededor de 0.72 sugiere un acuerdo sustancial entre las predicciones y la realidad.
@@ -287,7 +288,7 @@ Una exactitud de casi 90% en el conjunto de prueba indica que el modelo conserva
 ```{r curvas_aprendizaje, message=FALSE, warning=FALSE}
 # Seleccionar las variables necesarias para la tarea de aprendizaje
 model_vars <- c("OverallQual", "GrLivArea", "YearBuilt", "Es_Cara")
-# Asegurarse de que train_data_filtered esté definido; si no, se puede usar train_data
+# Si train_data_filtered no está definido, usamos train_data
 train_model <- train_data %>% select(all_of(model_vars))
 
 # Verificar que la variable target sea factor
@@ -299,13 +300,14 @@ if(nlevels(train_model$Es_Cara) < 2) {
 # Crear la tarea de clasificación
 task_lc <- makeClassifTask(data = as.data.frame(train_model), target = "Es_Cara")
 
-# Imputación de valores faltantes (en caso de existir)
-imputed <- impute(task_lc,
-                  classes = list(
-                    numeric = imputeMedian(),
-                    factor  = imputeMode()
-                  ))
-task_lc <- imputed$task
+# Verificar si existen valores NA en los datos antes de imputar
+if(sum(is.na(as.data.frame(train_model))) > 0) {
+  imputed <- impute(task_lc)
+  task_lc <- imputed$task
+} else {
+  # No hay imputación necesaria, se utiliza la tarea original
+  task_lc <- task_lc
+}
 
 # Definir la estrategia de resampling y el aprendiz
 rin_lc <- makeResampleDesc("CV", iters = 10, predict = "both")
@@ -323,9 +325,6 @@ lc_data <- generateLearningCurveData(
 
 # Visualizar la curva de aprendizaje
 plotLearningCurve(lc_data, facet = "learner")
-
-
-
 
 ```
 
@@ -349,6 +348,795 @@ La diferencia entre 90.82% (entrenamiento) y 89.68% (prueba) es relativamente pe
 
 El gráfico de las curvas de aprendizaje muestra la evolución del error de entrenamiento y de prueba a medida que aumenta el tamaño de los datos utilizados. Se observa que:
 
--    Ambos errores (train y test) convergen a valores cercanos (≈ 0.08–0.09).
+-   **Alta variabilidad con pocos datos:** Al usar menos del 30% de los datos, el error en validación es alto y variable, reflejando la inestabilidad por la baja cantidad de información.
 
--    No hay una gran brecha entre el error de entrenamiento y el error de prueba; esto confirma visualmente la **ausencia de sobreajuste** y la buena capacidad de generalización del modelo.
+-   **Incremento del error de entrenamiento:** Con más datos, el error de entrenamiento aumenta levemente, ya que el modelo ya no se sobreajusta tan fácilmente a muestras pequeñas.
+
+-   **Disminución y estabilización del error de validación:** Al aumentar el conjunto de entrenamiento, el error en validación desciende y se vuelve más consistente.
+
+-   **Convergencia de ambas curvas:** La diferencia entre el error en entrenamiento y en validación se reduce al final, lo que indica una buena capacidad de generalización y ausencia de sobreajuste significativo.
+
+-   **Mejora global:** El modelo se beneficia de tener más datos, lo que conduce a un comportamiento más estable y predecible en la clasificación.
+
+### Tuneo de Modelo
+
+```{r tuneo, message=FALSE, warning=FALSE}
+
+# Convertir las variables respuesta a factor con etiquetas "No" y "Sí"
+train_data$Es_Cara <- factor(train_data$Es_Cara, levels = c(0, 1), labels = c("No", "Sí"))
+test_data$Es_Cara  <- factor(test_data$Es_Cara,  levels = c(0, 1), labels = c("No", "Sí"))
+
+# Definir la fórmula del modelo
+model_formula <- Es_Cara ~ OverallQual + GrLivArea + YearBuilt
+
+# Especificar la validación cruzada con 10 particiones y probabilidades de clase
+cv_control <- trainControl(method = "cv", number = 10, classProbs = TRUE)
+
+# Grid de parámetros para regularización
+grid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = 10^seq(-4, 0, length = 10)
+)
+
+# Entrenar el modelo regularizado (glmnet)
+set.seed(123)
+logistic_reg_tuned <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  trControl = cv_control,
+  tuneGrid = grid,
+  family = "binomial"
+)
+
+# Mostrar los mejores parámetros encontrados en una tabla elegante
+best_params <- logistic_reg_tuned$bestTune
+library(knitr)
+kable(best_params, caption = "Mejores Parámetros del Modelo Regularizado")
+
+
+
+```
+
+Se usa una regularizacion Ridge con un grado de penalización aplicado para evitar coeficientes excesivamente grandes y, en consecuencia, reducir el sobreajuste.Buscamos optimizar la capacidad predictiva del modelo regularizado en comparación con el modelo base, encontrando un buen equilibrio entre sesgo y varianza.
+
+### Matriz de Confusión
+
+```{r conf_matrix_tuneo, message=FALSE, warning=FALSE}
+
+# Generar probabilidades con el modelo base (logistic_model) para el conjunto de prueba
+test_pred_probs <- predict(logistic_model, newdata = test_data, type = "prob")
+
+# Convertir probabilidades a clases: si la probabilidad de "1" es mayor a 0.5 se clasifica como "Sí"
+test_pred_class <- ifelse(test_pred_probs[, "1"] > 0.5, "Sí", "No")
+test_pred_class <- factor(test_pred_class, levels = levels(test_data$Es_Cara))
+
+# Construir la matriz de confusión (método base)
+conf_matrix_test <- table(Predicted = test_pred_class, Actual = test_data$Es_Cara)
+kable(as.data.frame(conf_matrix_test), caption = "Matriz de Confusión - Modelo Base")
+
+# Calcular métricas de evaluación con confusionMatrix de caret
+confusion_results <- confusionMatrix(test_pred_class, test_data$Es_Cara)
+
+# Extraer algunas métricas y mostrarlas en tabla
+evaluation_metrics <- data.frame(
+  Métrica        = c("Precisión", "Recall (Sensibilidad)", "Especificidad", "F1-Score"),
+  Valor          = c(confusion_results$overall['Accuracy'],
+                     confusion_results$byClass['Sensitivity'],
+                     confusion_results$byClass['Specificity'],
+                     confusion_results$byClass['F1'])
+)
+kable(evaluation_metrics, caption = "Métricas de Evaluación - Modelo Base")
+
+
+```
+
+**Interpretación del Modelo Base:** - La accuracy de 89.7% indica un buen desempeño global en la clasificación.
+
+-   La alta sensibilidad 93.3% muestra que el modelo identifica correctamente la mayoría de las viviendas “caras”.
+
+-   La especificidad de 78.7% sugiere que, en el otro sentido, el modelo comete más errores al clasificar correctamente las viviendas que no son caras.
+
+-   En conjunto, estos resultados indican que el modelo base tiene un rendimiento robusto, pero con cierta tendencia a producir falsos positivos al etiquetar casas como “caras” cuando no lo son.
+
+### Medición del tiempo y comparacion
+
+```{r tiempo_reg, message=FALSE, warning=FALSE}
+# Medir el tiempo para el modelo base
+time_base <- system.time({
+  predict(logistic_model, newdata = test_data, type = "prob")
+})
+
+# Medir el tiempo para el modelo regularizado
+time_reg <- system.time({
+  predict(logistic_reg_tuned, newdata = test_data, type = "prob")
+})
+
+# Crear un data frame con los tiempos (en segundos)
+tiempos_df <- data.frame(
+  Modelo = c("Base (glm)", "Regularizado (glmnet)"),
+  Tiempo_Total = c(time_base["elapsed"], time_reg["elapsed"])
+)
+
+# Formatear la columna de tiempo en notación científica con 4 decimales
+tiempos_df$Tiempo_Total <- sprintf("%.4e", tiempos_df$Tiempo_Total)
+
+# Imprimir la tabla de forma elegante con kable
+kable(tiempos_df, caption = "Comparación de Tiempos de Ejecución (Notación Científica)")
+
+
+
+```
+
+El modelo regularizado muestra una pequeña sobrecarga temporal (0.02 segundos) respecto al modelo base, esta diferencia es marginal y justificada por el beneficio de incluir regularización y tuning, lo que puede mejorar la robustez del modelo a través de una mejor selección de hiperparámetros y el control del sobreajuste.El tiempo 0 de el modelo base es una aproximación a un tiempo demásiado pequeño.
+
+### Comparación de Modelos (Modelo Regularizado)
+
+```{r compr, message=FALSE, warning=FALSE}
+
+
+# Predecir probabilidades con el modelo regularizado para el conjunto de prueba
+prob_regularizado <- predict(logistic_reg_tuned, newdata = test_data, type = "prob")[, "Sí"]
+
+# Convertir probabilidades a clases utilizando un umbral de 0.5
+class_regularizado <- ifelse(prob_regularizado > 0.5, "Sí", "No")
+class_regularizado <- factor(class_regularizado, levels = levels(test_data$Es_Cara))
+
+# Calcular y mostrar la matriz de confusión y métricas
+conf_matrix_reg <- confusionMatrix(class_regularizado, test_data$Es_Cara)
+# Mostrar la matriz de confusión en una tabla
+kable(as.data.frame(conf_matrix_reg$table), caption = "Matriz de Confusión - Modelo Regularizado")
+# Extraer y mostrar algunas métricas relevantes
+eval_reg <- data.frame(
+  Métrica = c("Precisión", "Recall (Sensibilidad)", "Especificidad", "F1-Score"),
+  Valor   = c(conf_matrix_reg$overall['Accuracy'],
+              conf_matrix_reg$byClass['Sensitivity'],
+              conf_matrix_reg$byClass['Specificity'],
+              conf_matrix_reg$byClass['F1'])
+)
+kable(eval_reg, caption = "Métricas de Evaluación - Modelo Regularizado")
+
+
+
+
+```
+
+**Interpretación del Modelo Regularizado:**
+
+-   EL accuracy mejora ligeramente hasta aproximadamente 90.6%, lo que implica una mejora global en la clasificación.
+
+-   La sensibilidad aumenta a 96.65%, lo que significa que el modelo regularizado es más efectivo en identificar correctamente las viviendas “caras”.
+
+-   La especificidad disminuye a 72.22%, indicando un incremento en el número de falsos positivos , casas que no son caras pero se clasifican como tales.
+
+-   El F1-Score elevado (0.9393) denota un buen balance entre precisión y sensibilidad, siendo levemente superior en comparación con el modelo base.
+
+***Discusión Global***
+
+**Optimización del modelo:** El tuneo con regularización ha permitido mejorar ligeramente la accuracy y, de forma más notable, la sensibilidad del modelo. El modelo regularizado es más efectivo en identificar viviendas caras, aunque a costa de una disminución en la especificidad.
+
+**Elección del modelo según la aplicación:** La decisión entre utilizar el modelo base o el regularizado dependerá del costo asociado a los errores.
+
+-   Si se requiere maximizar la detección de viviendas caras (prioridad a la sensibilidad), el modelo regularizado es preferible.
+
+-   Si se valora más minimizar los falsos positivos (mejor especificidad), el modelo base podría ser más adecuado.
+
+**Balance Global:** El leve incremento en el F1-Score del modelo regularizado sugiere que, en general, ofrece un balance más favorable entre precisión y sensibilidad, pese a su menor especificidad.
+
+## Modelo de Clasificación
+
+### Modelo Estandar
+
+```{r clasificacion, message=FALSE, warning=FALSE}
+library(nnet)
+library(caret)
+
+# Asegurarse de que la variable de respuesta esté definida con los niveles correctos
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+
+# Definir la fórmula del modelo
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Ajustar el modelo multinomial sobre el conjunto de entrenamiento
+multinom_model <- multinom(model_formula, data = train_data)
+
+# Mostrar un resumen del modelo
+summary_multinom <- capture.output(summary(multinom_model))
+kable(data.frame(Line = summary_multinom), caption = "Resumen del Modelo Estándar (multinom)")
+
+
+
+```
+
+```{r prediccion_clasificacion, message=FALSE, warning=FALSE}
+# Predicción: probabilidades y clase asignada
+pred_prob <- predict(multinom_model, newdata = test_data, type = "probs")
+pred_class <- predict(multinom_model, newdata = test_data)
+
+# Calcular y mostrar la matriz de confusión
+cm <- confusionMatrix(as.factor(pred_class), test_data$PriceCat)
+kable(as.data.frame(cm$table), caption = "Matriz de Confusión - Modelo Estándar")
+
+
+
+```
+
+### Modelo con Validación Cruzada
+
+```{r prediccion_clasificacion1, message=FALSE, warning=FALSE}
+# Configurar la estrategia de validación cruzada (10-fold)
+cv_control <- trainControl(method = "cv", number = 10)
+
+set.seed(123)
+cv_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "multinom",
+  trControl = cv_control
+)
+
+# Mostrar el resumen del modelo final de CV de forma elegante
+cv_summary <- capture.output(summary(cv_model$finalModel))
+cat("Resumen del Modelo con CV:\n")
+kable(data.frame(Line = cv_summary), caption = "Resumen del Modelo con Validación Cruzada (multinom)")
+
+# Predicciones y matriz de confusión para el modelo con CV
+cv_pred <- predict(cv_model, newdata = test_data)
+cm_cv <- confusionMatrix(cv_pred, test_data$PriceCat)
+
+cat("\nMatriz de Confusión - Modelo con CV:\n")
+kable(as.data.frame(cm_cv$table), caption = "Matriz de Confusión - Modelo con CV")
+
+
+
+```
+
+La CV se utiliza para estimar mejor el error real y evitar sobreajuste, pero en este caso no propició un aumento en la accuracy final ni cambios drásticos en los coeficientes, posiblemente porque el dataset o la complejidad del modelo no dieron margen para un aumento sustancial en el desempeño.
+
+### Modelo con tuneo de hiperparámetros
+
+```{r tuneo_clasificacion1, message=FALSE, warning=FALSE}
+
+library(glmnet)
+library(ggplot2)
+# Asegurarse nuevamente de que PriceCat esté definido correctamente
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+
+# Configurar la validación cruzada de 10-fold
+cv_control <- trainControl(method = "cv", number = 10)
+
+# Definir la rejilla de hiperparámetros
+tuneGrid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = seq(0.0001, 0.1, length = 10)
+)
+
+set.seed(123)
+tuned_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  family = "multinomial",
+  trControl = cv_control,
+  tuneGrid = tuneGrid
+)
+
+# Mostrar el resumen completo del modelo ajustado
+tuned_model_summary <- capture.output(print(tuned_model))
+kable(data.frame(Line = tuned_model_summary), caption = "Resumen del Modelo Tuneado (glmnet)")
+
+cat("\nMejor combinación de hiperparámetros:\n")
+kable(tuned_model$bestTune, caption = "Mejor Combinación de Hiperparámetros")
+
+# Predicciones y matriz de confusión para el modelo tuneado
+pred_tuned_best <- predict(tuned_model, newdata = test_data)
+cm_tuned <- confusionMatrix(as.factor(pred_tuned_best), test_data$PriceCat)
+kable(as.data.frame(cm_tuned$table), caption = "Matriz de Confusión - Modelo Tuneado")
+
+
+
+```
+
+```{r tiempo_clasificacion12, message=FALSE, warning=FALSE}
+
+# Extraer resultados del objeto tuneado
+tuning_results <- tuned_model$results
+
+# Gráfico: Accuracy vs lambda para cada valor de alpha
+ggplot(tuning_results, aes(x = lambda, y = Accuracy, color = as.factor(alpha))) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Evolución de Accuracy en función de lambda y alpha",
+       x = "lambda", 
+       y = "Accuracy",
+       color = "alpha") +
+  theme_minimal()
+
+
+
+```
+
+Se entrenó un modelo multiclase con regularización , variando𝛼y λ.
+
+La combinación óptima fue 𝛼= 0.5 α=0.5 (intermedio entre Ridge y Lasso) y λ=0.0112.
+
+Al imponer penalizaciones, se logra reducir el sobreajuste, pero no siempre aumentar la exactitud en validación.
+
+Este modelo obtiene \~80.0% de accuracy, que es ligeramente inferior a los 80.7% de los dos modelos multinomiales; sin embargo, la diferencia no parece estadísticamente grande.
+
+### Modelo regularizado
+
+```{r clasificacion_reg12, message=FALSE, warning=FALSE}
+
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+
+# Definir la fórmula del modelo. En este ejemplo se utilizan las variables OverallQual, GrLivArea y YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Configurar la estrategia de validación cruzada (por ejemplo, 10-fold CV)
+cv_control <- trainControl(method = "cv", number = 10)
+
+# Definir una rejilla de hiperparámetros. Se prueban:
+#   - alpha = 0: Ridge (penalización L2)
+#   - alpha = 1: Lasso (penalización L1)
+#   - alpha = 0.5: Elastic Net (combinación de L1 y L2)
+# y diferentes valores de lambda para controlar la fuerza de la regularización.
+tuneGrid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = seq(0.0001, 0.1, length = 10)
+)
+
+# Fijar semilla para reproducibilidad
+set.seed(123)
+
+# Ajustar el modelo utilizando caret::train con el método "glmnet"
+# Se especifica family = "multinomial" ya que se trata de un problema con más de dos clases.
+regularized_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  family = "multinomial",
+  trControl = cv_control,
+  tuneGrid = tuneGrid
+)
+
+# Mostrar la mejor combinación de hiperparámetros encontrada en forma de tabla con kable
+bestTune_df <- as.data.frame(regularized_model$bestTune)
+kable(bestTune_df, caption = "Mejor combinación de hiperparámetros")
+
+
+```
+
+```{r prediccion_reg12, message=FALSE, warning=FALSE}
+
+predictions <- predict(regularized_model, newdata = test_data)
+
+# Calcular la matriz de confusión para evaluar el desempeño del modelo
+cm_regularized <- confusionMatrix(as.factor(predictions), test_data$PriceCat)
+cm_regularized_df <- as.data.frame(cm_regularized$table)
+kable(cm_regularized_df, caption = "Matriz de Confusión - Modelo Regularizado")
+
+```
+
+### Comparación de modelos
+
+```{r comparacion_modelos2, message=FALSE, warning=FALSE}
+# --------------------------------------------------
+# Comparación de Modelos (Estándar, Con CV y Tuneado)
+# --------------------------------------------------
+
+# Para el Modelo (1): Estándar (multinom)
+accuracy_norm <- cm$overall["Accuracy"]
+kappa_norm    <- cm$overall["Kappa"]
+aic_norm      <- AIC(multinom_model)
+bic_norm      <- BIC(multinom_model)
+
+# Para el Modelo (2): Con CV (multinom)
+accuracy_cv <- cm_cv$overall["Accuracy"]
+kappa_cv    <- cm_cv$overall["Kappa"]
+# Intentar calcular AIC y BIC del modelo con CV, si la función está disponible
+aic_cv <- tryCatch(AIC(cv_model$finalModel), error = function(e) NA)
+bic_cv <- tryCatch(BIC(cv_model$finalModel), error = function(e) NA)
+
+# Para el Modelo (3): Tuneado (glmnet)
+accuracy_tuned <- cm_tuned$overall["Accuracy"]
+kappa_tuned    <- cm_tuned$overall["Kappa"]
+# Los modelos tuneados basados en glmnet no proveen AIC/BIC de forma directa,
+# por lo que se asignan como NA.
+aic_tuned <- NA
+bic_tuned <- NA
+
+# Crear un data frame resumen con las métricas de cada modelo
+models_df <- data.frame(
+  Modelo = c("Estándar (multinom)", "Con CV (multinom)", "Tuneado (glmnet)"),
+  Accuracy = c(as.numeric(accuracy_norm),
+               as.numeric(accuracy_cv),
+               as.numeric(accuracy_tuned)),
+  Kappa = c(as.numeric(kappa_norm),
+            as.numeric(kappa_cv),
+            as.numeric(kappa_tuned)),
+  AIC = c(aic_norm, aic_cv, aic_tuned),
+  BIC = c(bic_norm, bic_cv, bic_tuned)
+)
+
+# Mostrar el resumen de métricas de forma elegante con kable
+kable(models_df, caption = "Resumen de Métricas de los Modelos")
+
+
+
+
+```
+
+```{r tiempo_clasificacion, message=FALSE, warning=FALSE}
+
+
+ggplot(models_df, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+  geom_bar(stat = "identity", width = 0.3) +
+  geom_text(aes(label = round(Accuracy, 3)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de Accuracy entre Modelos de Clasificación",
+       x = "Modelo",
+       y = "Accuracy") +
+  ylim(0, 1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+
+```
+
+Los dos modelos multinomiales (Estándar y con CV) tienen la misma exactitud (0.807).
+
+La validación cruzada no mejoró la métrica de manera apreciable en este conjunto (posiblemente porque el dataset o la complejidad del modelo no facilitan un mayor incremento en la accuracy).
+
+El Kappa también es idéntico (\~0.691), lo que sugiere igual poder de discriminación entre clases.
+
+El modelo “Tuneado” alcanza \~0.800 de accuracy con un Kappa de \~0.677.
+
+Es levemente inferior en ambas métricas frente a los dos modelos multinomiales.
+
+Esto se debe, en parte, a la penalización introducida por alpha y lambda, que reduce la magnitud de los coeficientes pero no siempre conlleva un mejor ajuste, sobre todo si la muestra no es muy grande o si las variables elegidas ya son lo suficientemente parsimoniosas. \#### Resumen de Coeficientes Ambos modelos multinomiales arrojan coeficientes similares:
+
+-   (Intercept): Ajusta el “sesgo” para cada categoría (Intermedias, Caras) en relación con la categoría de referencia (Economicas).
+
+-   OverallQual, GrLivArea, YearBuilt: Todas se muestran con coeficientes positivos (, lo que indica que al aumentar la calidad, la superficie habitable o la reciente construcción, crece la probabilidad de ser Intermedias o Caras .
+
+El AIC y el BIC del modelo Estándar son algo menores que los del modelo con CV , lo que sugiere ligeramente que el modelo Estándar podría ser más parsimonioso según estos criterios. De todos modos, la diferencia es pequeña.
+
+***Modelo Tuneado:***
+
+Se entrenó un modelo multiclase con regularización (Elastic Net), variando 𝛼 α y 𝜆 λ.
+
+La combinación óptima fue 𝛼 = 0.5 α=0.5 (intermedio entre Ridge y Lasso) y 𝜆 = 0.0112 λ=0.0112.
+
+Al imponer penalizaciones, se logra reducir el sobreajuste, pero no siempre aumentar la exactitud en validación (comparado con los modelos sin penalización).
+
+Este modelo obtiene \~80.0% de accuracy, que es ligeramente inferior a los 80.7% de los dos modelos multinomiales; sin embargo, la diferencia no parece estadísticamente grande.
+
+***Mátrices de confusión:***
+
+**Errores comunes en todas las matrices:** -
+
+-   Un número bajo de confusiones entre “Economicas” vs. “Caras” .
+
+-   Más errores entre “Economicas” e “Intermedias”, y también entre “Intermedias” y “Caras”.
+
+-   Esto coincide con la intuición de que “Intermedias” a veces se confunde con las otras dos categorías más extremas.
+
+**Modelos Estándar y con CV:**
+
+-   Tienen prácticamente la misma estructura de confusiones, confirmando que los coeficientes y la performance global son muy parecidos.
+
+**Modelo Tuneado:**
+
+Muestra una redistribución leve de aciertos/errores: por ejemplo, hay algo más de confusiones “Intermedias” ↔ “Economicas”. Estas diferencias explican la ligera reducción de accuracy.
+
+## Comparacion de Modelos de Clasificación con diferentes algoritmos
+
+```{r comparacion_modelos_algoritmos, message=FALSE, warning=FALSE}
+#===============================================================
+# Comparación de Modelos de Clasificación
+#===============================================================
+
+# Si se tiene cargado mlr, se descarga para evitar conflictos
+if("package:mlr" %in% search()){
+  detach("package:mlr", unload = TRUE)
+}
+
+# Cargar las librerías necesarias
+library(tidyverse)
+library(caret)
+library(rpart)         # Para árboles simples
+library(rpart.plot)    # Para graficar árboles (opcional)
+library(randomForest)
+library(e1071)         # Para Naive Bayes
+library(class)         # Para KNN
+library(nnet)          # Para multinom() en Regresión Logística Multinomial
+library(reshape2)      # Para melt()
+library(RColorBrewer)  # Para paleta en ggplot2
+library(knitr)         # Para usar kable
+
+# ------------------------------------------------------------------
+# 1. Asegurar consistencia en las variables factor en test_data
+# ------------------------------------------------------------------
+
+# Eliminar variables con varianza cero en train_data
+cols_to_remove <- nearZeroVar(train_data)
+if (length(cols_to_remove) > 0) {
+  train_data <- train_data[, -cols_to_remove, drop = FALSE]
+  # Asegurar que test_data también elimine las mismas columnas
+  common_cols <- intersect(names(train_data), names(test_data))
+  test_data <- test_data[, common_cols, drop = FALSE]
+}
+
+# Manejo de valores NA en datos numéricos: imputar con la mediana (usando la mediana de train_data)
+numeric_cols <- names(train_data)[sapply(train_data, is.numeric)]
+for (col in numeric_cols) {
+  train_data[[col]][is.na(train_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+  test_data[[col]][is.na(test_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+}
+
+# Para las variables factor, imputar con el modo (valor más frecuente)
+factor_cols <- names(train_data)[sapply(train_data, is.factor)]
+# Se guarda cualquier warning en una lista (si hay niveles nuevos)
+warnings_list <- list()
+for (col in factor_cols) {
+  mode_value <- names(sort(table(train_data[[col]]), decreasing = TRUE))[1]
+  train_data[[col]][is.na(train_data[[col]])] <- mode_value
+  test_data[[col]][is.na(test_data[[col]])] <- mode_value
+}
+
+# Forzar que para cada variable factor en train_data, test_data tenga exactamente los mismos niveles
+for (var in factor_cols) {
+  if (var %in% names(test_data)) {
+    new_levels <- setdiff(unique(test_data[[var]]), levels(train_data[[var]]))
+    if (length(new_levels) > 0) {
+      # Almacenamos la advertencia en la lista de warnings para documentarlas posteriormente
+      warnings_list[[var]] <- paste("La variable", var, "tiene niveles nuevos en test_data:", paste(new_levels, collapse = ", "))
+      # Reemplazar los niveles nuevos por NA
+      test_data[[var]][ test_data[[var]] %in% new_levels ] <- NA
+    }
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+# Si existen advertencias, se muestran en una tabla elegante
+if (length(warnings_list) > 0) {
+  warnings_df <- data.frame(Variable = names(warnings_list),
+                            Warning = unlist(warnings_list))
+  kable(warnings_df, caption = "Advertencias de niveles nuevos en test_data")
+}
+
+# ------------------------------------------------------------------
+# 2. Definir los predictores
+# (No usaremos SalePrice, pues PriceCat se deriva de él)
+# ------------------------------------------------------------------
+predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+
+
+```
+
+```{r comparacion_modelos_algoritmos1, message=FALSE, warning=FALSE}
+### 3.1. Modelo de Árbol de Clasificación Base (rpart)
+formula_class <- PriceCat ~ . - SalePrice
+modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+pred_tree_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+cm_tree_base <- confusionMatrix(pred_tree_base, test_data$PriceCat)
+
+### 3.3. Random Forest para Clasificación
+# Asegurarse de que los nombres de las columnas sean válidos en R
+names(train_data) <- make.names(names(train_data))
+names(test_data) <- make.names(names(test_data))
+set.seed(123)
+modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+pred_rf <- predict(modelo_rf, newdata = test_data)
+cm_rf <- confusionMatrix(pred_rf, test_data$PriceCat)
+
+### 3.4. Naive Bayes para Clasificación
+# Volver a definir los predictores a partir de los nombres actualizados
+predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+pred_nb <- predict(nb_model_class, newdata = test_data[, predictors])
+cm_nb <- confusionMatrix(pred_nb, test_data$PriceCat)
+
+### 3.5. KNN para Clasificación (modelo simple)
+numeric_predictors <- predictors[sapply(train_data[, predictors], is.numeric)]
+x_train <- scale(train_data[, numeric_predictors])
+x_test  <- scale(test_data[, numeric_predictors])
+y_train <- train_data$PriceCat
+y_test  <- test_data$PriceCat
+k_simple <- round(sqrt(nrow(train_data)), 0)
+pred_knn <- knn(x_train, x_test, y_train, k = k_simple)
+cm_knn <- confusionMatrix(pred_knn, y_test)
+
+### 3.6. Regresión Logística Multinomial (modelo estándar)
+# Usamos la fórmula: PriceCat ~ OverallQual + GrLivArea + YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+logistic_model <- multinom(model_formula, data = train_data)
+pred_logistic <- predict(logistic_model, newdata = test_data)
+cm_logistic <- confusionMatrix(as.factor(pred_logistic), test_data$PriceCat)
+
+### 3.7. Modelo Multinomial con Tuneo de Hiperparámetros y Validación Cruzada (usando glmnet)
+# Reafirmar que PriceCat tenga los niveles correctos
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+cv_control <- trainControl(method = "cv", number = 10)
+tuneGrid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = seq(0.0001, 0.1, length = 10)
+)
+set.seed(123)
+tuned_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  family = "multinomial",
+  trControl = cv_control,
+  tuneGrid = tuneGrid
+)
+# Documentar la mejor combinación de hiperparámetros con kable
+bestTune_df <- as.data.frame(tuned_model$bestTune)
+pred_tuned_best <- predict(tuned_model, newdata = test_data)
+cm_tuned <- confusionMatrix(as.factor(pred_tuned_best), test_data$PriceCat)
+
+
+
+```
+
+```{r comparacion_modelos_algoritmos2, message=FALSE, warning=FALSE}
+
+# ------------------------------------------------------------------
+# 4. Función para calcular el F1-score promedio a partir de la matriz de confusión
+# ------------------------------------------------------------------
+calcular_f1_promedio <- function(cm) {
+  if (is.matrix(cm$byClass)) {
+    return(mean(cm$byClass[,"F1"], na.rm = TRUE))
+  } else {
+    return(cm$byClass["F1"])
+  }
+}
+
+# ------------------------------------------------------------------
+# 5. Extraer las métricas de cada modelo
+# ------------------------------------------------------------------
+metrics_df <- data.frame(
+  Model = c("Tree Base", "Random Forest", "Naive Bayes", "KNN", "Logistic Regression", "Tuned (glmnet)"),
+  Accuracy = c(as.numeric(cm_tree_base$overall["Accuracy"]),
+               as.numeric(cm_rf$overall["Accuracy"]),
+               as.numeric(cm_nb$overall["Accuracy"]),
+               as.numeric(cm_knn$overall["Accuracy"]),
+               as.numeric(cm_logistic$overall["Accuracy"]),
+               as.numeric(cm_tuned$overall["Accuracy"])),
+  Kappa = c(as.numeric(cm_tree_base$overall["Kappa"]),
+            as.numeric(cm_rf$overall["Kappa"]),
+            as.numeric(cm_nb$overall["Kappa"]),
+            as.numeric(cm_knn$overall["Kappa"]),
+            as.numeric(cm_logistic$overall["Kappa"]),
+            as.numeric(cm_tuned$overall["Kappa"])),
+  F1 = c(calcular_f1_promedio(cm_tree_base),
+         calcular_f1_promedio(cm_rf),
+         calcular_f1_promedio(cm_nb),
+         calcular_f1_promedio(cm_knn),
+         calcular_f1_promedio(cm_logistic),
+         calcular_f1_promedio(cm_tuned))
+)
+
+# Mostrar el resumen de métricas de forma elegante con kable
+kable(metrics_df, caption = "Comparación de métricas de clasificación")
+
+
+
+
+```
+
+```{r comparacion_modelos_algoritmos3, message=FALSE, warning=FALSE}
+#===============================================================
+# Comparación de Tiempos de Ejecución para Modelos de Clasificación
+#===============================================================
+
+# Cargar las librerías necesarias para los modelos
+library(rpart)         # Árboles
+library(randomForest)  # Random Forest
+library(e1071)         # Naive Bayes
+library(class)         # KNN
+library(nnet)          # multinom() para Regresión Logística Multinomial
+library(knitr)         # Para usar kable
+
+#-------------------------------------------
+# Definir fórmulas y preparar los datos
+#-------------------------------------------
+# Fórmula para el árbol y Random Forest
+formula_class <- PriceCat ~ . - SalePrice
+
+# Fórmula para la Regresión Logística (multinomial)
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Para KNN: seleccionar las variables numéricas y escalarlas (no se requiere entrenamiento, se mide la predicción)
+# Se excluye SalePrice
+numeric_predictors <- setdiff(names(train_data)[sapply(train_data, is.numeric)], c("SalePrice"))
+x_train <- scale(train_data[, numeric_predictors])
+x_test  <- scale(test_data[, numeric_predictors])
+y_train <- train_data$PriceCat
+# Usamos k basado en la raíz del número de observaciones
+k_simple <- round(sqrt(nrow(train_data)), 0)
+
+#-------------------------------------------
+# Medir el tiempo de ejecución de cada modelo
+#-------------------------------------------
+
+# 1. Modelo de Árbol (rpart)
+time_tree <- system.time({
+  modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+})
+
+# 2. Random Forest
+time_rf <- system.time({
+  modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+})
+
+# 3. Naive Bayes
+time_nb <- system.time({
+  nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+})
+
+# 4. KNN: Se mide el tiempo de predicción (ya que KNN no tiene fase de entrenamiento explícita)
+time_knn <- system.time({
+  pred_knn <- knn(x_train, x_test, y_train, k = k_simple)
+})
+
+# 5. Regresión Logística Multinomial (multinom)
+time_logistic <- system.time({
+  logistic_model <- multinom(model_formula, data = train_data)
+})
+
+#-------------------------------------------
+# Compilar los resultados en una tabla
+#-------------------------------------------
+times_df <- data.frame(
+  Model = c("Tree (rpart)", "Random Forest", "Naive Bayes", "KNN (Prediction)", "Logistic Regression"),
+  Elapsed_Time_sec = c(time_tree["elapsed"], time_rf["elapsed"], time_nb["elapsed"],
+                       time_knn["elapsed"], time_logistic["elapsed"])
+)
+
+# Formatear la columna de tiempo a 4 decimales y mostrar la tabla con kable
+times_df$Elapsed_Time_sec <- sprintf("%.4f", times_df$Elapsed_Time_sec)
+kable(times_df, caption = "Comparación de Tiempos de Ejecución de Modelos de Clasificación (en segundos)")
+
+
+
+
+
+```
+
+-   **Eficiencia de Prediccion**
+
+    -   **Modelos Basados en Árboly Random Forest:**\
+        Estos modelos muestran métricas perfectas .Este resultado puede darse dado que el problema es relativamente sencillo. Sucede lo mismo con KNN y NB puede existir una separación alta de clases o una normalización alta de el conjunto de datos.
+
+    -   **Modelos Basados en Regresión Logística:**\
+        Tanto el modelo estándar de regresión logística como su versión tuneada con regularización muestran resultados significativamente inferiores. Esto indica que, en comparación con los modelos basados en árboles y vecinos, los modelos lineales son menos precisos para este problema. La menor exactitud y Kappa se traduce en que se cometen más errores al clasificar y, en definitiva, se equivoca en mayor proporción.
+
+    -   Es importante notar que dada la solución simplificada que estos realizan al problema contribuye a la precisión de los modelos de regresión. Siendo estos bastante buenos para predecir.
+
+***El modelo que más aciertos, tomando en cuenta la forma en la que resuelven el problema los algoritmos previos como random forest es KNN, teniendo buenas metricas en general. Una segunda buena opción es Naive Bayes.***
+
+***El modelo que peor lo hace es el modelo de regresión con ajuste de parámetros. Una posible explicación como se menciona previamente es el sacrificio que se hace al ajustar parámetros.***
+
+-   **Eficiencia de Tiempo**
+
+    -   **Eficiencia computacional:**\
+        Los modelos como la Regresión Logística y Naive Bayes son extremadamente rápidos
+
+    -   **Trade-off entre complejidad y tiempo:**\
+        Aunque Random Forest puede ofrecer ventajas en términos de precisión y robustez al trabajar con datos complejos, su mayor tiempo de ejecución es una desventaja en entornos donde el tiempo de respuesta es crítico.
+
+        El que más se demora es Random forest, al evaluar y hacer multiples arboles para predecir. En contraste, la regresión logística tiene el mejor desempeño.
+
+La elección se reduce entre **KNN**, **Naive Bayes** y **Random Forest**.\
+
+En la práctica, **Random Forest** resulta el mejor para predecir gracias a su alta exactitud y capacidad para modelar relaciones complejas, aunque se debe tener cuidado con el potencial sobreajuste.\
+
+Por ello, elegir **KNN** o **Naive Bayes** no es una mala opción..

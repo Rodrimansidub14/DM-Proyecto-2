@@ -324,5 +324,384 @@ system.time({
 })
 
 
+###---------------------------------------------------
+###---------------------------------------------------
+# Modelo de clasificación
+#---------------------------------------------------
+#---------------------------------------------------
+library(nnet)
+
+# Asegurarse de que la variable de respuesta esté definida como factor con los niveles correctos
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+
+# Definir la fórmula del modelo: en este ejemplo se utilizan las variables OverallQual, GrLivArea y YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Ajustar el modelo de regresión logística multinomial sobre el conjunto de entrenamiento
+multinom_model <- multinom(model_formula, data = train_data)
+
+# Mostrar un resumen del modelo
+summary(multinom_model)
+
+# Realizar predicciones en el conjunto de prueba
+# Se pueden obtener las probabilidades y la clase asignada:
+pred_prob <- predict(multinom_model, newdata = test_data, type = "probs")
+pred_class <- predict(multinom_model, newdata = test_data)
+
+# Visualizar la matriz de confusión para evaluar la eficiencia del modelo
+cm <- confusionMatrix(as.factor(pred_class), test_data$PriceCat)
+print(cm)
+# Configurar la estrategia de validación cruzada (por ejemplo, 10-fold CV)
 
 
+# --------------------------------------------------
+# Modelo Multinomial con Validación Cruzada (CV)
+# --------------------------------------------------
+
+# Definir la fórmula del modelo: se utilizan las variables OverallQual, GrLivArea y YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Configurar la estrategia de validación cruzada: 10-fold CV
+cv_control <- trainControl(method = "cv", number = 10)
+
+# Ajustar el modelo con CV usando el método "multinom" (del paquete nnet)
+set.seed(123)
+cv_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "multinom",
+  trControl = cv_control
+)
+
+# Mostrar un resumen del modelo final
+cat("Resumen del modelo final:\n")
+print(summary(cv_model$finalModel))
+
+# Realizar predicciones sobre el conjunto de prueba
+cv_pred <- predict(cv_model, newdata = test_data)
+
+# Calcular la matriz de confusión
+cm_cv <- confusionMatrix(cv_pred, test_data$PriceCat)
+cat("\nMatriz de Confusión:\n")
+print(cm_cv)
+# --------------------------------------------------
+# Modelo Multinomial con Tuneo de Hiperparámetros y Predicción con la Mejor Combinación
+# --------------------------------------------------
+
+# Cargar las librerías necesarias
+library(caret)
+library(glmnet)
+library(ggplot2)
+
+# Asegurarse de que la variable PriceCat esté definida como factor con los niveles correctos
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+
+# Definir la fórmula del modelo: se utilizan las variables OverallQual, GrLivArea y YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Configurar la estrategia de validación cruzada de 10 folds
+cv_control <- trainControl(method = "cv", number = 10)
+
+# Definir la rejilla de hiperparámetros para tuneo:
+# alpha: 0 (Ridge), 1 (Lasso) o valores intermedios para Elastic Net.
+# lambda: secuencia de valores de penalización.
+tuneGrid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = seq(0.0001, 0.1, length = 10)
+)
+
+# Ajustar el modelo con tuneo utilizando caret y glmnet
+set.seed(123)
+tuned_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  family = "multinomial",
+  trControl = cv_control,
+  tuneGrid = tuneGrid
+)
+
+# Mostrar el resumen completo del modelo ajustado y la mejor combinación de hiperparámetros
+print(tuned_model)
+cat("\nMejor combinación de hiperparámetros:\n")
+print(tuned_model$bestTune)
+
+# Realizar predicciones sobre el conjunto de prueba utilizando el modelo con la mejor combinación
+pred_tuned_best <- predict(tuned_model, newdata = test_data)
+
+# Calcular la matriz de confusión utilizando la mejor configuración
+cm_tuned <- confusionMatrix(as.factor(pred_tuned_best), test_data$PriceCat)
+print(cm_tuned)
+
+
+# Extraer resultados del objeto tuneado
+tuning_results <- tuned_model$results
+
+# Visualizar con ggplot2: Accuracy vs lambda para cada alpha
+library(ggplot2)
+
+ggplot(tuning_results, aes(x = lambda, y = Accuracy, color = as.factor(alpha))) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Evolución de Accuracy en función de lambda y alpha",
+       x = "lambda", 
+       y = "Accuracy",
+       color = "alpha") +
+  theme_minimal()
+
+# --------------------------------------------------
+# Comparación de los 3 Modelos de Clasificación
+# --------------------------------------------------
+
+# (1) Modelo Estándar con multinom() del paquete nnet
+library(nnet)
+# Ya se ajustó anteriormente:
+# multinom_model <- multinom(model_formula, data = train_data)
+# Y se obtuvieron:
+# pred_class (con multinom_model) y
+# cm <- confusionMatrix(as.factor(pred_class), test_data$PriceCat)
+# Por ejemplo, la matriz de confusión resultante se muestra con:
+print("Matriz de Confusión - Modelo Estándar (multinom):")
+print(cm)
+accuracy_norm <- cm$overall["Accuracy"]
+
+# (2) Modelo con CV usando caret::train con method = "multinom"
+# Ya se ajustó previamente:
+# cv_model <- caret::train(model_formula, data = train_data, method = "multinom", trControl = cv_control)
+# cv_pred <- predict(cv_model, newdata = test_data)
+# cm_cv <- confusionMatrix(cv_pred, test_data$PriceCat)
+print("Matriz de Confusión - Modelo con CV:")
+print(cm_cv)
+accuracy_cv <- cm_cv$overall["Accuracy"]
+
+# (3) Modelo Tuneado con caret y glmnet (family = "multinomial")
+# Ya se ajustó previamente:
+# tuned_model <- caret::train(model_formula, data = train_data, method = "glmnet",
+#                             family = "multinomial", trControl = cv_control, tuneGrid = tuneGrid)
+# pred_tuned_best <- predict(tuned_model, newdata = test_data)
+# cm_tuned <- confusionMatrix(as.factor(pred_tuned_best), test_data$PriceCat)
+print("Matriz de Confusión - Modelo Tuneado:")
+print(cm_tuned)
+accuracy_tuned <- cm_tuned$overall["Accuracy"]
+
+# Crear un data frame resumen con la métrica Accuracy para cada modelo
+accuracy_df <- data.frame(
+  Modelo = c("Estándar (multinom)", "Con CV (multinom)", "Tuneado (glmnet)"),
+  Accuracy = c(as.numeric(accuracy_norm),
+               as.numeric(accuracy_cv),
+               as.numeric(accuracy_tuned))
+)
+
+print("Resumen de Accuracies:")
+print(accuracy_df)
+
+
+
+# Visualización: Gráfico de barras comparativo de la Accuracy de cada modelo
+library(ggplot2)
+
+ggplot(accuracy_df, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+  geom_bar(stat = "identity", width = 0.3) +
+  geom_text(aes(label = round(Accuracy, 3)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de Accuracy entre Modelos de Clasificación",
+       x = "Modelo",
+       y = "Accuracy") +
+  ylim(0, 1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+
+## ---------------------------------------------------
+
+#===============================================================
+# Comparación de Modelos de Clasificación
+#===============================================================
+
+# (Si tienes cargado mlr, es recomendable descargarlo para evitar conflictos)
+if("package:mlr" %in% search()){
+  detach("package:mlr", unload = TRUE)
+}
+
+# Cargar las librerías necesarias
+library(tidyverse)
+library(caret)
+library(rpart)         # Para árboles simples
+library(rpart.plot)    # Para graficar árboles (opcional)
+library(randomForest)
+library(e1071)         # Para Naive Bayes (en algunos casos)
+library(class)         # Para KNN
+library(nnet)          # Para multinom() en Regresión Logística Multinomial
+library(reshape2)      # Para melt()
+library(RColorBrewer)  # Para paleta en ggplot2
+
+# ------------------------------------------------------------------
+# 1. Asegurar consistencia en las variables factor en test_data
+# ------------------------------------------------------------------
+# Eliminar variables con varianza cero en train_data
+cols_to_remove <- nearZeroVar(train_data)
+if (length(cols_to_remove) > 0) {
+  train_data <- train_data[, -cols_to_remove, drop = FALSE]
+  
+  # Asegurar que test_data también elimine las mismas columnas
+  common_cols <- intersect(names(train_data), names(test_data))
+  test_data <- test_data[, common_cols, drop = FALSE]
+}
+
+# Manejo de valores NA en datos numéricos: imputar con mediana (usando la mediana de train_data)
+numeric_cols <- names(train_data)[sapply(train_data, is.numeric)]
+for (col in numeric_cols) {
+  train_data[[col]][is.na(train_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+  test_data[[col]][is.na(test_data[[col]])] <- median(train_data[[col]], na.rm = TRUE)
+}
+
+# Para las variables factor, imputar con el modo (valor más frecuente)
+factor_cols <- names(train_data)[sapply(train_data, is.factor)]
+for (col in factor_cols) {
+  mode_value <- names(sort(table(train_data[[col]]), decreasing = TRUE))[1]
+  train_data[[col]][is.na(train_data[[col]])] <- mode_value
+  test_data[[col]][is.na(test_data[[col]])] <- mode_value
+}
+
+# Forzar que para cada variable factor en train_data, test_data tenga exactamente los mismos niveles
+for (var in factor_cols) {
+  if (var %in% names(test_data)) {
+    new_levels <- setdiff(unique(test_data[[var]]), levels(train_data[[var]]))
+    if (length(new_levels) > 0) {
+      cat("Warning: La variable", var, "tiene niveles nuevos en test_data:", new_levels, "\n")
+      # Reemplazar los niveles nuevos por NA
+      test_data[[var]][ test_data[[var]] %in% new_levels ] <- NA
+    }
+    test_data[[var]] <- factor(test_data[[var]], levels = levels(train_data[[var]]))
+  }
+}
+
+# ------------------------------------------------------------------
+# 2. Definir los predictores (No usaremos SalePrice, pues PriceCat se deriva de él)
+# ------------------------------------------------------------------
+predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+
+# ------------------------------------------------------------------
+# 3. Entrenar los diferentes modelos
+# ------------------------------------------------------------------
+
+### 3.1. Modelo de Árbol de Clasificación Base (rpart)
+formula_class <- PriceCat ~ . - SalePrice
+modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+pred_tree_base <- predict(modelo_class_base, newdata = test_data, type = "class")
+cm_tree_base <- confusionMatrix(pred_tree_base, test_data$PriceCat)
+
+### 3.3. Random Forest para Clasificación
+# Asegurarse de que los nombres de las columnas sean válidos en R
+names(train_data) <- make.names(names(train_data))
+names(test_data) <- make.names(names(test_data))
+
+set.seed(123)
+modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+pred_rf <- predict(modelo_rf, newdata = test_data)
+cm_rf <- confusionMatrix(pred_rf, test_data$PriceCat)
+
+### 3.4. Naive Bayes para Clasificación
+names(train_data) <- make.names(names(train_data))
+names(test_data)  <- make.names(names(test_data))
+
+# Volver a definir los predictores a partir de los nombres actualizados.
+predictors <- setdiff(names(train_data), c("SalePrice", "PriceCat"))
+
+# Ajustar el modelo Naive Bayes utilizando los predictors actualizados
+nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+pred_nb <- predict(nb_model_class, newdata = test_data[, predictors])
+cm_nb <- confusionMatrix(pred_nb, test_data$PriceCat)
+print(cm_nb)
+
+### 3.5. KNN para Clasificación (modelo simple)
+numeric_predictors <- predictors[sapply(train_data[, predictors], is.numeric)]
+x_train <- scale(train_data[, numeric_predictors])
+x_test  <- scale(test_data[, numeric_predictors])
+y_train <- train_data$PriceCat
+y_test  <- test_data$PriceCat
+k_simple <- round(sqrt(nrow(train_data)), 0)
+pred_knn <- knn(x_train, x_test, y_train, k = k_simple)
+cm_knn <- confusionMatrix(pred_knn, y_test)
+
+### 3.6. Regresión Logística Multinomial (modelo estándar)
+# Usamos la fórmula: PriceCat ~ OverallQual + GrLivArea + YearBuilt
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+logistic_model <- multinom(model_formula, data = train_data)
+pred_logistic <- predict(logistic_model, newdata = test_data)
+cm_logistic <- confusionMatrix(as.factor(pred_logistic), test_data$PriceCat)
+
+### 3.7. Modelo Multinomial con Tuneo de Hiperparámetros y Validación Cruzada (usando glmnet)
+# Reafirmar que PriceCat tenga los niveles correctos
+train_data$PriceCat <- factor(train_data$PriceCat, levels = c("Economicas", "Intermedias", "Caras"))
+test_data$PriceCat  <- factor(test_data$PriceCat,  levels = c("Economicas", "Intermedias", "Caras"))
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+cv_control <- trainControl(method = "cv", number = 10)
+tuneGrid <- expand.grid(
+  alpha = c(0, 0.5, 1),
+  lambda = seq(0.0001, 0.1, length = 10)
+)
+set.seed(123)
+tuned_model <- caret::train(
+  model_formula,
+  data = train_data,
+  method = "glmnet",
+  family = "multinomial",
+  trControl = cv_control,
+  tuneGrid = tuneGrid
+)
+cat("Mejor combinación de hiperparámetros (modelo tuneado):\n")
+print(tuned_model$bestTune)
+pred_tuned_best <- predict(tuned_model, newdata = test_data)
+cm_tuned <- confusionMatrix(as.factor(pred_tuned_best), test_data$PriceCat)
+
+# ------------------------------------------------------------------
+# 4. Función para calcular el F1-score promedio a partir de la matriz de confusión
+# ------------------------------------------------------------------
+calcular_f1_promedio <- function(cm) {
+  if (is.matrix(cm$byClass)) {
+    return(mean(cm$byClass[,"F1"], na.rm = TRUE))
+  } else {
+    return(cm$byClass["F1"])
+  }
+}
+
+# ------------------------------------------------------------------
+# 5. Extraer las métricas de cada modelo
+# ------------------------------------------------------------------
+metrics_df <- data.frame(
+  Model = c("Tree Base", "Random Forest", "Naive Bayes", "KNN", "Logistic Regression", "Tuned (glmnet)"),
+  Accuracy = c(as.numeric(cm_tree_base$overall["Accuracy"]),
+               as.numeric(cm_rf$overall["Accuracy"]),
+               as.numeric(cm_nb$overall["Accuracy"]),
+               as.numeric(cm_knn$overall["Accuracy"]),
+               as.numeric(cm_logistic$overall["Accuracy"]),
+               as.numeric(cm_tuned$overall["Accuracy"])),
+  Kappa = c(as.numeric(cm_tree_base$overall["Kappa"]),
+            as.numeric(cm_rf$overall["Kappa"]),
+            as.numeric(cm_nb$overall["Kappa"]),
+            as.numeric(cm_knn$overall["Kappa"]),
+            as.numeric(cm_logistic$overall["Kappa"]),
+            as.numeric(cm_tuned$overall["Kappa"])),
+  F1 = c(calcular_f1_promedio(cm_tree_base),
+         calcular_f1_promedio(cm_rf),
+         calcular_f1_promedio(cm_nb),
+         calcular_f1_promedio(cm_knn),
+         calcular_f1_promedio(cm_logistic),
+         calcular_f1_promedio(cm_tuned))
+)
+cat("Comparación de métricas de clasificación:\n")
+print(metrics_df)
+
+# ------------------------------------------------------------------
+# 6. Graficar la comparación de Accuracy y F1-score
+# ------------------------------------------------------------------
+metrics_melt <- melt(metrics_df, id.vars = "Model", variable.name = "Metric", value.name = "Value")
+ggplot(metrics_melt, aes(x = Model, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparación de Modelos de Clasificación",
+       y = "Valor de la Métrica") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")

@@ -18,3 +18,13 @@ knitr
 corrplot
 carData
 car
+nnet
+Matrix
+glmnet
+rpart
+rpart.plot
+randomForest
+e1071
+class
+reshape2
+RColorBrewer
