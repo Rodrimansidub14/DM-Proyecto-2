@@ -1,0 +1,642 @@
+---
+title: "SVM"
+author: "Rodrigo Mansilla, Javier Chen"
+date: "2025-02-25"
+output:
+  pdf_document:
+    latex_engine: xelatex
+
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%",
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 300,
+  echo = TRUE,
+  results = "asis",
+  cache.lazy = FALSE,
+  cache.path = "cache/",
+  cache.rebuild = TRUE,
+  cache.comments = NA,
+  comment = NA,
+  tidy.opts = list(width.cutoff = 60),
+  tidy = TRUE,
+	echo = FALSE
+)
+library(tidyverse)    # Incluye dplyr y readr
+library(ggplot2)
+library(knitr)        # Para usar kable
+library(caret)        # createDataPartition, dummyVars, preProcess
+library(e1071)        # svm
+library(ggplot2)     # ggplot
+library(car)
+set.seed(123)
+library(kableExtra)
+library(purrr)
+library(stringr)
+
+train_raw <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv")
+test_raw  <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/test_preprocessed.csv")
+
+
+```
+
+## Exploración de Datos
+
+```{r exploracion-datos,echo=FALSE, warning=FALSE, message=FALSE}
+# 2. Crear PriceCat
+cuartiles       <- quantile(train_raw$SalePrice, probs = c(0.25, 0.75))
+lower_threshold <- cuartiles[1]; upper_threshold <- cuartiles[2]
+train_raw <- train_raw %>% mutate(
+  PriceCat = cut(SalePrice,
+    breaks = c(-Inf, lower_threshold, upper_threshold, Inf),
+    labels = c("Economicas","Intermedias","Caras"))
+)
+test_raw <- test_raw %>% mutate(
+  PriceCat = cut(SalePrice,
+    breaks = c(-Inf, lower_threshold, upper_threshold, Inf),
+    labels = c("Economicas","Intermedias","Caras"))
+)
+
+# 3. Quitar Id/SalePrice, factores, one-hot, imputar y escalar
+drop_vars <- c("Id","SalePrice")
+train_mod <- train_raw %>% select(-all_of(drop_vars))
+test_mod  <- test_raw  %>% select(-all_of(drop_vars))
+
+train_mod <- train_mod %>% mutate(across(where(is.character), factor))
+test_mod  <- test_mod  %>% mutate(across(where(is.character), factor))
+
+# Alinear niveles
+fac_vars <- names(train_mod)[sapply(train_mod, is.factor)]
+for(v in fac_vars) test_mod[[v]] <- factor(test_mod[[v]], levels = levels(train_mod[[v]]))
+
+# Eliminar factores de un nivel
+onelev <- fac_vars[sapply(train_mod[fac_vars], nlevels)==1]
+if(length(onelev)>0){
+  train_mod <- train_mod %>% select(-onelev)
+  test_mod  <- test_mod  %>% select(-onelev)
+}
+
+dv <- dummyVars(~ . - PriceCat, data = train_mod, fullRank = TRUE)
+train_dum <- predict(dv, train_mod) %>% as.data.frame()
+test_dum  <- predict(dv, test_mod)  %>% as.data.frame()
+
+train_pp <- train_dum %>% mutate(PriceCat = train_mod$PriceCat)
+test_pp  <- test_dum  %>% mutate(PriceCat = test_mod$PriceCat)
+
+preProc <- preProcess(train_pp %>% select(-PriceCat),
+                      method = c("medianImpute","center","scale"))
+train_scaled <- predict(preProc, train_pp %>% select(-PriceCat))
+test_scaled  <- predict(preProc, test_pp  %>% select(-PriceCat))
+
+train_final <- train_scaled %>% mutate(PriceCat = train_pp$PriceCat)
+test_final  <- test_scaled  %>% mutate(PriceCat = test_pp$PriceCat)
+
+# 2.1 NA por columna --------------------------------------------------------
+na_counts <- colSums(is.na(train_raw))
+na_df <- tibble(
+  Columna   = names(na_counts)[na_counts > 0],
+  NA_Counts = as.integer(na_counts[na_counts > 0])
+)
+na_df %>%
+  kable(
+        caption = "Número de valores NA por columna",
+        col.names = c("Columna", "Cantidad de NA"),
+        digits   = 0) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# 2.2 Umbrales y creación de PriceCat --------------------------------------
+cuartiles        <- quantile(train_raw$SalePrice, probs = c(0.25, 0.75))
+lower_threshold  <- cuartiles[1]
+upper_threshold  <- cuartiles[2]
+
+# Crear PriceCat en train_raw y test_raw
+train_cat <- train_raw %>%
+  mutate(PriceCat = case_when(
+    SalePrice < lower_threshold ~ "Economicas",
+    SalePrice < upper_threshold ~ "Intermedias",
+    TRUE                         ~ "Caras"
+  )) %>%
+  mutate(PriceCat = factor(PriceCat, 
+                           levels = c("Economicas","Intermedias","Caras")))
+
+test_cat <- test_raw %>%
+  mutate(PriceCat = case_when(
+    SalePrice < lower_threshold ~ "Economicas",
+    SalePrice < upper_threshold ~ "Intermedias",
+    TRUE                         ~ "Caras"
+  )) %>%
+  mutate(PriceCat = factor(PriceCat, 
+                           levels = c("Economicas","Intermedias","Caras")))
+
+# Mostrar umbrales
+tibble(
+  Cuartil = c("25% (Eco/Inter)", "75% (Inter/Caras)"),
+  Valor   = c(lower_threshold, upper_threshold)
+) %>%
+  kable(
+        caption   = "Umbrales para categorizar PriceCat",
+        col.names = c("Cuartil", "SalePrice"),
+        digits    = 0) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# 2.3 Distribución de PriceCat ---------------------------------------------
+dist_df <- bind_rows(
+  train_cat %>% count(PriceCat) %>% mutate(Dataset = "Train"),
+  test_cat  %>% count(PriceCat) %>% mutate(Dataset = "Test")
+) %>%
+  pivot_wider(names_from  = Dataset,
+              values_from = n)
+
+dist_df %>%
+  kable(
+        caption   = "Distribución de categorías de precio",
+        col.names = c("PriceCat", "Train", "Test"),
+        digits    = 0) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# 2.4 Dimensiones de los datos con PriceCat -------------------------------
+dim_df <- tibble(
+  Dataset  = c("train_cat", "test_cat"),
+  Filas    = c(nrow(train_cat), nrow(test_cat)),
+  Columnas = c(ncol(train_cat), ncol(test_cat))
+)
+dim_df %>%
+  kable(
+        caption   = "Dimensiones de los datasets con PriceCat",
+        col.names = c("Dataset", "Filas", "Columnas"),
+        digits    = 0) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+-   Focos de datos faltantes: La mayoría de los NA se concentran en atributos de sótano y garaje (`BsmtQual`, `BsmtCond`, `GarageYrBlt`, `GarageQual`, `GarageCond`), lo que sugiere revisar si imputarlos con la mediana o tratarlos como “sin sótano/garaje” para no perder información clave.
+
+<!-- -->
+
+-    Umbrales de PriceCat: Se fijaron en los cuartiles 25 % (`SalePrice ≤ –1`) y 75 % (`SalePrice ≥ 1`), garantizando cortes claros entre “Económicas”, “Intermedias” y “Caras”.
+
+-    Balance de clases:
+
+    -    “Intermedias” es la más numerosa (\~50 % del total).
+
+    -   “Económicas” y “Caras” están pareadas en tamaño (\~25 % cada una), aunque “Intermedias” podría dominar el entrenamiento si no se aplican técnicas para balancear.
+
+<!-- -->
+
+-    Consistencia train/test: La proporción de cada categoría en entrenamiento (256/509/259) y prueba (109/219/108) preserva la distribución original, favoreciendo evaluaciones comparables.
+
+<!-- -->
+
+-    Volumen de datos:
+
+    -    Train_cat: 1 024 filas × 104 columnas
+
+        Test_cat: 436 filas × 104 columnas\
+        Suficiente para entrenar modelos SVM sin riesgo excesivo de varianza por escasez de datos.
+
+<!-- -->
+
+-    Implicación para modelado: Dado el tamaño y la ligera clase mayoritaria en “Intermedias”, conviene monitorizar métricas más allá del accuracy (e.g. F1-score por clase) y considerar estratificación o ponderación en el entrenamiento.
+
+## Entrenamiento del modelo SVM
+
+```{r svm-entrenamiento, echo=FALSE, warning=FALSE, message=FALSE}
+
+# 1. Definir fórmula y datos
+formula_svm <- PriceCat ~ .
+
+# 2. Ajustar modelos SVM
+
+## (a) Lineal
+costs_lin <- c(0.1, 1, 10)
+svm_lin_models <- lapply(costs_lin, function(C) {
+  svm(formula_svm, data = train_final,
+      kernel = "linear", cost = C, scale = FALSE)
+})
+names(svm_lin_models) <- paste0("svm_lin_C", costs_lin)
+
+## (b) Radial
+costs_rad  <- c(1, 10)
+gammas_rad <- c(0.001, 0.01, 0.1)
+svm_rad_models <- list()
+for (C in costs_rad) for (g in gammas_rad) {
+  nm <- paste0("svm_rad_C", C, "_g", g)
+  svm_rad_models[[nm]] <- svm(formula_svm, data = train_final,
+                              kernel = "radial",
+                              cost   = C, gamma = g,
+                              scale  = FALSE)
+}
+
+## (c) Polinomial
+degrees     <- c(2, 3)
+costs_poly  <- c(1, 5)
+gammas_poly <- c(0.01, 0.1)
+svm_poly_models <- list()
+for (d in degrees) for (C in costs_poly) for (g in gammas_poly) {
+  nm <- paste0("svm_poly_deg", d, "_C", C, "_g", g)
+  svm_poly_models[[nm]] <- svm(formula_svm, data = train_final,
+                               kernel = "polynomial",
+                               degree = d, cost = C, gamma = g,
+                               scale  = FALSE)
+}
+
+## (d) Tuning radial
+set.seed(123)
+tune_radial  <- tune.svm(formula_svm, data = train_final,
+                         kernel = "radial",
+                         cost  = 2^(-1:2),
+                         gamma = 2^(-3:-1))
+best_radial <- tune_radial$best.model
+
+# 3. Función de accuracy
+get_acc <- function(model, data) {
+  mean(predict(model, data) == data$PriceCat)
+}
+
+# 4. Recolectar métricas
+
+lin_df <- tibble(
+  Modelo    = names(svm_lin_models),
+  Kernel    = "linear",
+  Grado     = NA_integer_,
+  Costo     = costs_lin,
+  Gamma     = NA_real_,
+  Train_Acc = map_dbl(svm_lin_models, get_acc, data = train_final),
+  Test_Acc  = map_dbl(svm_lin_models, get_acc, data = test_final)
+)
+
+rad_df <- map_dfr(names(svm_rad_models), function(nm) {
+  parts <- str_match(nm, "C(\\d+)_g(0\\.[0-9]+)")
+  tibble(
+    Modelo    = nm,
+    Kernel    = "radial",
+    Grado     = NA_integer_,
+    Costo     = as.numeric(parts[2]),
+    Gamma     = as.numeric(parts[3]),
+    Train_Acc = get_acc(svm_rad_models[[nm]], train_final),
+    Test_Acc  = get_acc(svm_rad_models[[nm]], test_final)
+  )
+})
+
+poly_df <- map_dfr(names(svm_poly_models), function(nm) {
+  parts <- str_match(nm, "deg(\\d+)_C(\\d+)_g(0\\.[0-9]+)")
+  tibble(
+    Modelo    = nm,
+    Kernel    = "polynomial",
+    Grado     = as.integer(parts[2]),
+    Costo     = as.numeric(parts[3]),
+    Gamma     = as.numeric(parts[4]),
+    Train_Acc = get_acc(svm_poly_models[[nm]], train_final),
+    Test_Acc  = get_acc(svm_poly_models[[nm]], test_final)
+  )
+})
+
+svm_results <- bind_rows(lin_df, rad_df, poly_df)
+
+# 5. Imprimir tablas con kableExtra
+
+svm_results %>%
+  arrange(Kernel, Costo, Gamma, Grado) %>%
+  kable(
+    digits    = 3,
+    caption   = "Comparación de SVM: Train vs Test Accuracy",
+    col.names = c("Modelo", "Kernel", "Grado", "Costo", "Gamma", "Acc. Train", "Acc. Test")
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+tune_radial$performance %>%
+  rename(
+    Cost  = cost,
+    Gamma = gamma,
+    Error = error,
+    SD    = dispersion
+  ) %>%
+  kable(
+    digits    = 3,
+    caption   = "Resultados de tuning kernel radial"
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+tibble(
+  Mejor_Kernel = "radial",
+  Costo        = best_radial$cost,
+  Gamma        = best_radial$gamma
+) %>%
+  kable(
+    digits  = 3,
+    caption = "Mejor modelo radial"
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+```
+
+-   Lineal vs. polinomial vs. radial
+
+    -    Lineal (C=0.1–10): buena precisión de prueba (\~0.80–0.81) con brecha Train–Test de \~14–19 puntos, sugiere algo de sobreajuste al subir C.
+
+    -    Polinomial (grado 2–3): al aumentar C o γ alcanza 100 % en entrenamiento pero cae a \<0.79 en prueba, señal clara de overfitting.
+
+    -    Radial (C=1–10, γ=0.001–0.1): el mejor balance lo da C=10, γ=0.001 (Train 95.1 %, Test 85.3 %, Δ 9.8 pp), reduciendo el sobreajuste respecto a lineal/polinomial.
+
+<!-- -->
+
+-    Efecto de los hiperparámetros (Table 6–7)
+
+    -   Grid search CV identificó como óptimos para kernel radial C=2 y γ=0.125, con error medio 0.493 (SD 0.066), ligeramente mejor que los valores predeterminados.
+
+<!-- -->
+
+-    Brecha Train–Test
+
+    -    La menor diferencia (\~9.8 pp) se ve en radial C=10, γ=0.001; lineal y polinomial muestran diferencias mayores (hasta \~19–22 pp), confirmando que el kernel radial generaliza mejor.
+
+<!-- -->
+
+-    Selección del mejor modelo
+
+    -    Basado en Test Accuracy y brecha moderada, el SVM radial es el ganador, y el ajuste fino (C=2, γ=0.125) promete pulir aún más su desempeño.
+
+## Predicciones
+
+```{r svm-predicciones, echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(purrr)
+library(knitr)
+library(kableExtra)
+library(scales)    # <— aquí cargas scales
+
+# 1. Generar predicciones
+predict_svm <- function(models, data) {
+  map(models, ~ predict(.x, newdata = data))
+}
+pred_lin  <- predict_svm(svm_lin_models,  test_final)
+pred_rad  <- predict_svm(svm_rad_models,  test_final)
+pred_poly <- predict_svm(svm_poly_models, test_final)
+pred_best <- list(svm_best_radial = predict(best_radial, newdata = test_final))
+
+# 2. Calcular accuracy
+calc_acc <- function(preds, truth) mean(preds == truth)
+acc_lin  <- tibble(Modelo = names(pred_lin),  Accuracy = map_dbl(pred_lin,  calc_acc, truth = test_final$PriceCat))
+acc_rad  <- tibble(Modelo = names(pred_rad),  Accuracy = map_dbl(pred_rad,  calc_acc, truth = test_final$PriceCat))
+acc_poly <- tibble(Modelo = names(pred_poly), Accuracy = map_dbl(pred_poly, calc_acc, truth = test_final$PriceCat))
+acc_best <- tibble(Modelo = names(pred_best), Accuracy = map_dbl(pred_best, calc_acc, truth = test_final$PriceCat))
+
+acc_results <- bind_rows(acc_lin, acc_rad, acc_poly, acc_best) %>%
+  arrange(desc(Accuracy))
+
+# 3. Mostrar con kableExtra y formato porcentaje
+
+# Escapamos el underscore en “test_final”
+caption_text <- "Accuracy de SVM en test\\_final"
+
+acc_results %>%
+  kable(
+    caption = caption_text,
+    col.names = c("Modelo", "Accuracy")
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("striped","hold_position")
+  )
+
+```
+
+-   `svm_lin_Cx`
+
+    -    lin: kernel lineal.
+
+    -    C=x: parámetro de penalización (regularización) igual a x.
+
+<!-- -->
+
+-    `svm_poly_degD_Cx_gY`
+
+    -    poly: kernel polinomial.
+
+    -    degD: grado del polinomio D.
+
+    -    C=x: coste de error x.
+
+    -    g=Y: gamma (influye en el “alcance” de cada punto de soporte) igual a Y.
+
+<!-- -->
+
+-    `svm_rad_Cx_gY`
+
+    -    rad: kernel radial (RBF).
+
+    -   C=x: coste de penalización x.
+
+    -    g=Y: gamma de la función RBF igual a Y.
+
+<!-- -->
+
+-    `svm_best_radial`
+
+    -    Modelo radial ajustado automáticamente con los hiperparámetros que dieron menor error en validación cruzada (aquí, C=2 y γ=0.125).
+
+### ***Insights***
+
+-   El mejor modelo es svm_rad_C10_g0.001 con 85.32 % de accuracy en test, claramente por encima del resto.
+
+<!-- -->
+
+-    Le siguen de cerca svm_rad_C1_g0.01 (81.42 %) y svm_lin_C0.1 (81.19 %), lo que muestra que un kernel lineal bien regularizado compite con versiones radiales de bajo γ.
+
+<!-- -->
+
+-    Los polinomiales alcanzan como máximo \~80.5 % (grado 2, C=1, γ=0.01), indicando que su complejidad extra no se traduce en mejor performance.
+
+<!-- -->
+
+-    Las configuraciones con γ=0.1 (tanto lineal como radial) colapsan a \~50 %, un claro síntoma de overfitting que las hace inútiles para clasificación de tres clases.
+
+<!-- -->
+
+-    La coherencia entre los resultados de CV (Table 6–7) y estas accuracies confirma que los mejores rangos de γ están en [0.001–0.01].
+
+<!-- -->
+
+-   
+
+    Recomendación: quedarse con svm_rad_C10_g0.001 y, de ser posible, probar la combinación CV-óptima (C=2, γ=0.125) para ver si mejora aún más la generalización.
+
+### Matriz de confusión
+
+```{r matriz-confusion, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+# 1. Prepara todas las predicciones en una sola lista
+all_preds <- c(
+  pred_lin, 
+  pred_rad, 
+  pred_poly, 
+  pred_best
+)
+names(all_preds) <- c(
+  names(pred_lin),
+  names(pred_rad),
+  names(pred_poly),
+  names(pred_best)
+)
+
+# 2. Calcula las tablas de confusión
+conf_tables <- map(all_preds, ~ confusionMatrix(.x, test_final$PriceCat)$table)
+
+# 3. Renderiza cada matriz como tabla kable
+for (nm in names(conf_tables)) {
+  # 1) Escapamos los underscores de nm
+  safe_nm <- gsub("_", "\\\\_", nm)
+  
+  # 2) Construimos la caption usando el nombre “seguro”
+  caption_text <- paste0("Matriz de confusión — ", safe_nm)
+  
+  # 3) Pivot y renderizado
+  df_conf <- as.data.frame(conf_tables[[nm]]) %>%
+    pivot_wider(names_from  = Prediction,
+                values_from = Freq) %>%
+    rename(Referencia = Reference)
+  
+  df_conf %>%
+    kable(
+      caption   = caption_text,
+      col.names = c("Referencia", levels(test_final$PriceCat))
+    ) %>%
+    kable_styling(
+      full_width       = FALSE,
+      bootstrap_options = c("striped", "hover", "condensed")
+    ) %>%
+    print()
+}
+
+
+```
+
+-   **Confusiones entre clases vecinas**\
+    Casi todos los errores ocurren intercambiando solo con la clase adyacente (económicas ↔ intermedias, intermedias ↔ caras), lo cual es deseable porque evita clasificaciones “extremas” (económicas ↔ caras).
+
+-    **Mejor desempeño global**
+
+    -    `svm_rad_C10_g0.001` registra las tasas más bajas de confusión:
+
+        -   Económicas→Intermedias: 21
+
+        -    Intermedias→Económicas: 16
+
+        -    Caras→Intermedias: 19
+
+-    **Modelos lineales bien balanceados**
+
+    -    Con C=0.1, los errores son 23 econ→int, 17 int→econ, 19 int→caras, 23 caras→int.
+
+    -    Aumentar C (hasta 10) reduce errores inter→caras (de 19→23 a 23→23) pero aumenta ligeramente econ→int.
+
+-    **Kernel polinomial grado 2**
+
+    -    Introduce 4 casos de Económicas→Caras (no vecinas), un efecto secundario de su complejidad.
+
+    -    Por lo demás, sus patrones de confusión son comparables a los lineales.
+
+-    **Radial con γ alto (0.1)**
+
+    -    Modelos `svm_rad_C1_g0.1` y `svm_rad_C10_g0.1` colapsan prediciendo casi todo como “Intermedias” (p.ej. 109/109 econ y 219/219 inter), signo claro de sobreajuste excesivo.
+
+-    **Importancia de γ y C**
+
+    -    γ muy pequeño (0.001–0.01) y C moderado–alto (1–10) equilibran sensibilidad y especificidad por clase.
+
+    -    γ elevado lleva a decisiones extremas; C demasiado alto en polinomial también provoca 100 % train vs. \~78 % test.
+
+-    **Recomendación práctica**
+
+    -    Mantener `svm_rad_C10_g0.001` y explorar el ajuste fino sugerido por CV (p.ej. C=2, γ=0.125) para ver si mejora aún más la matriz de confusión.
+
+## Sobreajuste y validación cruzada
+
+```{r sobreajuste, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+# 1. Reunir todos los modelos en una lista
+svm_all <- c(
+  svm_lin_models,
+  svm_rad_models,
+  svm_poly_models,
+  list(best_radial = best_radial)
+)
+
+# 2. Calcular accuracy en train y test
+eval_df <- map_dfr(names(svm_all), function(nm) {
+  m      <- svm_all[[nm]]
+  pred_tr <- predict(m, train_final)
+  pred_te <- predict(m, test_final)
+  tr_acc  <- confusionMatrix(pred_tr, train_final$PriceCat)$overall["Accuracy"]
+  te_acc  <- confusionMatrix(pred_te,  test_final$PriceCat)$overall["Accuracy"]
+  tibble(
+    Modelo    = nm,
+    TrainAcc  = tr_acc,
+    TestAcc   = te_acc,
+    Diff      = tr_acc - te_acc
+  )
+})
+
+# 3. Formatear como porcentajes y mostrar con kableExtra
+eval_df %>%
+  mutate(
+    TrainAcc = sprintf("%.1f%%", 100 * TrainAcc),
+    TestAcc  = sprintf("%.1f%%", 100 * TestAcc),
+    Diff     = sprintf("%.1f p.p.", 100 * Diff)
+  ) %>%
+  kable(
+    caption   = "Accuracy de entrenamiento vs. prueba para todos los modelos SVM",
+    col.names = c("Modelo", "Accuracy (Train)", "Accuracy (Test)", "Diferencia")
+  ) %>%
+  kable_styling(
+    full_width       = FALSE,
+    position         = "left",
+    bootstrap_options = c("striped", "hover", "condensed")
+  )
+
+
+
+
+
+```
+
+**Análisis de sobreajuste (overfitting) y subajuste (underfitting)**
+
+-    **Overfitting extremo**: modelos con **Accuracy(Train)=100 %** pero **Accuracy(Test) ≪ 80 %** (p.ej. `svm_rad_C1_g0.1`, `svm_rad_C10_g0.1`, `best_radial`) muestran brechas de \~49 pp. Están memorizando el training set y no generalizan.
+
+-    **Overfitting moderado**: modelos lineales con C ≥ 1 (`svm_lin_C1`, `svm_lin_C10`) y polinomiales con γ≥ 0.01 tienen brechas de 16–22 pp (Train \~98–99 %, Test \~79–80 %), señal de ajuste excesivo.
+
+-   **Buen balance**: `svm_rad_C1_g0.001` (Δ=7.5 pp) y `svm_rad_C10_g0.001` (Δ=9.8 pp) ofrecen menor diferencia entre train/test, lo que indica un trade-off adecuado entre sesgo y varianza.
+
+-   **Subajuste leve**: `svm_rad_C1_g0.001` (Train 88.7 %, Test 81.2 %) podría no capturar toda la complejidad, pero su baja brecha lo hace robusto frente al overfitting.
+
+    ### **Estrategias para manejar over-/under-fitting**
+
+-   **Validación cruzada estratificada (k-fold CV)**
+
+    -   Usar k-fold con estratificación por `PriceCat` para estimar más confiablemente la performance y evitar elecciones de hiperparámetros basadas en un único split.
+
+-   **Ajuste de hiperparámetros**
+
+    -    **Reducir γ** en kernels RBF/polinomiales para suavizar la frontera.
+
+    -   **Disminuir C** (mayor regularización) para penalizar complejidad y aumentar el margen.
+
+-   **Selección y reducción de variables**
+
+    -    Aplicar **PCA** o eliminar features de baja importancia (p.ej. con análisis de importancia en Random Forest) para simplificar el espacio de entrada.
+
+-   **Ensamble de modelos**
+
+    -   Combinar varios SVM con distintos kernels o algoritmos base (voting, bagging) para mitigar la varianza.

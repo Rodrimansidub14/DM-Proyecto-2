@@ -4,7 +4,7 @@
 
 # 1. Cargar librerías y datos
 # --------------------------------------------------------------------
-library(tidyverse)    # dplyr, readr, etc.
+library(tidyverse)    #  dplyr, readr, etc.
 library(caret)        # createDataPartition, dummyVars, preProcess
 library(e1071)        # svm
 
