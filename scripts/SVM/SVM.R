@@ -317,3 +317,107 @@ print(eval_df)
 #    • Crear nuevas variables o enriquecer el set de features.
 #  - Si Diff ≈ 0 y TestAcc alto → buen ajuste, el modelo generaliza bien.
 
+#--------------------------------------------------
+# 8. Comparación de resultados (Efectividad, tiempo y Errores)
+# --------------------------------------------------
+# a) Efectividad
+print(eval_df)
+
+# Ordenamos por accuracy de test de mayor a menor
+library(dplyr)
+
+eval_df %>%
+  arrange(desc(TestAcc)) %>%
+  print()
+
+# También podemos calcular la diferencia entre train y test para detectar sobreajuste
+eval_df <- eval_df %>%
+  mutate(GapAcc = TrainAcc - TestAcc)
+
+# Mostramos el dataframe actualizado
+print(eval_df)
+
+
+# b) tiempo
+
+# Modelo Lineal
+t0 <- Sys.time()
+modelo_lineal <- svm(formula_svm, data = train_final, kernel = "linear", cost = 1, scale = FALSE)
+t1 <- Sys.time()
+tiempo_lineal <- t1 - t0
+
+# Modelo Radial
+t0 <- Sys.time()
+modelo_radial <- svm(formula_svm, data = train_final, kernel = "radial", gamma = 0.01, cost = 10, scale = FALSE)
+t1 <- Sys.time()
+tiempo_radial <- t1 - t0
+
+# Modelo Polinomial
+t0 <- Sys.time()
+modelo_polynomial <- svm(formula_svm, data = train_final, kernel = "polynomial", degree = 3, cost = 1, scale = FALSE)
+t1 <- Sys.time()
+tiempo_polynomial <- t1 - t0
+
+# Modelo Best Radial (el que optimizaste)
+t0 <- Sys.time()
+best_radial <- svm(formula_svm, data = train_final, kernel = "radial", gamma = 0.05, cost = 5, scale = FALSE)
+t1 <- Sys.time()
+tiempo_best_radial <- t1 - t0
+
+# Mostramos los tiempos
+data.frame(
+  Modelo = c("Lineal", "Radial", "Polinomial", "Best Radial"),
+  Tiempo_Segundos = c(
+    as.numeric(tiempo_lineal, units = "secs"),
+    as.numeric(tiempo_radial, units = "secs"),
+    as.numeric(tiempo_polynomial, units = "secs"),
+    as.numeric(tiempo_best_radial, units = "secs")
+  )
+)
+
+# c) Errores de modelos
+
+# Función para extraer errores de la matriz de confusión
+extraer_errores <- function(cm) {
+  # Extraemos los valores de la matriz de confusión
+  FP <- cm$table[2, 1]  # Falsos positivos
+  FN <- cm$table[1, 2]  # Falsos negativos
+  VP <- cm$table[1, 1]  # Verdaderos positivos
+  VN <- cm$table[2, 2]  # Verdaderos negativos
+  
+  # Mostrar los errores
+  cat("Falsos Positivos (FP):", FP, "\n")
+  cat("Falsos Negativos (FN):", FN, "\n")
+  cat("Verdaderos Positivos (VP):", VP, "\n")
+  cat("Verdaderos Negativos (VN):", VN, "\n")
+}
+
+# (a) SVM lineales
+for (nm in names(pred_lin)) {
+  cat("=== SVM lineal –", nm, "===\n")
+  cm <- confusionMatrix(pred_lin[[nm]], test_final$PriceCat)
+  extraer_errores(cm)
+  cat("\n")
+}
+
+# (b) SVM radiales
+for (nm in names(pred_rad)) {
+  cat("=== SVM radial –", nm, "===\n")
+  cm <- confusionMatrix(pred_rad[[nm]], test_final$PriceCat)
+  extraer_errores(cm)
+  cat("\n")
+}
+
+# (c) SVM polinomiales
+for (nm in names(pred_poly)) {
+  cat("=== SVM polinomial –", nm, "===\n")
+  cm <- confusionMatrix(pred_poly[[nm]], test_final$PriceCat)
+  extraer_errores(cm)
+  cat("\n")
+}
+
+# (d) Mejor SVM radial tuneado
+cat("=== SVM radial tuneado (best_radial) ===\n")
+cm_best <- confusionMatrix(pred_best, test_final$PriceCat)
+extraer_errores(cm_best)
+
