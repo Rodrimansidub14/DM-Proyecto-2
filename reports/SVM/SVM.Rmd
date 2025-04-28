@@ -40,6 +40,8 @@ library(e1071)        # svm
 library(ggplot2)     # ggplot
 library(car)
 set.seed(123)
+library(lmtest)     # para Breusch–Pagan
+
 library(kableExtra)
 library(purrr)
 library(stringr)
@@ -182,30 +184,34 @@ dim_df %>%
 
 <!-- -->
 
--    Umbrales de PriceCat: Se fijaron en los cuartiles 25 % (`SalePrice ≤ –1`) y 75 % (`SalePrice ≥ 1`), garantizando cortes claros entre “Económicas”, “Intermedias” y “Caras”.
+-   Umbrales de PriceCat: Se fijaron en los cuartiles 25 % (`SalePrice ≤ –1`) y 75 % (`SalePrice ≥ 1`), garantizando cortes claros entre “Económicas”, “Intermedias” y “Caras”.
 
--    Balance de clases:
+-   Balance de clases:
 
-    -    “Intermedias” es la más numerosa (\~50 % del total).
+```         
+-    “Intermedias” es la más numerosa (\~50 % del total).
 
-    -   “Económicas” y “Caras” están pareadas en tamaño (\~25 % cada una), aunque “Intermedias” podría dominar el entrenamiento si no se aplican técnicas para balancear.
-
-<!-- -->
-
--    Consistencia train/test: La proporción de cada categoría en entrenamiento (256/509/259) y prueba (109/219/108) preserva la distribución original, favoreciendo evaluaciones comparables.
+-   “Económicas” y “Caras” están pareadas en tamaño (\~25 % cada una), aunque “Intermedias” podría dominar el entrenamiento si no se aplican técnicas para balancear.
+```
 
 <!-- -->
 
--    Volumen de datos:
-
-    -    Train_cat: 1 024 filas × 104 columnas
-
-        Test_cat: 436 filas × 104 columnas\
-        Suficiente para entrenar modelos SVM sin riesgo excesivo de varianza por escasez de datos.
+-   Consistencia train/test: La proporción de cada categoría en entrenamiento (256/509/259) y prueba (109/219/108) preserva la distribución original, favoreciendo evaluaciones comparables.
 
 <!-- -->
 
--    Implicación para modelado: Dado el tamaño y la ligera clase mayoritaria en “Intermedias”, conviene monitorizar métricas más allá del accuracy (e.g. F1-score por clase) y considerar estratificación o ponderación en el entrenamiento.
+-   Volumen de datos:
+
+```         
+-    Train_cat: 1 024 filas × 104 columnas
+
+    Test_cat: 436 filas × 104 columnas\
+    Suficiente para entrenar modelos SVM sin riesgo excesivo de varianza por escasez de datos.
+```
+
+<!-- -->
+
+-   Implicación para modelado: Dado el tamaño y la ligera clase mayoritaria en “Intermedias”, conviene monitorizar métricas más allá del accuracy (e.g. F1-score por clase) y considerar estratificación o ponderación en el entrenamiento.
 
 ## Entrenamiento del modelo SVM
 
@@ -341,29 +347,35 @@ tibble(
 
 -   Lineal vs. polinomial vs. radial
 
-    -    Lineal (C=0.1–10): buena precisión de prueba (\~0.80–0.81) con brecha Train–Test de \~14–19 puntos, sugiere algo de sobreajuste al subir C.
+    -   Lineal (C=0.1–10): buena precisión de prueba (\~0.80–0.81) con brecha Train–Test de \~14–19 puntos, sugiere algo de sobreajuste al subir C.
 
-    -    Polinomial (grado 2–3): al aumentar C o γ alcanza 100 % en entrenamiento pero cae a \<0.79 en prueba, señal clara de overfitting.
+    -   Polinomial (grado 2–3): al aumentar C o γ alcanza 100 % en entrenamiento pero cae a \<0.79 en prueba, señal clara de overfitting.
 
-    -    Radial (C=1–10, γ=0.001–0.1): el mejor balance lo da C=10, γ=0.001 (Train 95.1 %, Test 85.3 %, Δ 9.8 pp), reduciendo el sobreajuste respecto a lineal/polinomial.
-
-<!-- -->
-
--    Efecto de los hiperparámetros (Table 6–7)
-
-    -   Grid search CV identificó como óptimos para kernel radial C=2 y γ=0.125, con error medio 0.493 (SD 0.066), ligeramente mejor que los valores predeterminados.
+    -   Radial (C=1–10, γ=0.001–0.1): el mejor balance lo da C=10, γ=0.001 (Train 95.1 %, Test 85.3 %, Δ 9.8 pp), reduciendo el sobreajuste respecto a lineal/polinomial.
 
 <!-- -->
 
--    Brecha Train–Test
+-   Efecto de los hiperparámetros (Table 6–7)
 
-    -    La menor diferencia (\~9.8 pp) se ve en radial C=10, γ=0.001; lineal y polinomial muestran diferencias mayores (hasta \~19–22 pp), confirmando que el kernel radial generaliza mejor.
+```         
+-   Grid search CV identificó como óptimos para kernel radial C=2 y γ=0.125, con error medio 0.493 (SD 0.066), ligeramente mejor que los valores predeterminados.
+```
 
 <!-- -->
 
--    Selección del mejor modelo
+-   Brecha Train–Test
 
-    -    Basado en Test Accuracy y brecha moderada, el SVM radial es el ganador, y el ajuste fino (C=2, γ=0.125) promete pulir aún más su desempeño.
+```         
+-    La menor diferencia (\~9.8 pp) se ve en radial C=10, γ=0.001; lineal y polinomial muestran diferencias mayores (hasta \~19–22 pp), confirmando que el kernel radial generaliza mejor.
+```
+
+<!-- -->
+
+-   Selección del mejor modelo
+
+```         
+-    Basado en Test Accuracy y brecha moderada, el SVM radial es el ganador, y el ajuste fino (C=2, γ=0.125) promete pulir aún más su desempeño.
+```
 
 ## Predicciones
 
@@ -412,63 +424,67 @@ acc_results %>%
 
 -   `svm_lin_Cx`
 
-    -    lin: kernel lineal.
+    -   lin: kernel lineal.
 
-    -    C=x: parámetro de penalización (regularización) igual a x.
-
-<!-- -->
-
--    `svm_poly_degD_Cx_gY`
-
-    -    poly: kernel polinomial.
-
-    -    degD: grado del polinomio D.
-
-    -    C=x: coste de error x.
-
-    -    g=Y: gamma (influye en el “alcance” de cada punto de soporte) igual a Y.
+    -   C=x: parámetro de penalización (regularización) igual a x.
 
 <!-- -->
 
--    `svm_rad_Cx_gY`
+-   `svm_poly_degD_Cx_gY`
 
-    -    rad: kernel radial (RBF).
+```         
+-    poly: kernel polinomial.
 
-    -   C=x: coste de penalización x.
+-    degD: grado del polinomio D.
 
-    -    g=Y: gamma de la función RBF igual a Y.
+-    C=x: coste de error x.
+
+-    g=Y: gamma (influye en el “alcance” de cada punto de soporte) igual a Y.
+```
 
 <!-- -->
 
--    `svm_best_radial`
+-   `svm_rad_Cx_gY`
 
-    -    Modelo radial ajustado automáticamente con los hiperparámetros que dieron menor error en validación cruzada (aquí, C=2 y γ=0.125).
+```         
+-    rad: kernel radial (RBF).
 
-### ***Insights***
+-   C=x: coste de penalización x.
+
+-    g=Y: gamma de la función RBF igual a Y.
+```
+
+<!-- -->
+
+-   `svm_best_radial`
+
+```         
+-    Modelo radial ajustado automáticamente con los hiperparámetros que dieron menor error en validación cruzada (aquí, C=2 y γ=0.125).
+```
+
+### Insights
 
 -   El mejor modelo es svm_rad_C10_g0.001 con 85.32 % de accuracy en test, claramente por encima del resto.
 
 <!-- -->
 
--    Le siguen de cerca svm_rad_C1_g0.01 (81.42 %) y svm_lin_C0.1 (81.19 %), lo que muestra que un kernel lineal bien regularizado compite con versiones radiales de bajo γ.
+-   Le siguen de cerca svm_rad_C1_g0.01 (81.42 %) y svm_lin_C0.1 (81.19 %), lo que muestra que un kernel lineal bien regularizado compite con versiones radiales de bajo γ.
 
 <!-- -->
 
--    Los polinomiales alcanzan como máximo \~80.5 % (grado 2, C=1, γ=0.01), indicando que su complejidad extra no se traduce en mejor performance.
+-   Los polinomiales alcanzan como máximo \~80.5 % (grado 2, C=1, γ=0.01), indicando que su complejidad extra no se traduce en mejor performance.
 
 <!-- -->
 
--    Las configuraciones con γ=0.1 (tanto lineal como radial) colapsan a \~50 %, un claro síntoma de overfitting que las hace inútiles para clasificación de tres clases.
+-   Las configuraciones con γ=0.1 (tanto lineal como radial) colapsan a \~50 %, un claro síntoma de overfitting que las hace inútiles para clasificación de tres clases.
 
 <!-- -->
 
--    La coherencia entre los resultados de CV (Table 6–7) y estas accuracies confirma que los mejores rangos de γ están en [0.001–0.01].
+-   La coherencia entre los resultados de CV (Table 6–7) y estas accuracies confirma que los mejores rangos de γ están en [0.001–0.01].
 
 <!-- -->
 
--   
-
-    Recomendación: quedarse con svm_rad_C10_g0.001 y, de ser posible, probar la combinación CV-óptima (C=2, γ=0.125) para ver si mejora aún más la generalización.
+-   Recomendación: quedarse con svm_rad_C10_g0.001 y, de ser posible, probar la combinación CV-óptima (C=2, γ=0.125) para ver si mejora aún más la generalización.
 
 ### Matriz de confusión
 
@@ -524,41 +540,53 @@ for (nm in names(conf_tables)) {
 -   **Confusiones entre clases vecinas**\
     Casi todos los errores ocurren intercambiando solo con la clase adyacente (económicas ↔ intermedias, intermedias ↔ caras), lo cual es deseable porque evita clasificaciones “extremas” (económicas ↔ caras).
 
--    **Mejor desempeño global**
+-   **Mejor desempeño global**
 
-    -    `svm_rad_C10_g0.001` registra las tasas más bajas de confusión:
+```         
+-    `svm_rad_C10_g0.001` registra las tasas más bajas de confusión:
 
-        -   Económicas→Intermedias: 21
+    -   Económicas→Intermedias: 21
 
-        -    Intermedias→Económicas: 16
+    -    Intermedias→Económicas: 16
 
-        -    Caras→Intermedias: 19
+    -    Caras→Intermedias: 19
+```
 
--    **Modelos lineales bien balanceados**
+-   **Modelos lineales bien balanceados**
 
-    -    Con C=0.1, los errores son 23 econ→int, 17 int→econ, 19 int→caras, 23 caras→int.
+```         
+-    Con C=0.1, los errores son 23 econ→int, 17 int→econ, 19 int→caras, 23 caras→int.
 
-    -    Aumentar C (hasta 10) reduce errores inter→caras (de 19→23 a 23→23) pero aumenta ligeramente econ→int.
+-    Aumentar C (hasta 10) reduce errores inter→caras (de 19→23 a 23→23) pero aumenta ligeramente econ→int.
+```
 
--    **Kernel polinomial grado 2**
+-   **Kernel polinomial grado 2**
 
-    -    Introduce 4 casos de Económicas→Caras (no vecinas), un efecto secundario de su complejidad.
+```         
+-    Introduce 4 casos de Económicas→Caras (no vecinas), un efecto secundario de su complejidad.
 
-    -    Por lo demás, sus patrones de confusión son comparables a los lineales.
+-    Por lo demás, sus patrones de confusión son comparables a los lineales.
+```
 
--    **Radial con γ alto (0.1)**
+-   **Radial con γ alto (0.1)**
 
-    -    Modelos `svm_rad_C1_g0.1` y `svm_rad_C10_g0.1` colapsan prediciendo casi todo como “Intermedias” (p.ej. 109/109 econ y 219/219 inter), signo claro de sobreajuste excesivo.
+```         
+-    Modelos `svm_rad_C1_g0.1` y `svm_rad_C10_g0.1` colapsan prediciendo casi todo como “Intermedias” (p.ej. 109/109 econ y 219/219 inter), signo claro de sobreajuste excesivo.
+```
 
--    **Importancia de γ y C**
+-   **Importancia de γ y C**
 
-    -    γ muy pequeño (0.001–0.01) y C moderado–alto (1–10) equilibran sensibilidad y especificidad por clase.
+```         
+-    γ muy pequeño (0.001–0.01) y C moderado–alto (1–10) equilibran sensibilidad y especificidad por clase.
 
-    -    γ elevado lleva a decisiones extremas; C demasiado alto en polinomial también provoca 100 % train vs. \~78 % test.
+-    γ elevado lleva a decisiones extremas; C demasiado alto en polinomial también provoca 100 % train vs. \~78 % test.
+```
 
--    **Recomendación práctica**
+-   **Recomendación práctica**
 
-    -    Mantener `svm_rad_C10_g0.001` y explorar el ajuste fino sugerido por CV (p.ej. C=2, γ=0.125) para ver si mejora aún más la matriz de confusión.
+```         
+-    Mantener `svm_rad_C10_g0.001` y explorar el ajuste fino sugerido por CV (p.ej. C=2, γ=0.125) para ver si mejora aún más la matriz de confusión.
+```
 
 ## Sobreajuste y validación cruzada
 
@@ -613,9 +641,9 @@ eval_df %>%
 
 **Análisis de sobreajuste (overfitting) y subajuste (underfitting)**
 
--    **Overfitting extremo**: modelos con **Accuracy(Train)=100 %** pero **Accuracy(Test) ≪ 80 %** (p.ej. `svm_rad_C1_g0.1`, `svm_rad_C10_g0.1`, `best_radial`) muestran brechas de \~49 pp. Están memorizando el training set y no generalizan.
+-   **Overfitting extremo**: modelos con **Accuracy(Train)=100 %** pero **Accuracy(Test) ≪ 80 %** (p.ej. `svm_rad_C1_g0.1`, `svm_rad_C10_g0.1`, `best_radial`) muestran brechas de \~49 pp. Están memorizando el training set y no generalizan.
 
--    **Overfitting moderado**: modelos lineales con C ≥ 1 (`svm_lin_C1`, `svm_lin_C10`) y polinomiales con γ≥ 0.01 tienen brechas de 16–22 pp (Train \~98–99 %, Test \~79–80 %), señal de ajuste excesivo.
+-   **Overfitting moderado**: modelos lineales con C ≥ 1 (`svm_lin_C1`, `svm_lin_C10`) y polinomiales con γ≥ 0.01 tienen brechas de 16–22 pp (Train \~98–99 %, Test \~79–80 %), señal de ajuste excesivo.
 
 -   **Buen balance**: `svm_rad_C1_g0.001` (Δ=7.5 pp) y `svm_rad_C10_g0.001` (Δ=9.8 pp) ofrecen menor diferencia entre train/test, lo que indica un trade-off adecuado entre sesgo y varianza.
 
@@ -629,14 +657,510 @@ eval_df %>%
 
 -   **Ajuste de hiperparámetros**
 
-    -    **Reducir γ** en kernels RBF/polinomiales para suavizar la frontera.
+    -   **Reducir γ** en kernels RBF/polinomiales para suavizar la frontera.
 
     -   **Disminuir C** (mayor regularización) para penalizar complejidad y aumentar el margen.
 
 -   **Selección y reducción de variables**
 
-    -    Aplicar **PCA** o eliminar features de baja importancia (p.ej. con análisis de importancia en Random Forest) para simplificar el espacio de entrada.
+    -   Aplicar **PCA** o eliminar features de baja importancia (p.ej. con análisis de importancia en Random Forest) para simplificar el espacio de entrada.
 
 -   **Ensamble de modelos**
 
     -   Combinar varios SVM con distintos kernels o algoritmos base (voting, bagging) para mitigar la varianza.
+
+## Comparación de Modelos
+
+### Efectividad (Accuracy)
+
+```{r eficacia-init, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Tabla original
+eval_df %>%
+  kable(
+    caption = "Accuracy de entrenamiento y prueba para todos los SVM",
+    col.names = c("Modelo", "TrainAcc", "TestAcc", "Diff")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+
+eval_df %>%
+  arrange(desc(TestAcc)) %>%
+  kable(
+    caption = "Modelos ordenados por accuracy en prueba (TestAcc)",
+    col.names = c("Modelo", "TrainAcc", "TestAcc", "Diff")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+eval_df <- eval_df %>%
+  mutate(GapAcc = TrainAcc - TestAcc)
+
+eval_df %>%
+  kable(
+    caption = "Accuracy con brecha entre entrenamiento y prueba",
+    col.names = c("Modelo", "TrainAcc", "TestAcc", "Diff", "GapAcc")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+### Tiempos de Entrenamiento
+
+```{r tiempos-init, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(caret)
+library(e1071)
+
+# 1) Modelo Lineal
+t0 <- Sys.time()
+modelo_lineal <- svm(formula_svm,
+                     data   = train_final,
+                     kernel = "linear",
+                     cost   = 1,
+                     scale  = FALSE)
+t1 <- Sys.time()
+tiempo_lineal <- as.numeric(t1 - t0, units = "secs")
+
+# 2) Modelo Radial
+t0 <- Sys.time()
+modelo_radial <- svm(formula_svm,
+                     data   = train_final,
+                     kernel = "radial",
+                     gamma  = 0.01,
+                     cost   = 10,
+                     scale  = FALSE)
+t1 <- Sys.time()
+tiempo_radial <- as.numeric(t1 - t0, units = "secs")
+
+# 3) Modelo Polinomial
+t0 <- Sys.time()
+modelo_polynomial <- svm(formula_svm,
+                         data   = train_final,
+                         kernel = "polynomial",
+                         degree = 3,
+                         cost   = 1,
+                         scale  = FALSE)
+t1 <- Sys.time()
+tiempo_polynomial <- as.numeric(t1 - t0, units = "secs")
+
+# 4) Best Radial
+t0 <- Sys.time()
+best_radial_model <- svm(formula_svm,
+                         data   = train_final,
+                         kernel = "radial",
+                         gamma  = 0.05,
+                         cost   = 5,
+                         scale  = FALSE)
+t1 <- Sys.time()
+tiempo_best_radial <- as.numeric(t1 - t0, units = "secs")
+
+# 5) Tabla de tiempos
+tiempos_df <- tibble(
+  Modelo          = c("Lineal", "Radial", "Polinomial", "Best Radial"),
+  Tiempo_Segundos = c(tiempo_lineal,
+                      tiempo_radial,
+                      tiempo_polynomial,
+                      tiempo_best_radial)
+)
+
+tiempos_df %>%
+  kable(
+    caption   = "Tiempo de entrenamiento por modelo (en segundos)",
+    col.names = c("Modelo", "Tiempo (s)")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+```
+
+### Métricas de Evaluación
+
+```{r metrics-init, echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(purrr)
+library(caret)
+library(knitr)
+library(kableExtra)
+
+# 1) Reúne todas las predicciones
+all_preds <- c(pred_lin, pred_rad, pred_poly, list(best_radial = pred_best))
+
+# 2) Filtra sólo las que tienen la longitud correcta
+n <- nrow(test_final)
+valid_preds <- all_preds %>% keep(~ length(.x) == n)
+
+# 3) Itera y muestra la matriz de confusión completa
+walk(names(valid_preds), function(nm) {
+  pred_raw <- valid_preds[[nm]]
+  pred      <- factor(pred_raw, levels = levels(test_final$PriceCat))
+  cm        <- confusionMatrix(pred, test_final$PriceCat)
+  cm_tab    <- as.data.frame(cm$table)  # conviene a data.frame para kable
+
+  # Formato y caption según engine
+  if (knitr::is_latex_output()) {
+    fmt         <- "latex"
+    caption_txt <- paste0("Matriz de confusión — ", gsub("_","\\\\_",nm))
+    esc         <- FALSE
+    style_l <- c("striped","hold_position")
+  } else {
+    fmt         <- "html"
+    caption_txt <- paste0("Matriz de confusión — ", nm)
+    esc         <- TRUE
+    style_h <- c("striped","hover")
+  }
+
+  # Imprimir la tabla
+  tbl <- cm_tab %>%
+    kable(format     = fmt,
+          caption    = caption_txt,
+          col.names  = c("Predicho","Real","Frecuencia"),
+          escape     = esc)
+  
+  if (fmt=="latex") {
+    tbl <- kable_styling(tbl, 
+                         latex_options = style_l, 
+                         full_width = FALSE)
+  } else {
+    tbl <- kable_styling(tbl,
+                         bootstrap_options = style_h,
+                         full_width = FALSE)
+  }
+  
+  print(tbl)
+})
+
+
+```
+
+**Efectividad (Test Accuracy)**
+
+-    **svm_rad_C10_g0.001** (kernel RBF, C=10, γ=0.001): **85.32 %**
+
+-   **svm_rad_C1_g0.01** (kernel RBF, C=1, γ=0.01): **81.42 %**
+
+-   **svm_lin_C0.1** (kernel lineal, C=0.1): **81.19 %**
+
+-    **Kernels polinomiales** (grado 2–3, γ=0.01) quedaron en \~80–79 %.
+
+-   **Configuraciones con γ=0.1** (RBF o polinomial) colapsaron a \~50 %, indicando overfitting extremo.
+
+**Tiempo de entrenamiento**
+
+-    **Lineal** (`svm_lin_C0.1`): 0.94 s
+
+-   **Polinomial** (`svm_poly_deg2_C1_g0.01`): 1.89 s
+
+-   **Radial estándar** (`svm_rad_C10_g0.001`): ≈2.04 s
+
+-   **Radial óptimo CV** (`svm_best_radial`, C=2, γ=0.125): ≈2.60 s
+
+-    El kernel radial líder duplica el costo de cómputo del modelo lineal, a cambio de +4 pp en accuracy.
+
+**Número de errores (confusiones totales)**
+
+-   **svm_lin_C0.1**: \~82 errores (436×(1–0.8119))
+
+-    **svm_rad_C10_g0.001**: \~64 errores (436×(1–0.8532)), 18 errores menos que el lineal
+
+    **Tipos de equivocaciones**
+
+-    **Intercambios vecinos**: “económicas ↔ intermedias” y “intermedias ↔ caras”.
+
+-    **svm_lin_C0.1**: 23 econ→int, 17 int→econ, 19 int→caras, 23 caras→int.
+
+-   **svm_rad_C10_g0.001**: 21 econ→int, 16 int→econ, 8 int→caras, 19 caras→int.
+
+-   **Importancia de los errores**
+
+-   Subestimar casas “Caras” (Caras→Intermedias) implica pérdidas para el cliente; el modelo radial reduce esos falsos negativos de 23→19.
+
+-   Falsos positivos en “Caras” (Intermedias→Caras) bajan de 19→8, evitando sobrevaluaciones engañosas.
+
+    **Balance costo–beneficio**
+
+-    **svm_rad_C10_g0.001** (kernel RBF) ofrece el mejor trade-off: +4 pp en accuracy y 18 errores menos vs. **svm_lin_C0.1**, a un costo de \~1.1 s extra de entrenamiento.
+
+-    **svm_lin_C0.1** (kernel lineal) sigue siendo competitivo: 81 % accuracy en \<1 s.
+
+## Modelos Previos
+
+**Comparativa de precisión (Test Accuracy)**
+
+1.   **Random Forest** (`randomForest`): 100 % (perfecto, aunque sospechoso de overfitting)
+
+2.   **Árbol de decisión** (`rpart`): 100 %
+
+3.  **KNN** (`kNN`): 92.43 %
+
+4.  **Naive Bayes** (`naiveBayes`): 89.68 %
+
+5.  **SVM radial** (`svm_rad_C10_g0.001`, kernel RBF C=10, γ=0.001): **85.32 %**
+
+6.  **Regresión logística** (`glm`): 80.73 %
+
+7.  **Regresión logística tuned** (`glmnet`, regularizada): 80.05 %
+
+**Comparativa de tiempo de entrenamiento/predicción**
+
+1.   **Regresión logística** (`glm`): 0.01 s
+
+2.  **Naive Bayes** (`naiveBayes`): 0.05 s
+
+3.   **KNN (predicción)** (`kNN`): 0.06 s
+
+4.   **Árbol de decisión** (`rpart`): 0.08 s
+
+5.   **SVM lineal** (`svm_lin_C0.1`, kernel lineal): 0.94 s
+
+6.   **SVM polinomial** (`svm_poly_deg2_C1_g0.01`, kernel polinomial): 1.89 s
+
+7.   **SVM radial** (`svm_rad_C10_g0.001`, kernel RBF): 2.04 s
+
+8.   **Random Forest** (`randomForest`): 2.91 s
+
+**Balance precisión vs. tiempo**
+
+-    **Random Forest**: máxima precisión pero el más lento (2.91 s) y riesgo de overfitting.
+
+-   **SVM radial**: buena precisión moderada (85.3 %) y tiempo intermedio.
+
+-    **KNN** y **Naive Bayes**: alta precisión (\>89 %) y muy rápidos (\<0.1 s).
+
+-    **Regresión logística**: la opción más eficiente en tiempo, aunque sacrifica \~5 pp de accuracy frente al SVM radial y \~12 pp frente a KNN.
+
+La **regresión logística** es con mucho el más rápido, seguida de Naive Bayes y KNN. El **SVM radial** (2.04 s) entrena más rápido que Random Forest (2.91 s) pero es significativamente más lento que los modelos lineales y basados en vecinos.\
+\
+
+Para un **trade-off** sólido entre precisión y tiempo, KNN o Naive Bayes son excelentes elecciones. El **SVM radial** ocupa un punto intermedio: mejor precisión que la regresión logística y tiempo de entrenamiento manejable, pero inferior a KNN/Naive Bayes en rapidez y a Random Forest en exactitud.
+
+## Modelo de Regresión
+
+### Limpieza de Datos
+
+```{r regression-init, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+
+# 1.1 Leer datos y conservar SalePrice
+train_mod <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv") %>% select(-Id)
+test_mod  <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed//test_preprocessed.csv")  %>% select(-Id)
+
+nzv <- nearZeroVar(train_mod %>% select(-SalePrice))
+removed <- names(train_mod)[nzv]
+train_mod <- train_mod[ , -nzv]
+test_mod  <- test_mod[ , -nzv]
+
+# Mostrar variables eliminadas
+tibble(Variable = removed) %>%
+  kable(
+    caption = "Variables eliminadas por near-zero variance",
+    col.names = c("Variable")
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+
+dv_reg <- dummyVars(SalePrice ~ ., data = train_mod, fullRank = TRUE)
+X_train <- predict(dv_reg, newdata = train_mod) %>% as.data.frame()
+X_test  <- predict(dv_reg, newdata = test_mod)  %>% as.data.frame()
+
+# Alinear columnas
+train_cols <- colnames(X_train)
+missing    <- setdiff(train_cols, colnames(X_test))
+for(col in missing) X_test[[col]] <- 0
+X_test <- X_test[, train_cols]
+
+# Reconstruir dataframes finales
+train_reg <- bind_cols(X_train,  SalePrice = train_mod$SalePrice)
+test_reg  <- bind_cols(X_test,   SalePrice = test_mod$SalePrice)
+
+pp_reg <- preProcess(train_reg %>% select(-SalePrice),
+                     method = c("medianImpute","center","scale"))
+
+train_reg <- predict(pp_reg, train_reg)
+test_reg  <- predict(pp_reg, test_reg)
+
+# Ver dimensiones
+matrix(c(nrow(train_reg), ncol(train_reg),
+         nrow(test_reg),  ncol(test_reg)), nrow=2,
+       dimnames = list(c("Train","Test"), c("Filas","Columnas"))) %>%
+  kable(
+    caption = "Dimensiones después de escalado e imputación",
+    col.names = c("Filas","Columnas")
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+```
+
+### Ajuste del modelo
+
+```{r regression-fit, echo=FALSE, message=FALSE, warning=FALSE}
+
+ctrl <- trainControl(method = "cv", number = 10)
+svr_grid <- expand.grid(sigma = c(0.001,0.01,0.1), C = c(0.1,1,10))
+
+svr_model <- train(
+  SalePrice ~ .,
+  data     = train_reg,
+  method   = "svmRadial",
+  tuneGrid = svr_grid,
+  trControl= ctrl,
+  metric   = "RMSE"
+)
+
+# Resultados de tuning
+svr_model$results %>%
+  kable(
+    caption   = "Resultados de tuning SVR (RMSE, Rsquared)",
+    digits    = 3
+  ) %>%
+  kable_styling(full_width = FALSE)
+
+svr_model$bestTune %>%
+  kable(
+    caption = "Mejor combinación de parámetros",
+    col.names = c("sigma","C")
+  ) %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Predicciones Y Evaluación
+
+```{r regression-predictions, echo=FALSE, message=FALSE, warning=FALSE}
+
+pred_reg <- predict(svr_model, newdata = test_reg)
+res <- postResample(pred_reg, test_reg$SalePrice)
+
+tibble(
+  Métrica = c("RMSE","Rsquared","MAE"),
+  Valor   = unname(res)
+) %>%
+  kable(
+    caption = "Métricas de rendimiento en conjunto de prueba",
+    digits  = 3
+  ) %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Análisis de Residuos
+
+```{r regression-residuals, echo=FALSE, message=FALSE, warning=FALSE}
+
+residuales <- test_reg$SalePrice - pred_reg
+par(mfrow = c(1,2))
+
+# Histograma
+hist(residuales, breaks=30,
+     main="Histograma de residuos", xlab="Residuo",
+     col="skyblue", border="white")
+
+# QQ-plot
+qqnorm(residuales, main="QQ-Plot de residuos")
+qqline(residuales)
+
+```
+
+### Homocedasticidad
+
+```{r regression-homoscedasticity, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+bp <- bptest(residuales ~ pred_reg)
+tibble(
+  Estadístico = bp$statistic,
+  p_value      = bp$p.value
+) %>%
+  kable(
+    caption = "Prueba de Breusch–Pagan (homocedasticidad)",
+    digits  = 3
+  ) %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Visualización
+
+### Actual vs Predicho
+
+```{r regression-visualization, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data.frame(Actual=test_reg$SalePrice, Pred=pred_reg),
+       aes(x=Actual, y=Pred)) +
+  geom_point(alpha=0.6) +
+  geom_abline(linetype="dashed") +
+  labs(title="Actual vs Predicho (SVR)", x="SalePrice Real", y="SalePrice Predicho") +
+  theme_minimal()
+
+
+```
+
+### Residuales vs Predicho
+
+```{r regression-residuals-visualization, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data.frame(Pred=pred_reg, Resid=residuales),
+       aes(x=Pred, y=Resid)) +
+  geom_point(alpha=0.6) +
+  geom_hline(yintercept=0, linetype="dashed") +
+  labs(title="Residuales vs Predicho (SVR)", x="Predicho", y="Residuo") +
+  theme_minimal()
+
+```
+
+**1. Rendimiento global**
+
+-    **SVR (σ=0.001, C=10)** logra **R²=0.892**, **RMSE=0.320**, **MAE=0.206** en test: excelente capacidad explicativa (\> 89 % de la varianza) y errores medios bajos.
+
+**2. Distribución de residuos**
+
+-    **Histograma**: casi simétrico alrededor de cero, aunque con ligeros outliers a ambos lados.
+
+-   **QQ-Plot**: colas algo “pesadas” (puntos fuera de la línea), indicando desviaciones de normalidad en extremos.
+
+**3. Patrón residuos vs. predicho**
+
+-    Residuos dispersos en torno a cero sin pendiente clara, pero con **mayor variabilidad** en valores extremos de predicción, sugiriendo **heteroscedasticidad**.
+
+**4. Prueba de homocedasticidad**
+
+-    **Breusch–Pagan** p=0.02 \< 0.05 ⇒ rechaza varianza constante. Hay **heteroscedasticidad**.
+
+**5. Implicaciones y mejoras**
+
+-    Aunque el SVR es muy preciso, la heteroscedasticidad puede invalidar intervalos de confianza.
+
+    **Posibles soluciones**:
+
+    1.   Transformar la variable objetivo .
+
+    2.   Usar SVR ponderado .
+
+**Conclusión:**\
+El SVR ajustado es un **buen modelo de regresión** para precios, pero conviene corregir la heteroscedasticidad para asegurar inferencias y predicciones más fiables.
+
+## Comparación de Modelos
+
+| Modelo | RMSE | R² | MAE | Tiempo entrenamiento |
+|----|----|----|----|----|
+| **SVR** (radial σ=0.001, C=10) | **0.320** | **0.892** | 0.206 | ≈ 2.60 s |
+| Regresión lineal (stepwise) | 0.134 | 0.864 | 0.084 | 0.01 s               ​[NaiveBayes]{.underline} |
+| Random Forest (500 árboles) | 0.146 | 0.839 | 0.102 | 2.91 s               ​[NaiveBayes]{.underline} |
+| Naive Bayes (regresión por bins) | 0.232 | 0.695 | 0.164 | ≪ 1 s                ​[NaiveBayes]{.underline} |
+| KNN (k≈10 tras CV) | 0.441 | 0.792 | 0.321 | ≪ 1 s                ​ |
+
+**Interpretación**
+
+-    En **R²**, el **SVR** es el líder (0.892), capturando mejor la varianza que cualquier otro (la regresión lineal llega a 0.864, RF a 0.839).
+
+-    En **RMSE** y **MAE**, sin embargo, la **regresión lineal** y **Random Forest** (sobre log-precios) obtienen los valores más bajos (≈0.13–0.15), seguidos de **Naive Bayes** (0.23). El SVR, con RMSE=0.32, queda en mitad de la tabla, y KNN es el que más error medio comete (0.44).
+
+-    En **tiempo de entrenamiento** SVR (≈2.6 s) es 2–3× más lento que el Random Forest y 200× más lento que la regresión lineal o los métodos basados en distancias/probabilidades, lo que hay que tener en cuenta si el cómputo es crítico.
+
+⁠**Elección del mejor modelo**
+
+-   Si el criterio principal es **minimizar el error absoluto** (RMSE/MAE) y tener un ajuste “barato” de entrenar, **la regresión lineal stepwise** es la opción óptima.
+
+-    Si queremos **maximizar la capacidad explicativa** (R²) y estamos dispuestos a un coste computacional mayor, **el SVR** es el ganador.
+
+-    Para un **trade-off entre errror y robustez**, el **Random Forest** ofrece un muy buen RMSE (=0.146), un R² sólido (0.839) y tolera outliers o interacciones no lineales.

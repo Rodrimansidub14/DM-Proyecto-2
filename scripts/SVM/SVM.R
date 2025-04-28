@@ -421,3 +421,167 @@ cat("=== SVM radial tuneado (best_radial) ===\n")
 cm_best <- confusionMatrix(pred_best, test_final$PriceCat)
 extraer_errores(cm_best)
 
+
+
+
+# --------------------------------------------------  
+# Modelo de Regresión
+# --------------------------------------------------
+
+# 1) Preprocesamiento
+# -------------------
+
+library(tidyverse)
+library(caret)
+library(e1071)
+library(lmtest)     # para Breusch–Pagan
+library(ggplot2)
+library(plotly)
+set.seed(123)
+
+# 1.1 Leer datos y conservar SalePrice
+train_mod <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed/train_preprocessed.csv") %>% select(-Id)
+test_mod  <- read_csv("C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed//test_preprocessed.csv")  %>% select(-Id)
+
+# 1.2 Eliminar near-zero variance (excluyendo SalePrice)
+nzv <- nearZeroVar(train_mod %>% select(-SalePrice))
+if(length(nzv)>0) {
+  train_mod <- train_mod[ , -nzv]
+  test_mod  <- test_mod[ , -nzv]
+}
+
+# 1.3 Dummy encoding de todas las categóricas
+dv_reg <- dummyVars(SalePrice ~ ., data = train_mod, fullRank = TRUE)
+X_train <- predict(dv_reg, newdata = train_mod) %>% as.data.frame()
+X_test  <- predict(dv_reg, newdata = test_mod)  %>% as.data.frame()
+# — Tras dummyVars —
+X_train <- predict(dv_reg, newdata = train_mod) %>% as.data.frame()
+X_test  <- predict(dv_reg, newdata = test_mod)  %>% as.data.frame()
+
+# Alinear columnas de test a las de train (añadir ausentes como 0)
+train_cols   <- colnames(X_train)
+test_cols    <- colnames(X_test)
+missing_cols <- setdiff(train_cols, test_cols)
+# Crear esas columnas en X_test con ceros
+for(col in missing_cols) X_test[[col]] <- 0
+# Reordenar X_test para que coincida exactamente
+X_test <- X_test[, train_cols]
+
+# 1.4 Imputación, centrar y escalar
+pp_reg       <- preProcess(X_train, method = c("medianImpute","center","scale"))
+X_train_sc   <- predict(pp_reg, X_train)
+X_test_sc    <- predict(pp_reg, X_test)
+
+# Ahora X_train_sc y X_test_sc tienen las mismas columnas y puedes proceder.
+
+# 1.5 Reconstruir data.frames con target
+train_reg <- bind_cols(X_train_sc, SalePrice = train_mod$SalePrice)
+test_reg  <- bind_cols(X_test_sc,  SalePrice = test_mod$SalePrice)
+
+
+# 2) Ajuste y tuneo de SVR
+# ------------------------
+ctrl <- trainControl(method = "cv", number = 10)
+
+svr_grid <- expand.grid(
+  sigma = c(0.001, 0.01, 0.1),
+  C     = c(0.1, 1, 10)
+)
+
+svr_model <- train(
+  SalePrice ~ .,
+  data     = train_reg,
+  method   = "svmRadial",
+  tuneGrid = svr_grid,
+  trControl= ctrl,
+  metric   = "RMSE"
+)
+
+print(svr_model)    # mejores sigma y C
+plot(svr_model)     # RMSE vs parámetros
+
+
+# 3) Predicción y métricas
+# ------------------------
+pred_reg <- predict(svr_model, newdata = test_reg)
+res      <- postResample(pred_reg, test_reg$SalePrice)
+cat("RMSE:",  res["RMSE"],  "  R2:", res["Rsquared"], "  MAE:", res["MAE"], "\n")
+
+
+# 4) Diagnóstico de residuos
+# --------------------------
+residuales <- test_reg$SalePrice - pred_reg
+
+# 4.1 Histograma y QQ-plot
+ggplot(data.frame(residuales), aes(residuales)) +
+  geom_histogram(bins = 30, fill="skyblue", color="white") +
+  labs(title="Histograma de residuos", x="Residuo", y="Frecuencia") +
+  theme_minimal()
+
+ggplot(data.frame(residuales), aes(sample = residuales)) +
+  stat_qq() + stat_qq_line() +
+  labs(title="QQ-Plot de residuos") +
+  theme_minimal()
+
+# 4.2 Breusch–Pagan (homocedasticidad)
+bptest(residuales ~ pred_reg)
+
+
+# 5) Gráficas 2D para el SVR
+# --------------------------
+
+# 5.1 Actual vs Predicho
+df2d1 <- data.frame(Actual = test_reg$SalePrice,
+                    Pred   = pred_reg)
+ggplot(df2d1, aes(x = Actual, y = Pred)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(slope=1, intercept=0, linetype="dashed") +
+  labs(title="Actual vs Predicho (SVR)",
+       x="SalePrice Real", y="SalePrice Predicho") +
+  theme_minimal()
+
+# 5.2 Residuales vs Predicho
+df2d2 <- data.frame(Pred = pred_reg, Resid = residuales)
+ggplot(df2d2, aes(x = Pred, y = Resid)) +
+  geom_point(alpha = 0.6) +
+  geom_hline(yintercept=0, linetype="dashed") +
+  labs(title="Residuales vs Predicho (SVR)",
+       x="Predicho", y="Residuo") +
+  theme_minimal()
+
+# ---------------------------------------------
+# 6) Gráfica 3D de superficie SVR – corrección
+# ---------------------------------------------
+
+# 6.1 El modelo simplificado svr_vis ya fue entrenado sobre train_mod (raw):
+#     svr_vis <- svm(SalePrice ~ OverallQual + GrLivArea + YearBuilt, data = train_mod, ...)
+
+# 6.2 Crear la malla sólo con esas tres variables (raw, sin dummy ni preprocesamiento)
+grid3 <- expand.grid(
+  OverallQual = seq(min(train_mod$OverallQual), max(train_mod$OverallQual), length = 30),
+  GrLivArea   = seq(min(train_mod$GrLivArea),   max(train_mod$GrLivArea),   length = 30),
+  YearBuilt   = seq(min(train_mod$YearBuilt),   max(train_mod$YearBuilt),   length = 30)
+)
+
+# 6.3 Predecir directamente sobre la malla
+grid3$Pred <- predict(svr_vis, newdata = grid3)
+
+# 6.4 Dibujar con plotly
+library(plotly)
+fig_svr3d <- plot_ly() %>%
+  # puntos de entrenamiento
+  add_markers(data = train_mod,
+              x = ~OverallQual, y = ~GrLivArea, z = ~YearBuilt,
+              color = ~SalePrice, colors = viridis::viridis(10),
+              marker = list(size = 2), name = "Datos train") %>%
+  # superficie predicha
+  add_surface(x = unique(grid3$OverallQual),
+              y = unique(grid3$GrLivArea),
+              z = matrix(grid3$Pred, nrow = 30, byrow = FALSE),
+              showscale = FALSE, opacity = 0.5, name = "SVR Surface") %>%
+  layout(title = "Superficie de Predicción SVR (3D)",
+         scene = list(xaxis = list(title = "OverallQual"),
+                      yaxis = list(title = "GrLivArea"),
+                      zaxis = list(title = "YearBuilt")))
+fig_svr3d
+
