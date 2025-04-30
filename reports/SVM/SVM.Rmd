@@ -785,158 +785,55 @@ library(caret)
 library(knitr)
 library(kableExtra)
 
-# 1) Reúne todas las predicciones
+# Función para extraer FP, FN, VP, VN
+extraer_errores <- function(cm) {
+  tbl <- cm$table
+  tibble(
+    Categoría = c("Verdaderos Positivos","Falsos Positivos",
+                  "Falsos Negativos","Verdaderos Negativos"),
+    Conteo    = c(tbl[1,1], tbl[2,1], tbl[1,2], tbl[2,2])
+  )
+}
+
+# 1. Reunir todas las predicciones
 all_preds <- c(pred_lin, pred_rad, pred_poly, list(best_radial = pred_best))
+names(all_preds)[length(all_preds)] <- "best_radial"
 
-# 2) Filtra sólo las que tienen la longitud correcta
-n <- nrow(test_final)
-valid_preds <- all_preds %>% keep(~ length(.x) == n)
-
-# 3) Itera y muestra la matriz de confusión completa
-walk(names(valid_preds), function(nm) {
-  pred_raw <- valid_preds[[nm]]
+# 2. Iterar por cada modelo
+walk(names(all_preds), function(nm) {
+  # Forzar niveles iguales
+  pred_raw <- all_preds[[nm]]
   pred      <- factor(pred_raw, levels = levels(test_final$PriceCat))
-  cm        <- confusionMatrix(pred, test_final$PriceCat)
-  cm_tab    <- as.data.frame(cm$table)  # conviene a data.frame para kable
-
-  # Formato y caption según engine
+  
+  cm   <- confusionMatrix(pred, test_final$PriceCat)
+  errd <- extraer_errores(cm)
+  
+  # Preparar caption según salida
   if (knitr::is_latex_output()) {
+    safe_nm     <- gsub("_", "\\\\_", nm)
+    caption_txt <- paste0("Métricas de error — ", safe_nm)
     fmt         <- "latex"
-    caption_txt <- paste0("Matriz de confusión — ", gsub("_","\\\\_",nm))
     esc         <- FALSE
-    style_l <- c("striped","hold_position")
+    styling     <- list(latex_options = c("striped","hold_position"))
   } else {
+    caption_txt <- paste0("Métricas de error — ", nm)
     fmt         <- "html"
-    caption_txt <- paste0("Matriz de confusión — ", nm)
     esc         <- TRUE
-    style_h <- c("striped","hover")
-  }
-
-  # Imprimir la tabla
-  tbl <- cm_tab %>%
-    kable(format     = fmt,
-          caption    = caption_txt,
-          col.names  = c("Predicho","Real","Frecuencia"),
-          escape     = esc)
-  
-  if (fmt=="latex") {
-    tbl <- kable_styling(tbl, 
-                         latex_options = style_l, 
-                         full_width = FALSE)
-  } else {
-    tbl <- kable_styling(tbl,
-                         bootstrap_options = style_h,
-                         full_width = FALSE)
+    styling     <- list(bootstrap_options = c("striped","hover"))
   }
   
-  print(tbl)
+  # Imprimir tabla
+  errd %>%
+    kable(
+      format  = fmt,
+      caption = caption_txt,
+      col.names = c("Categoría","Conteo"),
+      escape = esc
+    ) %>%
+    do.call(kable_styling, c(list(., full_width = FALSE), styling)) %>%
+    print()
 })
-
-
 ```
-
-**Efectividad (Test Accuracy)**
-
--   **svm_rad_C10_g0.001** (kernel RBF, C=10, γ=0.001): **85.32 %**
-
--   **svm_rad_C1_g0.01** (kernel RBF, C=1, γ=0.01): **81.42 %**
-
--   **svm_lin_C0.1** (kernel lineal, C=0.1): **81.19 %**
-
--   **Kernels polinomiales** (grado 2–3, γ=0.01) quedaron en \~80–79 %.
-
--   **Configuraciones con γ=0.1** (RBF o polinomial) colapsaron a \~50 %, indicando overfitting extremo.
-
-**Tiempo de entrenamiento**
-
--   **Lineal** (`svm_lin_C0.1`): 0.94 s
-
--   **Polinomial** (`svm_poly_deg2_C1_g0.01`): 1.89 s
-
--   **Radial estándar** (`svm_rad_C10_g0.001`): ≈2.04 s
-
--   **Radial óptimo CV** (`svm_best_radial`, C=2, γ=0.125): ≈2.60 s
-
--   El kernel radial líder duplica el costo de cómputo del modelo lineal, a cambio de +4 pp en accuracy.
-
-**Número de errores (confusiones totales)**
-
--   **svm_lin_C0.1**: \~82 errores (436×(1–0.8119))
-
--   **svm_rad_C10_g0.001**: \~64 errores (436×(1–0.8532)), 18 errores menos que el lineal
-
-```         
-**Tipos de equivocaciones**
-```
-
--   **Intercambios vecinos**: “económicas ↔ intermedias” y “intermedias ↔ caras”.
-
--   **svm_lin_C0.1**: 23 econ→int, 17 int→econ, 19 int→caras, 23 caras→int.
-
--   **svm_rad_C10_g0.001**: 21 econ→int, 16 int→econ, 8 int→caras, 19 caras→int.
-
--   **Importancia de los errores**
-
--   Subestimar casas “Caras” (Caras→Intermedias) implica pérdidas para el cliente; el modelo radial reduce esos falsos negativos de 23→19.
-
--   Falsos positivos en “Caras” (Intermedias→Caras) bajan de 19→8, evitando sobrevaluaciones engañosas.
-
-    **Balance costo–beneficio**
-
--   **svm_rad_C10_g0.001** (kernel RBF) ofrece el mejor trade-off: +4 pp en accuracy y 18 errores menos vs. **svm_lin_C0.1**, a un costo de \~1.1 s extra de entrenamiento.
-
--   **svm_lin_C0.1** (kernel lineal) sigue siendo competitivo: 81 % accuracy en \<1 s.
-
-## Modelos Previos
-
-**Comparativa de precisión (Test Accuracy)**
-
-1.  **Random Forest** (`randomForest`): 100 % (perfecto, aunque sospechoso de overfitting)
-
-2.  **Árbol de decisión** (`rpart`): 100 %
-
-3.  **KNN** (`kNN`): 92.43 %
-
-4.  **Naive Bayes** (`naiveBayes`): 89.68 %
-
-5.  **SVM radial** (`svm_rad_C10_g0.001`, kernel RBF C=10, γ=0.001): **85.32 %**
-
-6.  **Regresión logística** (`glm`): 80.73 %
-
-7.  **Regresión logística tuned** (`glmnet`, regularizada): 80.05 %
-
-**Comparativa de tiempo de entrenamiento/predicción**
-
-1.  **Regresión logística** (`glm`): 0.01 s
-
-2.  **Naive Bayes** (`naiveBayes`): 0.05 s
-
-3.  **KNN (predicción)** (`kNN`): 0.06 s
-
-4.  **Árbol de decisión** (`rpart`): 0.08 s
-
-5.  **SVM lineal** (`svm_lin_C0.1`, kernel lineal): 0.94 s
-
-6.  **SVM polinomial** (`svm_poly_deg2_C1_g0.01`, kernel polinomial): 1.89 s
-
-7.  **SVM radial** (`svm_rad_C10_g0.001`, kernel RBF): 2.04 s
-
-8.  **Random Forest** (`randomForest`): 2.91 s
-
-**Balance precisión vs. tiempo**
-
--   **Random Forest**: máxima precisión pero el más lento (2.91 s) y riesgo de overfitting.
-
--   **SVM radial**: buena precisión moderada (85.3 %) y tiempo intermedio.
-
--   **KNN** y **Naive Bayes**: alta precisión (\>89 %) y muy rápidos (\<0.1 s).
-
--   **Regresión logística**: la opción más eficiente en tiempo, aunque sacrifica \~5 pp de accuracy frente al SVM radial y \~12 pp frente a KNN.
-
-La **regresión logística** es con mucho el más rápido, seguida de Naive Bayes y KNN. El **SVM radial** (2.04 s) entrena más rápido que Random Forest (2.91 s) pero es significativamente más lento que los modelos lineales y basados en vecinos.\
-\
-
-Para un **trade-off** sólido entre precisión y tiempo, KNN o Naive Bayes son excelentes elecciones. El **SVM radial** ocupa un punto intermedio: mejor precisión que la regresión logística y tiempo de entrenamiento manejable, pero inferior a KNN/Naive Bayes en rapidez y a Random Forest en exactitud.
 
 ## Modelo de Regresión
 
@@ -1110,61 +1007,37 @@ ggplot(data.frame(Pred=pred_reg, Resid=residuales),
 
 ```
 
-**1. Rendimiento global**
+```{r fig-svr3d-static, echo=TRUE, warning=FALSE, message=FALSE, fig.cap="Superficie SVR 3D (estática) con scatterplot3d", fig.width=6, fig.height=5}
+# 6) Gráfica 3D estática de superficie SVR con scatterplot3d
 
--   **SVR (σ=0.001, C=10)** logra **R²=0.892**, **RMSE=0.320**, **MAE=0.206** en test: excelente capacidad explicativa (\> 89 % de la varianza) y errores medios bajos.
+# 6.1 Cargar librerías necesarias
+library(scatterplot3d)  # para gráficos 3D estáticos
+library(viridis)        # paleta de colores perceptualmente uniforme
 
-**2. Distribución de residuos**
+# grid3 debe contener las columnas:
+#   OverallQual, GrLivArea, YearBuilt (predictoras raw)
+#   Pred             (predicciones del modelo svr_vis)
+# Asegúrate de crear grid3 antes de este bloque.
 
--   **Histograma**: casi simétrico alrededor de cero, aunque con ligeros outliers a ambos lados.
+# 6.2 Generar el scatterplot 3D
+s3d <- scatterplot3d(
+  x    = grid3$OverallQual,      # variable en eje X
+  y    = grid3$GrLivArea,        # variable en eje Y
+  z    = grid3$Pred,             # predicción SVR en eje Z
+  color = viridis(10)[cut(grid3$Pred, 10)],  # colorear según valor de Pred
+  pch    = 16,                   # símbolo sólido
+  main   = "Superficie de Predicción SVR (3D)",  # título principal
+  xlab   = "OverallQual",        # etiqueta eje X
+  ylab   = "GrLivArea",          # etiqueta eje Y
+  zlab   = "Predicción"          # etiqueta eje Z
+)
 
--   **QQ-Plot**: colas algo “pesadas” (puntos fuera de la línea), indicando desviaciones de normalidad en extremos.
+# 6.3 Añadir leyenda de colores
+# Creamos 10 niveles para la predicción
+levels_pred <- levels(cut(grid3$Pred, 10))
+legend("topright",
+       legend = levels_pred,
+       fill   = viridis(10),
+       title  = "Predicción\n(bins)")
 
-**3. Patrón residuos vs. predicho**
-
--   Residuos dispersos en torno a cero sin pendiente clara, pero con **mayor variabilidad** en valores extremos de predicción, sugiriendo **heteroscedasticidad**.
-
-**4. Prueba de homocedasticidad**
-
--   **Breusch–Pagan** p=0.02 \< 0.05 ⇒ rechaza varianza constante. Hay **heteroscedasticidad**.
-
-**5. Implicaciones y mejoras**
-
--   Aunque el SVR es muy preciso, la heteroscedasticidad puede invalidar intervalos de confianza.
-
-```         
-**Posibles soluciones**:
-
-1.   Transformar la variable objetivo .
-
-2.   Usar SVR ponderado .
 ```
-
-**Conclusión:**\
-El SVR ajustado es un **buen modelo de regresión** para precios, pero conviene corregir la heteroscedasticidad para asegurar inferencias y predicciones más fiables.
-
-## Comparación de Modelos
-
-| Modelo | RMSE | R² | MAE | Tiempo entrenamiento |
-|---------------|---------------|---------------|---------------|---------------|
-| **SVR** (radial σ=0.001, C=10) | **0.320** | **0.892** | 0.206 | ≈ 2.60 s |
-| Regresión lineal (stepwise) | 0.134 | 0.864 | 0.084 | 0.01 s ​[NaiveBayes]{.underline} |
-| Random Forest (500 árboles) | 0.146 | 0.839 | 0.102 | 2.91 s ​[NaiveBayes]{.underline} |
-| Naive Bayes (regresión por bins) | 0.232 | 0.695 | 0.164 | ≪ 1 s ​[NaiveBayes]{.underline} |
-| KNN (k≈10 tras CV) | 0.441 | 0.792 | 0.321 | ≪ 1 s ​ |
-
-**Interpretación**
-
--   En **R²**, el **SVR** es el líder (0.892), capturando mejor la varianza que cualquier otro (la regresión lineal llega a 0.864, RF a 0.839).
-
--   En **RMSE** y **MAE**, sin embargo, la **regresión lineal** y **Random Forest** (sobre log-precios) obtienen los valores más bajos (≈0.13–0.15), seguidos de **Naive Bayes** (0.23). El SVR, con RMSE=0.32, queda en mitad de la tabla, y KNN es el que más error medio comete (0.44).
-
--   En **tiempo de entrenamiento** SVR (≈2.6 s) es 2–3× más lento que el Random Forest y 200× más lento que la regresión lineal o los métodos basados en distancias/probabilidades, lo que hay que tener en cuenta si el cómputo es crítico.
-
-⁠**Elección del mejor modelo**
-
--   Si el criterio principal es **minimizar el error absoluto** (RMSE/MAE) y tener un ajuste “barato” de entrenar, **la regresión lineal stepwise** es la opción óptima.
-
--   Si queremos **maximizar la capacidad explicativa** (R²) y estamos dispuestos a un coste computacional mayor, **el SVR** es el ganador.
-
--   Para un **trade-off entre errror y robustez**, el **Random Forest** ofrece un muy buen RMSE (=0.146), un R² sólido (0.839) y tolera outliers o interacciones no lineales.
