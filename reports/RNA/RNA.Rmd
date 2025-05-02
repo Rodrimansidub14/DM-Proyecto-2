@@ -1,0 +1,466 @@
+---
+title: "Entrega 5 - Redes Neuronales Artificiales"
+author: "Rodrigo Mansilla, Javier Chen"
+date: "2025-02-25"
+output:
+  pdf_document:
+    latex_engine: xelatex
+
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	fig.align = "center",
+  out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	out.width = "75%",
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 300,
+  echo = TRUE,
+  results = "asis",
+  cache.lazy = FALSE,
+  cache.path = "cache/",
+  cache.rebuild = TRUE,
+  cache.comments = NA,
+  comment = NA,
+  tidy.opts = list(width.cutoff = 60),
+  tidy = TRUE,
+	echo = FALSE
+)
+library(tidyverse)
+library(caret)
+library(nnet)
+library(neuralnet)
+library(knitr)
+library(kableExtra)
+set.seed(123)
+
+# Rutas de los archivos
+data_dir <- "C:/Users/rodri/Documents/Data-Mining/DM-Proyecto-2/data/processed"
+train_path <- file.path(data_dir, "train_preprocessed.csv")
+test_path  <- file.path(data_dir, "test_preprocessed.csv")
+
+train_raw <- read.csv(train_path, stringsAsFactors = TRUE)
+test_raw  <- read.csv(test_path,  stringsAsFactors = TRUE)
+
+```
+
+## Conjuntos de Entrenamiento y Prueba
+
+```{r varc, message=FALSE, warning=FALSE}
+# Calcular cuartiles
+cuartiles        <- quantile(train_raw$SalePrice, probs = c(0.25, 0.75))
+lower_threshold  <- cuartiles[1]
+upper_threshold  <- cuartiles[2]
+
+# Función para asignar categorías
+asignar_pricecat <- function(df) {
+  df %>%
+    mutate(PriceCat = case_when(
+      SalePrice < lower_threshold ~ "Económicas",
+      SalePrice < upper_threshold ~ "Intermedias",
+      TRUE                         ~ "Caras"
+    )) %>%
+    mutate(PriceCat = factor(PriceCat,
+                             levels = c("Económicas", "Intermedias", "Caras")))
+}
+
+# Aplicar a train y test
+train_raw <- train_raw %>% asignar_pricecat()
+test_raw  <- test_raw  %>% asignar_pricecat()
+
+
+# 1. Quitar Id y SalePrice
+drop_cols  <- c("Id", "SalePrice")
+train_data <- train_raw %>% select(-all_of(drop_cols))
+test_data  <- test_raw  %>% select(-all_of(drop_cols))
+
+# 2. Alinear niveles de factores
+auto_align_factors <- function(train_df, test_df) {
+  facs <- names(train_df)[sapply(train_df, is.factor)]
+  for (v in facs) {
+    test_df[[v]] <- factor(test_df[[v]], levels = levels(train_df[[v]]))
+  }
+  test_df
+}
+test_data <- auto_align_factors(train_data, test_data)
+
+# 3. One-hot encoding (sin PriceCat)
+dummies     <- dummyVars(~ . - PriceCat, data = train_data, fullRank = TRUE)
+train_dummy <- predict(dummies, newdata = train_data) %>% as.data.frame()
+test_dummy  <- predict(dummies, newdata = test_data)  %>% as.data.frame()
+train_dummy$PriceCat <- train_data$PriceCat
+test_dummy$PriceCat  <- test_data$PriceCat
+
+# 4. Imputación y escalado
+preproc  <- preProcess(train_dummy %>% select(-PriceCat),
+                       method = c("medianImpute", "center", "scale"))
+train_pp  <- predict(preproc, train_dummy %>% select(-PriceCat)) %>% as.data.frame()
+test_pp   <- predict(preproc, test_dummy  %>% select(-PriceCat)) %>% as.data.frame()
+train_pp$PriceCat <- train_dummy$PriceCat
+test_pp$PriceCat  <- test_dummy$PriceCat
+
+# Tabla de dimensiones
+dim_df <- tibble(
+  Conjunto = c("Train", "Test"),
+  Filas    = c(nrow(train_pp), nrow(test_pp)),
+  Columnas = c(ncol(train_pp), ncol(test_pp))
+)
+
+dim_df %>%
+  kable(
+    caption = "Dimensiones de los conjuntos procesados",
+    col.names = c("Conjunto", "Filas", "Columnas")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# Tabla de distribución de PriceCat
+dist_train <- table(train_pp$PriceCat)
+dist_test  <- table(test_pp$PriceCat)
+dist_df <- tibble(
+  PriceCat = names(dist_train),
+  Train     = as.integer(dist_train),
+  Test      = as.integer(dist_test)
+)
+
+dist_df %>%
+  kable(
+    caption = "Distribución de PriceCat en Train y Test",
+    col.names = c("PriceCat", "Cantidad en Train", "Cantidad en Test")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+## Modelos
+
+### Modelo con CV y 5 folds
+
+```{r cv, message=FALSE, warning=FALSE}
+
+
+
+# 4.1 Control de entrenamiento y grilla para nnet (caret)
+ctrl1 <- trainControl(method = "cv", number = 5)
+grid1 <- expand.grid(size = 5, decay = 0.1)
+
+# Medir tiempo de entrenamiento y ajustar modelo
+time1 <- system.time({
+  model1 <- train(
+    PriceCat ~ .,
+    data      = train_pp,
+    method    = "nnet",
+    trControl = ctrl1,
+    tuneGrid  = grid1,
+    MaxNWts   = 5000,
+    trace     = FALSE,
+    maxit     = 200
+  )
+})
+
+# Mostrar métricas de resampling en tabla elegante
+
+model1$results %>%
+  select(size, decay) %>%
+  kable(
+    caption   = "Parámetros ajustados para `nnet` vía `caret`",
+    col.names = c("Size", "Decay")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Modelo neuralnet
+
+```{r neuralnet, message=FALSE, warning=FALSE}
+resp_dum <- class.ind(train_pp$PriceCat)
+colnames(resp_dum) <- paste0("Y_", levels(train_pp$PriceCat))
+
+# 4.3 Unir predictores con dummies y garantizar nombres válidos
+train_nn <- cbind(
+  train_pp %>% select(-PriceCat),
+  resp_dum
+) %>% as.data.frame()
+names(train_nn) <- make.names(names(train_nn))
+
+# 4.4 Reconstruir fórmula para múltiples salidas
+outcome_vars   <- make.names(colnames(resp_dum))
+predictor_vars <- make.names(setdiff(names(train_pp), "PriceCat"))
+f_nn <- as.formula(paste(
+  paste(outcome_vars, collapse = " + "),
+  "~",
+  paste(predictor_vars, collapse = " + ")
+))
+
+# 4.5 Medir tiempo de entrenamiento y ajustar modelo
+time2 <- system.time({
+  model2 <- neuralnet(
+    formula       = f_nn,
+    data          = train_nn,
+    hidden        = c(4, 2),
+    act.fct       = "tanh",
+    linear.output = FALSE
+  )
+})
+
+# Convertir la matriz de resultados a data frame
+res_df <- as.data.frame(t(model2$result.matrix)) %>%
+  rownames_to_column(var = "Repetición")
+
+res_df %>%
+  select(Repetición, steps) %>%
+  kable(
+    caption   = "Pasos hasta la convergencia (neuralnet)",
+    col.names = c("Repetición", "Pasos")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Predicciones y evaluación
+
+```{r predicciones, message=FALSE, warning=FALSE}
+
+# 1) Predicciones y matrices de confusión
+pred1 <- predict(model1, newdata = test_pp)
+conf1 <- confusionMatrix(pred1, test_pp$PriceCat)
+
+raw2  <- compute(model2, test_pp %>% select(-PriceCat))$net.result
+pred2 <- factor(
+  apply(raw2, 1, function(x) levels(test_pp$PriceCat)[which.max(x)]),
+  levels = levels(test_pp$PriceCat)
+)
+conf2 <- confusionMatrix(pred2, test_pp$PriceCat)
+# Convertir a data.frames
+conf1_df <- as.data.frame(conf1$table)
+conf2_df <- as.data.frame(conf2$table)
+
+# Mostrar matriz de confusión para nnet (caret)
+conf1_df %>%
+  kable(
+    caption   = "Matriz de confusión: nnet (caret)",
+    col.names = c("Predicción", "Referencia", "Conteo"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# Mostrar matriz de confusión para neuralnet
+conf2_df %>%
+  kable(
+    caption   = "Matriz de confusión: neuralnet",
+    col.names = c("Predicción", "Referencia", "Conteo"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+# 5.2 Resumen de métricas
+results <- tibble(
+  Modelo   = c("nnet (5, 0.1)", "neuralnet (4-2)"),
+  Accuracy = c(conf1$overall["Accuracy"], conf2$overall["Accuracy"]),
+  Kappa    = c(conf1$overall["Kappa"],    conf2$overall["Kappa"]),
+  Tiempo   = c(time1["elapsed"],          time2["elapsed"])
+)
+
+results %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  kable(
+    caption   = "Resumen de métricas de desempeño y tiempo de entrenamiento",
+    col.names = c("Modelo", "Accuracy", "Kappa", "Tiempo (s)"),
+    digits    = 3,
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+**Convergencia del entrenamiento**
+
+El modelo neuralnet requirió 3,087 pasos en una sola repetición, lo que sugiere un paisaje de error con mínimos pronunciados; un ajuste fino del learning rate podría reducir iteraciones.
+
+**Análisis de la matriz de confusión (nnet via caret)**
+
+Con 86 aciertos en Económicas y 166 en Intermedias, hay un sesgo hacia la clase intermedia; sin embargo, sólo 91 clasificadas correctamente como Caras, indicando posible desequilibrio de clases.
+
+**Análisis de la matriz de confusión (neuralnet)**
+
+Se observa mejoría en Económicas (89 vs. 86) a costa de más falsos positivos en Caras (4 contra 0), lo que evidencia un trade‐off distinto en la frontera de decisión.
+
+**Métricas globales de desempeño**
+
+Ambas redes muestran accuracy muy cercanas (0.787 vs. 0.782) y kappa elevado (0.662 vs. 0.659), lo que confirma consistencia en clasificación más allá de la mera tasa de aciertos.
+
+**Tiempo de entrenamiento**
+
+neuralnet fue casi el doble de rápido (15.53 s vs. 27.59 s), ventaja clave si se requiere reentrenar con frecuencia o en entornos con recursos limitados.
+
+Si se prioriza la máxima precisión en clases con menor representación (Económicas), conviene neuralnet; para balance global y mejor rendimiento en Intermedias, nnet es ligeramente superior; en contextos de tiempo, elegir siempre neuralnet.
+
+## Sobreajuste
+
+```{r sobreajuste, message=FALSE, warning=FALSE}
+
+
+# 7.1 Predicciones en train y matrices de confusión
+train_pred1  <- predict(model1, train_pp)
+train_conf1  <- confusionMatrix(train_pred1, train_pp$PriceCat)
+
+raw_tr2      <- compute(model2, train_pp %>% select(-PriceCat))$net.result
+train_pred2  <- factor(
+  apply(raw_tr2, 1, function(x) levels(train_pp$PriceCat)[which.max(x)]),
+  levels = levels(train_pp$PriceCat)
+)
+train_conf2  <- confusionMatrix(train_pred2, train_pp$PriceCat)
+
+# 7.2 Extraer las accuracies
+acc_train1 <- train_conf1$overall["Accuracy"]
+acc_test1  <- conf1$overall["Accuracy"]
+
+acc_train2 <- train_conf2$overall["Accuracy"]
+acc_test2  <- conf2$overall["Accuracy"]
+
+# 7.3 Tabla comparativa
+overfit_df <- tibble(
+  Modelo = c("nnet (5, 0.1)", "neuralnet (4-2)"),
+  `Accuracy Train` = c(acc_train1, acc_train2),
+  `Accuracy Test`  = c(acc_test1,  acc_test2)
+)
+
+overfit_df %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  kable(
+    caption   = "Tabla: Comparación de Accuracy en Train vs Test (Análisis de Sobreajuste)",
+    col.names = c("Modelo", "Accuracy Train", "Accuracy Test"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+**Análisis de sobreajuste**
+
+-    **nnet (5, 0.1)**: 0.999 en train vs. 0.787 en test (brecha 0.212), evidencia un sobreajuste marcado.
+
+-    **neuralnet (4-2)**: 0.946 en train vs. 0.782 en test (brecha 0.164), menor sobreajuste y mejor capacidad de generalización.
+
+## Ajuste del Modelo
+
+```{r ajuste, message=FALSE, warning=FALSE}
+
+# 8.1 Definir control y grilla de tuning
+ctrl2 <- trainControl(method = "cv", number = 5)
+grid2 <- expand.grid(size = c(3, 5, 7),
+                     decay = c(0, 0.001, 0.01))
+
+# 8.2 Ejecutar tuning
+model1_tuned <- train(
+  PriceCat ~ .,
+  data      = train_pp,
+  method    = "nnet",
+  trControl = ctrl2,
+  tuneGrid  = grid2,
+  MaxNWts   = 5000,
+  trace     = FALSE,
+  maxit     = 200
+)
+
+```
+
+## Mostrar resultados
+
+```{r resultados, message=FALSE, warning=FALSE}
+model1_tuned$results %>%
+  select(size, decay, Accuracy, Kappa) %>%
+  kable(
+    caption   = "Tabla 8.1. Resultados de validación cruzada para cada combinación de hiperparámetros",
+    digits    = 3,
+    col.names = c("Size", "Decay", "Accuracy", "Kappa"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+
+```
+
+### Parámetros óptimos
+
+```{r optimo, message=FALSE, warning=FALSE}
+model1_tuned$bestTune %>%
+  kable(
+    caption   = "Tabla 8.2. Mejor combinación de hiperparámetros",
+    col.names = c("Size", "Decay"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+## Evaluación
+
+```{r evaluacion, message=FALSE, warning=FALSE}
+
+# Predicción y matriz de confusión
+best_pred <- predict(model1_tuned, newdata = test_pp)
+best_conf <- confusionMatrix(best_pred, test_pp$PriceCat)
+
+# 1) Métricas globales
+overall_df <- tibble(
+  Métrica = names(best_conf$overall),
+  Valor   = as.numeric(best_conf$overall)
+) %>%
+  filter(Métrica %in% c("Accuracy", "Kappa", 
+                        "AccuracyLower", "AccuracyUpper"))
+
+overall_df %>%
+  kable(
+    caption = "Tabla 8.5. Métricas globales del modelo tunado",
+    col.names = c("Métrica", "Valor"),
+    digits    = 3,
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# 2) Métricas por clase
+byClass_mat <- as.data.frame(best_conf$byClass)
+# En multiclass confusionMatrix byClass es matriz donde cada fila es una clase
+# y cada columna una métrica.
+byClass_df <- byClass_mat %>%
+  rownames_to_column(var = "Clase")
+
+byClass_df %>%
+  kable(
+    caption  = "Tabla 8.6. Métricas por clase del modelo tunado",
+    digits   = 3,
+    booktabs = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+
+```
+
+**Resultados de validación cruzada**
+
+-    La combinación **size=3, decay=0.01** logró la mejor puntuación (Accuracy 0.822, Kappa 0.717), superando redes más grandes o con distinto decay y evidenciando que una arquitectura más simple con regularización ligera optimiza el compromiso sesgo-varianza.
+
+**Selección de hiperparámetros óptimos**
+
+-    El tuning confirma que **size=3, decay=0.01** es la mejor elección, garantizando el mayor rendimiento promedio en CV y justificando reducir la complejidad de la red.
+
+**Métricas globales del modelo tunado**
+
+-    **Accuracy=0.794** con IC [0.753–0.831] y **Kappa=0.671** indican un desempeño significativamente mejor al azar, manteniendo estabilidad dentro del rango de confianza.
+
+**Métricas por clase (Tabla 8.6)**
+
+-    **Económicas**: Sensibilidad 0.761 y especificidad 0.939 (Balanced Acc 0.850) muestran alta capacidad para excluir falsos positivos.
+
+-    **Intermedias**: Balanced Acc 0.796 refleja buen equilibrio, con F1 0.794.
+
+-   **Caras**: Sensibilidad 0.843 y especificidad 0.915 (Balanced Acc 0.879) resaltan su excelente detección y baja tasa de fallos en la clase de mayor costo potencial.
