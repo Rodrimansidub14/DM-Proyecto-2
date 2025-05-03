@@ -302,3 +302,145 @@ comparacion_sobreajuste <- tibble(
 
 # Mostrar resultados
 print(comparacion_sobreajuste)
+                      
+#Graficas
+library(ggplot2)
+library(dplyr)
+library(tibble)
+
+set.seed(123)
+
+# Fracciones
+fractions <- seq(0.1, 1, by = 0.1)
+
+resultados <- tibble()
+
+# Curva para Modelo 1 (nnet)
+for (f in fractions) {
+  idx <- sample(1:nrow(train_pp_r), size = floor(f * nrow(train_pp_r)))
+  x_sub <- train_pp_r[idx, ]
+  y_sub <- y_train[idx]
+
+  m_sub <- train(
+    x = x_sub, y = y_sub,
+    method = "nnet",
+    trControl = trainControl(method = "none"),
+    tuneGrid = expand.grid(size = 5, decay = 0.5),
+    linout = TRUE,
+    trace = FALSE,
+    MaxNWts = 5000,
+    maxit = 100
+  )
+  pred_tr <- predict(m_sub, newdata = x_sub)
+  pred_ts <- predict(m_sub, newdata = test_pp_r)
+
+  resultados <- bind_rows(resultados, tibble(
+    Frac = f,
+    MAE = c(mae(y_sub, pred_tr), mae(y_test, pred_ts)),
+    Set = c("Train", "Test"),
+    Modelo = "nnet"
+  ))
+}
+
+# Curva para Modelo 2 (neuralnet)
+
+for (f in fractions) {
+  idx <- sample(1:nrow(train_pp_r), size = floor(f * nrow(train_pp_r)))
+  x_sub <- train_pp_r[idx, ]
+  y_sub <- y_train[idx]
+
+  train_nn_sub <- cbind(x_sub, SalePrice = y_sub)
+  train_nn_sub <- as.data.frame(train_nn_sub)
+  names(train_nn_sub) <- make.names(names(train_nn_sub))
+
+  m2_sub <- neuralnet(
+    formula       = formula_r,
+    data          = train_nn_sub,
+    hidden        = 3,
+    act.fct       = "logistic",
+    linear.output = TRUE,
+    stepmax       = 5e5,  
+    threshold     = 0.01
+  )
+  
+  # Predicciones
+  pred_tr2 <- compute(m2_sub, x_sub)$net.result
+  pred_ts2 <- compute(m2_sub, test_pp_r)$net.result
+
+  resultados <- bind_rows(resultados, tibble(
+    Frac = f,
+    MAE = c(mae(y_sub, as.vector(pred_tr2)), mae(y_test, as.vector(pred_ts2))),
+    Set = c("Train", "Test"),
+    Modelo = "neuralnet"
+  ))
+}
+
+# Graficar las curvas
+ggplot(resultados, aes(x = Frac, y = MAE, color = Set)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Modelo, ncol = 1) +
+  labs(title = "Curvas de aprendizaje por modelo",
+       x = "Fracción del conjunto de entrenamiento",
+       y = "MAE (Error Absoluto Medio)") +
+  scale_color_manual(values = c("blue", "red")) +
+  theme_minimal() +
+  theme(text = element_text(size = 14))
+
+# ------------------------------
+# Paso 13 Tuneo de modelo
+# ------------------------------
+set.seed(123)
+
+# Grid más pequeño para que corra rápido
+grid_tune <- expand.grid(
+  size = c(3, 5, 7),  
+  decay = c(0.01, 0.1)
+)
+
+# Búsqueda cruzada simple
+ctrl_tune <- trainControl(method = "cv", number = 3) 
+
+tune_model <- train(
+  x = train_pp_r, y = y_train,
+  method = "nnet",
+  trControl = ctrl_tune,
+  tuneGrid = grid_tune,
+  linout = TRUE,
+  trace = FALSE,
+  MaxNWts = 5000,
+  maxit = 200
+)
+
+# Mostrar mejores parámetros encontrados
+print(tune_model$bestTune)
+
+# Predicciones en train y test
+best_pred_train <- predict(tune_model, newdata = train_pp_r)
+best_pred_test  <- predict(tune_model, newdata = test_pp_r)
+
+# Métricas en train
+mae_train <- mae(y_train, best_pred_train)
+rmse_train <- rmse(y_train, best_pred_train)
+r2_train <- cor(y_train, best_pred_train)^2
+
+# Métricas en test
+mae_test <- mae(y_test, best_pred_test)
+rmse_test <- rmse(y_test, best_pred_test)
+r2_test <- cor(y_test, best_pred_test)^2
+
+# Mostrar métricas
+cat("==== Métricas TRAIN ====\n")
+cat("MAE:", mae_train, "\n")
+cat("RMSE:", rmse_train, "\n")
+cat("R2:", r2_train, "\n\n")
+
+cat("==== Métricas TEST ====\n")
+cat("MAE:", mae_test, "\n")
+cat("RMSE:", rmse_test, "\n")
+cat("R2:", r2_test, "\n")
+
+# Prueba de sobreajuste
+cat("\n==== Prueba de Sobreajuste ====\n")
+cat("Diferencia MAE (Train - Test):", mae_train - mae_test, "\n")
+cat("Diferencia RMSE (Train - Test):", rmse_train - rmse_test, "\n")
+cat("Diferencia R2 (Train - Test):", r2_train - r2_test, "\n")
