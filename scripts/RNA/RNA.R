@@ -207,9 +207,9 @@ test_pp_r  <- predict(preproc_r, test_dummy_r)
 y_train <- train_raw$SalePrice
 y_test  <- test_raw$SalePrice
 
-# Modelo 1: nnet (una capa oculta con 5 neuronas)
+# Modelo 1: nnet
 ctrl_r1 <- trainControl(method = "cv", number = 10)
-grid_r1 <- expand.grid(size = 5, decay = 0.1)
+grid_r1 <- expand.grid(size = 5, decay = 0.5)
 time_r1 <- system.time({
   model_r1 <- train(
     x = train_pp_r, y = y_train,
@@ -223,7 +223,7 @@ time_r1 <- system.time({
   )
 })
 
-# Modelo 2: neuralnet (topología 4, activación tanh)
+# Modelo 2: neuralnet
 train_nn_r <- cbind(train_pp_r, SalePrice = y_train)
 train_nn_r <- as.data.frame(train_nn_r)
 names(train_nn_r) <- make.names(names(train_nn_r))
@@ -235,9 +235,70 @@ time_r2_adj <- system.time({
     formula       = formula_r,
     data          = train_nn_r,
     hidden        = 3,           
-    act.fct       = "tanh",  
+    act.fct       = "logistic",  
     linear.output = TRUE,
-    stepmax       = 1e5,
-    threshold     = 0.01         
+    stepmax       = 1e6,
+    threshold     = 0.005         
   )
 })
+# ------------------------------
+# Paso 11: Comparar modelos de regresión
+# ------------------------------
+
+library(Metrics)
+
+# --- Modelo 1: nnet ---
+pred_r1 <- predict(model_r1, newdata = test_pp_r)
+
+mae_r1  <- mae(y_test, pred_r1)
+rmse_r1 <- rmse(y_test, pred_r1)
+r2_r1   <- cor(y_test, pred_r1)^2  
+
+# --- Modelo 2: neuralnet (3) --- 
+raw_pred_r2 <- compute(model_r2_adj, test_pp_r)$net.result
+pred_r2 <- as.vector(raw_pred_r2)
+
+mae_r2  <- mae(y_test, pred_r2)
+rmse_r2 <- rmse(y_test, pred_r2)
+r2_r2   <- cor(y_test, pred_r2)^2
+
+# --- Mostrar resultados ---
+comparacion <- tibble(
+  Modelo = c("nnet (5)", "neuralnet (3)"),
+  MAE    = c(mae_r1, mae_r2),
+  RMSE   = c(rmse_r1, rmse_r2),
+  R2     = c(r2_r1, r2_r2)
+)
+
+print(comparacion)
+# ------------------------------
+# Paso 12: Sobreajuste
+# ------------------------------
+
+# Predicciones en entrenamiento (train)
+train_pred_r1 <- predict(model_r1, newdata = train_pp_r)
+train_pred_r2 <- predict(model_r2_adj, newdata = train_pp_r)
+
+# Métricas de sobreajuste para modelo 1
+mae_tr1  <- mae(y_train, train_pred_r1)
+rmse_tr1 <- rmse(y_train, train_pred_r1)
+r2_tr1   <- cor(y_train, train_pred_r1)^2
+
+# Métricas de sobreajuste para modelo 2
+mae_tr2  <- mae(y_train, train_pred_r2)
+rmse_tr2 <- rmse(y_train, train_pred_r2)
+r2_tr2   <- cor(y_train, train_pred_r2)^2
+
+# Comparación entre métricas de entrenamiento y test
+comparacion_sobreajuste <- tibble(
+  Modelo    = c("nnet (5)", "neuralnet (3)"),
+  MAE_Train = c(mae_tr1, mae_tr2),
+  RMSE_Train= c(rmse_tr1, rmse_tr2),
+  R2_Train  = c(r2_tr1, r2_tr2),
+  MAE_Test  = c(mae_r1, mae_r2),
+  RMSE_Test = c(rmse_r1, rmse_r2),
+  R2_Test   = c(r2_r1, r2_r2)
+)
+
+# Mostrar resultados
+print(comparacion_sobreajuste)
