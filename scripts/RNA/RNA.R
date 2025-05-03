@@ -181,3 +181,63 @@ print(model1_tuned$bestTune)
 best_pred <- predict(model1_tuned, test_pp)
 best_conf <- confusionMatrix(best_pred, test_pp$PriceCat)
 print(best_conf)
+# ------------------------------
+# Puntos 9 y 10: Modelos de regresión con RNA
+# ------------------------------
+
+# Preparar datos para regresión
+drop_cols <- c("Id", "PriceCat")  # eliminar categoría
+train_reg <- train_raw %>% select(-all_of(drop_cols))
+test_reg  <- test_raw  %>% select(-all_of(drop_cols))
+
+# Alinear factores categóricos
+test_reg <- auto_align_factors(train_reg, test_reg)
+
+# One-hot encoding
+dummies_reg <- dummyVars(SalePrice ~ ., data = train_reg, fullRank = TRUE)
+train_dummy_r <- predict(dummies_reg, newdata = train_reg) %>% as.data.frame()
+test_dummy_r  <- predict(dummies_reg, newdata = test_reg)  %>% as.data.frame()
+
+# Escalado e imputación
+preproc_r <- preProcess(train_dummy_r, method = c("medianImpute","center","scale"))
+train_pp_r <- predict(preproc_r, train_dummy_r)
+test_pp_r  <- predict(preproc_r, test_dummy_r)
+
+# Separar variable respuesta
+y_train <- train_raw$SalePrice
+y_test  <- test_raw$SalePrice
+
+# Modelo 1: nnet (una capa oculta con 5 neuronas)
+ctrl_r1 <- trainControl(method = "cv", number = 10)
+grid_r1 <- expand.grid(size = 5, decay = 0.1)
+time_r1 <- system.time({
+  model_r1 <- train(
+    x = train_pp_r, y = y_train,
+    method = "nnet",
+    trControl = ctrl_r1,
+    tuneGrid = grid_r1,
+    linout = TRUE,
+    trace = FALSE,
+    MaxNWts = 5000,
+    maxit = 200
+  )
+})
+
+# Modelo 2: neuralnet (topología 4, activación tanh)
+train_nn_r <- cbind(train_pp_r, SalePrice = y_train)
+train_nn_r <- as.data.frame(train_nn_r)
+names(train_nn_r) <- make.names(names(train_nn_r))
+
+predictor_vars_r <- setdiff(names(train_nn_r), "SalePrice")
+formula_r <- as.formula(paste("SalePrice ~", paste(predictor_vars_r, collapse = " + ")))
+time_r2_adj <- system.time({
+  model_r2_adj <- neuralnet(
+    formula       = formula_r,
+    data          = train_nn_r,
+    hidden        = 3,           
+    act.fct       = "tanh",  
+    linear.output = TRUE,
+    stepmax       = 1e5,
+    threshold     = 0.01         
+  )
+})
