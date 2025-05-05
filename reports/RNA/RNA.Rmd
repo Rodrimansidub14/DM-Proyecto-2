@@ -343,9 +343,9 @@ overfit_df %>%
 
 **Análisis de sobreajuste**
 
--    **nnet (5, 0.1)**: 0.999 en train vs. 0.787 en test (brecha 0.212), evidencia un sobreajuste marcado.
+-   **nnet (5, 0.1)**: 0.999 en train vs. 0.787 en test (brecha 0.212), evidencia un sobreajuste marcado.
 
--    **neuralnet (4-2)**: 0.946 en train vs. 0.782 en test (brecha 0.164), menor sobreajuste y mejor capacidad de generalización.
+-   **neuralnet (4-2)**: 0.946 en train vs. 0.782 en test (brecha 0.164), menor sobreajuste y mejor capacidad de generalización.
 
 ## Ajuste del Modelo
 
@@ -447,20 +447,20 @@ byClass_df %>%
 
 **Resultados de validación cruzada**
 
--    La combinación **size=3, decay=0.01** logró la mejor puntuación (Accuracy 0.822, Kappa 0.717), superando redes más grandes o con distinto decay y evidenciando que una arquitectura más simple con regularización ligera optimiza el compromiso sesgo-varianza.
+-   La combinación **size=3, decay=0.01** logró la mejor puntuación (Accuracy 0.822, Kappa 0.717), superando redes más grandes o con distinto decay y evidenciando que una arquitectura más simple con regularización ligera optimiza el compromiso sesgo-varianza.
 
 **Selección de hiperparámetros óptimos**
 
--    El tuning confirma que **size=3, decay=0.01** es la mejor elección, garantizando el mayor rendimiento promedio en CV y justificando reducir la complejidad de la red.
+-   El tuning confirma que **size=3, decay=0.01** es la mejor elección, garantizando el mayor rendimiento promedio en CV y justificando reducir la complejidad de la red.
 
 **Métricas globales del modelo tunado**
 
--    **Accuracy=0.794** con IC [0.753–0.831] y **Kappa=0.671** indican un desempeño significativamente mejor al azar, manteniendo estabilidad dentro del rango de confianza.
+-   **Accuracy=0.794** con IC [0.753–0.831] y **Kappa=0.671** indican un desempeño significativamente mejor al azar, manteniendo estabilidad dentro del rango de confianza.
 
 **Métricas por clase (Tabla 8.6)**
 
--    **Económicas**: Sensibilidad 0.761 y especificidad 0.939 (Balanced Acc 0.850) muestran alta capacidad para excluir falsos positivos.
+-   **Económicas**: Sensibilidad 0.761 y especificidad 0.939 (Balanced Acc 0.850) muestran alta capacidad para excluir falsos positivos.
 
--    **Intermedias**: Balanced Acc 0.796 refleja buen equilibrio, con F1 0.794.
+-   **Intermedias**: Balanced Acc 0.796 refleja buen equilibrio, con F1 0.794.
 
 -   **Caras**: Sensibilidad 0.843 y especificidad 0.915 (Balanced Acc 0.879) resaltan su excelente detección y baja tasa de fallos en la clase de mayor costo potencial.
