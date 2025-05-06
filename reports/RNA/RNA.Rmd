@@ -464,3 +464,431 @@ byClass_df %>%
 -   **Intermedias**: Balanced Acc 0.796 refleja buen equilibrio, con F1 0.794.
 
 -   **Caras**: Sensibilidad 0.843 y especificidad 0.915 (Balanced Acc 0.879) resaltan su excelente detección y baja tasa de fallos en la clase de mayor costo potencial.
+
+
+## Modelos de regresión
+### Modelo 1
+
+Se ajusta un perceptrón multicapa usando caret::train con validación cruzada a 10 pliegues. Se mide el tiempo de ajuste.
+
+
+```{r modeloreg1a, message=FALSE, warning=FALSE}
+# Control y grilla
+ctrl_r1 <- trainControl(method = "cv", number = 10)
+grid_r1 <- expand.grid(size = 5, decay = 0.5)
+
+# Entrenamiento y tiempo
+time_r1 <- system.time({
+  model_r1 <- train(
+    x         = train_pp_r,
+    y         = y_train,
+    method    = "nnet",
+    trControl = ctrl_r1,
+    tuneGrid  = grid_r1,
+    linout    = TRUE,
+    trace     = FALSE,
+    MaxNWts   = 5000,
+    maxit     = 200
+  )
+})
+
+time_r1 %>%
+  as.data.frame() %>%
+  rownames_to_column("Componente") %>%
+  kable(
+    caption   = "Tiempo de entrenamiento: nnet",
+    col.names = c("Tiempo (segundos)", "Valor")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+### Modelo 2
+Se entrena  con neuralnet, una sola capa oculta de 3 neuronas y función de activación tanh. Ajustamos stepmax y threshold, y medimos el tiempo.
+
+```{r modeloreg2a, message=FALSE, warning=FALSE}
+
+# Preparar data.frame con respuesta
+train_nn_r <- train_pp_r %>%
+  mutate(SalePrice = y_train) %>%
+  as.data.frame()
+names(train_nn_r) <- make.names(names(train_nn_r))
+
+# Fórmula
+predictor_vars_r <- setdiff(names(train_nn_r), "SalePrice")
+formula_r <- as.formula(
+  paste("SalePrice ~", paste(predictor_vars_r, collapse = " + "))
+)
+
+# Entrenamiento y tiempo
+time_r2_adj <- system.time({
+  model_r2_adj <- neuralnet(
+    formula       = formula_r,
+    data          = train_nn_r,
+    hidden        = 3,
+    act.fct       = "tanh",
+    linear.output = TRUE,
+    stepmax       = 1e6,
+    threshold     = 0.005
+  )
+})
+
+time_r2_adj %>%
+  as.data.frame() %>%
+  rownames_to_column("Componente") %>%
+  kable(
+    caption   = "Tiempo de entrenamiento: neuralnet",
+    col.names = c("Tiempo (segundos)", "Valor")
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+nnet muestra un gap amplio (p. ej. Accuracy train ≈0.999 vs. test ≈0.787) → fuerte varianza.
+
+neuralnet reduce ese gap (≈0.946 vs. ≈0.782) → más estable.
+
+## Metricas de desempeño y comparación
+
+```{r metricas, message=FALSE, warning=FALSE}
+
+library(Metrics)
+
+# Predicción Modelo 1
+pred_r1 <- predict(model_r1, newdata = test_pp_r)
+mae_r1  <- mae(y_test, pred_r1)
+rmse_r1 <- rmse(y_test, pred_r1)
+r2_r1   <- cor(y_test, pred_r1)^2
+
+# Predicción Modelo 2
+raw_pred_r2 <- compute(model_r2_adj, test_pp_r)$net.result
+pred_r2     <- as.vector(raw_pred_r2)
+mae_r2      <- mae(y_test, pred_r2)
+rmse_r2     <- rmse(y_test, pred_r2)
+r2_r2       <- cor(y_test, pred_r2)^2
+
+# Tabla de comparación
+comparacion <- tibble(
+  Modelo = c("nnet (5)", "neuralnet (3)"),
+  MAE    = c(mae_r1, mae_r2),
+  RMSE   = c(rmse_r1, rmse_r2),
+  R2     = c(r2_r1,   r2_r2)
+) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+comparacion %>%
+  kable(
+    caption   = "Comparación de métricas de desempeño",
+    col.names = c("Modelo", "MAE", "RMSE", "R²"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+
+
+
+
+
+
+## Sobreajuste
+Se compara el desempeño de ambos modelos en entrenamiento y en prueba para detectar posibles indicios de sobreajuste. Luego, se generan curvas de aprendizaje variando el tamaño del subconjunto de entrenamiento y se grafica el MAE para Train y Test.
+
+
+```{r sobreajuste_reg, message=FALSE, warning=FALSE}
+
+
+library(dplyr)
+library(tibble)
+library(knitr)
+library(kableExtra)
+library(Metrics)
+library(caret)
+library(neuralnet)
+
+# 1) Predicciones en entrenamiento
+train_pred_r1 <- predict(model_r1,     newdata = train_pp_r)
+train_pred_r2 <- predict(model_r2_adj, newdata = train_pp_r)
+
+# 2) Cálculo de métricas en Train
+mae_tr1  <- mae(y_train, train_pred_r1)
+rmse_tr1 <- rmse(y_train, train_pred_r1)
+r2_tr1   <- cor(y_train, train_pred_r1)^2
+
+mae_tr2  <- mae(y_train, train_pred_r2)
+rmse_tr2 <- rmse(y_train, train_pred_r2)
+r2_tr2   <- cor(y_train, train_pred_r2)^2
+
+# 3) Comparación Train vs Test
+comparacion_sobreajuste <- tibble(
+  Modelo     = c("nnet (5)",       "neuralnet (3)"),
+  MAE_Train  = c(mae_tr1,          mae_tr2),
+  RMSE_Train = c(rmse_tr1,         rmse_tr2),
+  R2_Train   = c(r2_tr1,           r2_tr2),
+  MAE_Test   = c(mae_r1,           mae_r2),
+  RMSE_Test  = c(rmse_r1,          rmse_r2),
+  R2_Test    = c(r2_r1,            r2_r2)
+)
+
+# 4) Mostrar tabla elegante
+comparacion_sobreajuste %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  kable(
+    caption   = "Comparación de métricas en Train vs Test (Análisis de sobreajuste)",
+    col.names = c("Modelo",
+                  "MAE Train", "RMSE Train", "R² Train",
+                  "MAE Test",  "RMSE Test",  "R² Test"),
+    digits    = 3,
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+- El modelo **nnet** reduce el MAE en un 39 % y el RMSE en un 34 % frente a **neuralnet**, mostrando predicciones más ajustadas.  
+- Con un R² de 0.836 frente a 0.660, **nnet** explica significativamente más varianza.
+
+
+**Desempeño**
+
+- nnet: MAE 0.287, RMSE 0.402, R² 0.836
+
+- neuralnet: MAE 0.470, RMSE 0.610, R² 0.660
+
+⇒ nnet supera claramente en precisión y varianza explicada.
+
+**Tiempo de cómputo**
+- nnet: ~62 s
+
+- neuralnet: ~217 s
+
+⇒ nnet es 3.5× más rápido, importante si se reentrena frecuentemente.
+
+### Curvas de aprendizaje
+
+
+```{r curvas_aprendizaje, message=FALSE, warning=FALSE}
+library(ggplot2)
+
+set.seed(123)
+fractions  <- seq(0.1, 1, by = 0.1)
+resultados <- tibble()
+
+# Modelo 1: nnet
+for (f in fractions) {
+  idx   <- sample(seq_len(nrow(train_pp_r)), floor(f * nrow(train_pp_r)))
+  x_sub <- train_pp_r[idx, ];    y_sub <- y_train[idx]
+  m_sub <- train(
+    x         = x_sub, y = y_sub,
+    method    = "nnet",
+    trControl = trainControl(method = "none"),
+    tuneGrid  = expand.grid(size = 5, decay = 0.5),
+    linout    = TRUE,
+    trace     = FALSE,
+    MaxNWts   = 5000,
+    maxit     = 100
+  )
+  pred_tr <- predict(m_sub, newdata = x_sub)
+  pred_ts <- predict(m_sub, newdata = test_pp_r)
+
+  resultados <- bind_rows(resultados,
+    tibble(
+      Frac   = f,
+      MAE    = c(mae(y_sub, pred_tr), mae(y_test, pred_ts)),
+      Set    = c("Train", "Test"),
+      Modelo = "nnet (5)"
+    )
+  )
+}
+
+# Modelo 2: neuralnet
+for (f in fractions) {
+  idx        <- sample(seq_len(nrow(train_pp_r)), floor(f * nrow(train_pp_r)))
+  x_sub      <- train_pp_r[idx, ];    y_sub <- y_train[idx]
+  train_nn   <- cbind(x_sub, SalePrice = y_sub) %>% as.data.frame()
+  names(train_nn) <- make.names(names(train_nn))
+  m2_sub     <- neuralnet(
+    formula       = formula_r,
+    data          = train_nn,
+    hidden        = 3,
+    act.fct       = "logistic",
+    linear.output = TRUE,
+    stepmax       = 5e5,
+    threshold     = 0.01
+  )
+  pred_tr2 <- compute(m2_sub, x_sub)$net.result %>% as.vector()
+  pred_ts2 <- compute(m2_sub, test_pp_r)$net.result %>% as.vector()
+
+  resultados <- bind_rows(resultados,
+    tibble(
+      Frac   = f,
+      MAE    = c(mae(y_sub, pred_tr2), mae(y_test, pred_ts2)),
+      Set    = c("Train", "Test"),
+      Modelo = "neuralnet (3)"
+    )
+  )
+}
+
+# Gráfico
+ggplot(resultados, aes(x = Frac, y = MAE, linetype = Set)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Modelo, ncol = 1) +
+  labs(
+    title = "Curvas de aprendizaje: MAE vs. fracción de entrenamiento",
+    x     = "Fracción del conjunto de entrenamiento",
+    y     = "MAE"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+```
+
+Hay sobreajuste, especialmente en el modelo neuralnet (3)
+- **neuralnet (3)**  
+  - Gran brecha inicial: MAE train ≈0.18 vs. MAE test ≈0.60 en 10 % datos → alta varianza.  
+  - Con más datos, MAE test baja hasta ≈0.45 pero sigue notablemente por encima de train (~0.08) → sobreajuste persistente.  
+
+- **nnet (5)**  
+  - Brecha menor desde el inicio: MAE train ≈0.05 vs. MAE test ≈0.30 → mejor generalización.  
+  - Curvas más paralelas y convergentes indican baja varianza y estabilidad al variar tamaño de entrenamiento.  
+  
+  
+  
+  - **nnet (5)** es más robusto ante sobreajuste.  
+  - **neuralnet (3)** mejora con más datos pero requiere más regularización (aumentar decay o early stopping) para cerrar el gap.  
+  
+  
+nnet es más robusto ante sobreajuste; neuralnet requeriría más regularización.
+
+## Tuneo del Modelo
+Se ajusta un modelo de perceptrón multicapa con una grilla más pequeña para acelerar la búsqueda, se extraen los mejores parámetros, se calculan las métricas en Train y Test, y finalmente se evalua el posible sobreajuste mediante la diferencia de dichas métricas.
+
+```{r tuneo, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(caret)
+library(Metrics)
+
+set.seed(123)
+
+# 13.1 Definir grilla y control de validación cruzada
+grid_tune <- expand.grid(
+  size  = c(3, 5, 7),
+  decay = c(0.01, 0.1)
+)
+ctrl_tune <- trainControl(method = "cv", number = 3)
+
+# 13.2 Entrenar modelo
+tune_model <- train(
+  x         = train_pp_r,
+  y         = y_train,
+  method    = "nnet",
+  trControl = ctrl_tune,
+  tuneGrid  = grid_tune,
+  linout    = TRUE,
+  trace     = FALSE,
+  MaxNWts   = 5000,
+  maxit     = 200
+)
+
+```
+
+### Parametros óptimos
+
+```{r optimo_tuneo, message=FALSE, warning=FALSE}
+
+library(knitr)
+library(kableExtra)
+
+best_tune <- tune_model$bestTune
+
+best_tune %>%
+  kable(
+    caption   = "Tabla 13.1. Mejor combinación de hiperparámetros",
+    col.names = c("Size", "Decay"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+```
+
+### Métricas de desempeño
+```{r metricas_tuneo, message=FALSE, warning=FALSE}
+# Predicciones
+pred_train <- predict(tune_model, newdata = train_pp_r)
+pred_test  <- predict(tune_model, newdata = test_pp_r)
+
+# Calcular métricas
+mae_train <- mae(y_train, pred_train)
+rmse_train <- rmse(y_train, pred_train)
+r2_train <- cor(y_train, pred_train)^2
+
+mae_test  <- mae(y_test,  pred_test)
+rmse_test <- rmse(y_test,  pred_test)
+r2_test   <- cor(y_test,  pred_test)^2
+
+# Tabla de métricas
+metrics_df <- tibble(
+  Conjunto = c("Train", "Test"),
+  MAE      = c(mae_train, mae_test),
+  RMSE     = c(rmse_train, rmse_test),
+  `R²`     = c(r2_train, r2_test)
+) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+metrics_df %>%
+  kable(
+    caption   = "Tabla 13.2. Métricas de desempeño por conjunto",
+    col.names = c("Conjunto", "MAE", "RMSE", "R²"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+
+```
+
+### Sobreajuste
+```{r sobreajuste_tuneo, message=FALSE, warning=FALSE}
+
+# Calcular diferencias (Train – Test)
+differences_df <- tibble(
+  Métrica    = c("MAE", "RMSE", "R²"),
+  Diferencia = c(
+    mae_train  - mae_test,
+    rmse_train - rmse_test,
+    r2_train   - r2_test
+  )
+) %>%
+  mutate(Diferencia = round(Diferencia, 3))
+
+differences_df %>%
+  kable(
+    caption   = "Tabla 13.3. Diferencias de métricas (Train – Test)",
+    col.names = c("Métrica", "Diferencia"),
+    booktabs  = TRUE
+  ) %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+
+```
+- R² casi perfecto en train vs. moderado en test → sobreajuste marcado.  
+- El gap de errores (MAE/RMSE) confirma alta varianza con esta configuración.
+
+**Recomendaciones para mejorar sin sobreajustar**  
+1. **Reducir complejidad**: bajar `size` a 4–5 neuronas.  
+2. **Aumentar regularización**: subir `decay` (0.01–0.1) o incorporar dropout ligero.  
+3. **Early stopping**: detener entrenamiento al mínimo de validación.  
+4. **Verificar curvas de aprendizaje**: asegurar convergencia de MAE/RMSE entre train y test al variar el tamaño de datos.  
+
+
+## Comparación de modelos 
+## Clasificación
+
+## Regresión
+
+```{r comparacion_modelos, message=FALSE, warning=FALSE}
+

@@ -184,63 +184,63 @@ print(best_conf)
 # ------------------------------
 # Puntos 9 y 10: Modelos de regresión con RNA
 # ------------------------------
+# ------------------------------
+# Punto 10: Dos modelos con topologías y activaciones distintas
+# ------------------------------
 
-# Preparar datos para regresión
-drop_cols <- c("Id", "PriceCat")  # eliminar categoría
-train_reg <- train_raw %>% select(-all_of(drop_cols))
-test_reg  <- test_raw  %>% select(-all_of(drop_cols))
+# (1) Preparación de datos (igual que antes)
+drop_cols  <- c("Id", "PriceCat")
+train_reg  <- train_raw  %>% select(-all_of(drop_cols))
+test_reg   <- test_raw   %>% select(-all_of(drop_cols))
+test_reg   <- auto_align_factors(train_reg, test_reg)
 
-# Alinear factores categóricos
-test_reg <- auto_align_factors(train_reg, test_reg)
-
-# One-hot encoding
-dummies_reg <- dummyVars(SalePrice ~ ., data = train_reg, fullRank = TRUE)
+dummies_reg  <- dummyVars(SalePrice ~ ., data = train_reg, fullRank = TRUE)
 train_dummy_r <- predict(dummies_reg, newdata = train_reg) %>% as.data.frame()
 test_dummy_r  <- predict(dummies_reg, newdata = test_reg)  %>% as.data.frame()
 
-# Escalado e imputación
-preproc_r <- preProcess(train_dummy_r, method = c("medianImpute","center","scale"))
+preproc_r  <- preProcess(train_dummy_r, method = c("medianImpute","center","scale"))
 train_pp_r <- predict(preproc_r, train_dummy_r)
 test_pp_r  <- predict(preproc_r, test_dummy_r)
 
-# Separar variable respuesta
 y_train <- train_raw$SalePrice
 y_test  <- test_raw$SalePrice
 
-# Modelo 1: nnet
+# Modelo 1: nnet (5 neuronas, activación SIGMOIDE en oculta, salida lineal)
 ctrl_r1 <- trainControl(method = "cv", number = 10)
 grid_r1 <- expand.grid(size = 5, decay = 0.5)
+
 time_r1 <- system.time({
   model_r1 <- train(
-    x = train_pp_r, y = y_train,
-    method = "nnet",
+    x         = train_pp_r,
+    y         = y_train,
+    method    = "nnet",
     trControl = ctrl_r1,
-    tuneGrid = grid_r1,
-    linout = TRUE,
-    trace = FALSE,
-    MaxNWts = 5000,
-    maxit = 200
+    tuneGrid  = grid_r1,
+    linout    = TRUE,      # salida lineal
+    trace     = FALSE,
+    MaxNWts   = 5000,
+    maxit     = 200
   )
 })
 
-# Modelo 2: neuralnet
-train_nn_r <- cbind(train_pp_r, SalePrice = y_train)
-train_nn_r <- as.data.frame(train_nn_r)
+# Modelo 2: neuralnet (3 neuronas, activación TANH en oculta, salida lineal)
+train_nn_r  <- as.data.frame(cbind(train_pp_r, SalePrice = y_train))
 names(train_nn_r) <- make.names(names(train_nn_r))
-
 predictor_vars_r <- setdiff(names(train_nn_r), "SalePrice")
-formula_r <- as.formula(paste("SalePrice ~", paste(predictor_vars_r, collapse = " + ")))
+formula_r       <- as.formula(paste("SalePrice ~", paste(predictor_vars_r, collapse = " + ")))
+
 time_r2_adj <- system.time({
   model_r2_adj <- neuralnet(
     formula       = formula_r,
     data          = train_nn_r,
-    hidden        = 3,           
-    act.fct       = "logistic",  
-    linear.output = TRUE,
+    hidden        = 3,
+    act.fct       = "tanh",      # ← cambio: ahora usa tanh en lugar de logistic
+    linear.output = TRUE,        
     stepmax       = 1e6,
-    threshold     = 0.005         
+    threshold     = 0.005
   )
 })
+
 # ------------------------------
 # Paso 11: Comparar modelos de regresión
 # ------------------------------
@@ -444,3 +444,191 @@ cat("\n==== Prueba de Sobreajuste ====\n")
 cat("Diferencia MAE (Train - Test):", mae_train - mae_test, "\n")
 cat("Diferencia RMSE (Train - Test):", rmse_train - rmse_test, "\n")
 cat("Diferencia R2 (Train - Test):", r2_train - r2_test, "\n")
+
+
+
+## Comparación de modelos anteriores
+# -------------------------------
+# Script completo: comparación de modelos de regresión
+# -------------------------------
+
+# 0) Carga de librerías
+library(caret)
+library(kknn)
+library(randomForest)
+library(rpart)
+library(e1071)     # naiveBayes
+library(neuralnet)
+library(Metrics)
+library(dplyr)
+
+# —————————————————————————————
+# A) Asume que ya tienes cargados y preprocesados:
+#   • train_complete  / test_data_clean  (para KNN)
+#   • train_filtered  / test_filtered    (para RF y árbol)
+#   • train_data      / test_data        (para Naive Bayes)
+#   • train_reg       / test_reg         (para SVM)
+#   • train_pp_r      / test_pp_r        (para RNA)
+#   • y_train         / y_test            (respuesta para RNA/SVM)
+# —————————————————————————————
+
+# 1) KNN Tuned (kknn)
+grid_knn <- expand.grid(
+  kmax     = seq(5, 13, by = 4),
+  distance = c(1, 2),
+  kernel   = c("rectangular", "triangular")
+)
+set.seed(123)
+knn_model <- train(
+  SalePrice ~ .,
+  data       = train_complete,
+  method     = "kknn",
+  preProcess = c("center", "scale"),
+  trControl  = trainControl(method = "cv", number = 10),
+  tuneGrid   = grid_knn,
+  metric     = "RMSE"
+)
+pred_knn   <- predict(knn_model, newdata = test_data_clean)
+rmse_knn   <- rmse(test_data_clean$SalePrice, pred_knn)
+mae_knn    <- mae(test_data_clean$SalePrice, pred_knn)
+mse_knn    <- mean((test_data_clean$SalePrice - pred_knn)^2)
+r2_knn     <- 1 - sum((test_data_clean$SalePrice - pred_knn)^2) /
+  sum((test_data_clean$SalePrice - mean(test_data_clean$SalePrice))^2)
+
+# 2) Random Forest Tuned
+grid_rf <- expand.grid(mtry = c(2, 4, 6, 8))
+set.seed(123)
+rf_model <- train(
+  SalePrice ~ .,
+  data      = train_filtered,
+  method    = "rf",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid  = grid_rf,
+  metric    = "RMSE"
+)
+pred_rf   <- predict(rf_model, newdata = test_filtered)
+rmse_rf   <- rmse(test_filtered$SalePrice, pred_rf)
+mae_rf    <- mae(test_filtered$SalePrice, pred_rf)
+mse_rf    <- mean((test_filtered$SalePrice - pred_rf)^2)
+r2_rf     <- 1 - sum((test_filtered$SalePrice - pred_rf)^2) /
+  sum((test_filtered$SalePrice - mean(test_filtered$SalePrice))^2)
+
+# 3) Árbol de regresión Tuned
+grid_tree <- expand.grid(cp = seq(0.001, 0.05, length.out = 6))
+set.seed(123)
+tree_model <- train(
+  SalePrice ~ .,
+  data      = train_filtered,
+  method    = "rpart",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid  = grid_tree
+)
+pred_tree  <- predict(tree_model, newdata = test_filtered)
+rmse_tree  <- rmse(test_filtered$SalePrice, pred_tree)
+mae_tree   <- mae(test_filtered$SalePrice, pred_tree)
+mse_tree   <- mean((test_filtered$SalePrice - pred_tree)^2)
+r2_tree    <- 1 - sum((test_filtered$SalePrice - pred_tree)^2) /
+  sum((test_filtered$SalePrice - mean(test_filtered$SalePrice))^2)
+
+# 4) Naive Bayes Tuned (regresión por bins)
+bin_options <- c(25, 50, 75, 100)
+results_nb  <- data.frame()
+for (b in bin_options) {
+  bins <- unique(quantile(train_data$SalePrice,
+                          probs = seq(0, 1, length.out = b + 1),
+                          na.rm = TRUE))
+  if (length(bins) < 3) next
+  train_data$SalePrice_bin <- cut(train_data$SalePrice,
+                                  breaks = bins,
+                                  include.lowest = TRUE)
+  centers <- (head(bins, -1) + tail(bins, -1)) / 2
+  
+  nb_model <- naiveBayes(SalePrice_bin ~ ., data = train_data)
+  probs    <- predict(nb_model, newdata = test_data, type = "raw")
+  pred_nb  <- apply(probs, 1, function(p) sum(p * centers))
+  
+  rmse_nb  <- rmse(test_data$SalePrice, pred_nb)
+  mae_nb   <- mae(test_data$SalePrice, pred_nb)
+  mse_nb   <- mean((test_data$SalePrice - pred_nb)^2)
+  r2_nb    <- 1 - sum((test_data$SalePrice - pred_nb)^2) /
+    sum((test_data$SalePrice - mean(test_data$SalePrice))^2)
+  
+  results_nb <- rbind(
+    results_nb,
+    data.frame(Bins = b, RMSE = rmse_nb, MAE = mae_nb, MSE = mse_nb, R2 = r2_nb)
+  )
+}
+best_nb    <- results_nb[which.min(results_nb$RMSE), ]
+rmse_nb    <- best_nb$RMSE
+mae_nb     <- best_nb$MAE
+mse_nb     <- best_nb$MSE
+r2_nb      <- best_nb$R2
+
+# 5) SVM Radial
+ctrl_svm <- trainControl(method = "cv", number = 10)
+svm_grid <- expand.grid(sigma = c(0.001, 0.01, 0.1),
+                        C     = c(0.1, 1, 10))
+set.seed(123)
+svm_model <- train(
+  SalePrice ~ .,
+  data      = train_reg,
+  method    = "svmRadial",
+  trControl = ctrl_svm,
+  tuneGrid  = svm_grid,
+  metric    = "RMSE"
+)
+pred_svm   <- predict(svm_model, newdata = test_reg)
+res_svm    <- postResample(pred_svm, test_reg$SalePrice)
+rmse_svm   <- res_svm["RMSE"]
+mae_svm    <- res_svm["MAE"]
+r2_svm     <- res_svm["Rsquared"]
+mse_svm    <- rmse_svm^2
+
+# 6) RNA Tuned (nnet)
+grid_nnet <- expand.grid(size  = c(3, 5, 7),
+                         decay = c(0.01, 0.1))
+ctrl_nnet <- trainControl(method = "cv", number = 3)
+set.seed(123)
+rna_model <- train(
+  x         = train_pp_r,
+  y         = y_train,
+  method    = "nnet",
+  trControl = ctrl_nnet,
+  tuneGrid  = grid_nnet,
+  linout    = TRUE,
+  trace     = FALSE,
+  MaxNWts   = 5000,
+  maxit     = 200
+)
+pred_rna   <- predict(rna_model, newdata = test_pp_r)
+rmse_rna   <- rmse(y_test, pred_rna)
+mae_rna    <- mae(y_test, pred_rna)
+mse_rna    <- mean((y_test - pred_rna)^2)
+r2_rna     <- cor(y_test, pred_rna)^2
+
+# 7) Construcción de la tabla comparativa
+df_metrics <- data.frame(
+  Model        = c(
+    "KNN Tuned",
+    "Random Forest Tuned",
+    "Tree Tuned",
+    "Naive Bayes Tuned",
+    "SVM Radial",
+    "RNA Tuned"
+  ),
+  RMSE         = c(rmse_knn, rmse_rf, rmse_tree, rmse_nb, rmse_svm, rmse_rna),
+  MAE          = c(mae_knn,  mae_rf,  mae_tree,  mae_nb,  mae_svm,  mae_rna),
+  MSE          = c(mse_knn,  mse_rf,  mse_tree,  mse_nb,  mse_svm,  mse_rna),
+  R2           = c(r2_knn,   r2_rf,   r2_tree,   r2_nb,   r2_svm,   r2_rna)
+)
+
+# Imprimir resultados
+print(df_metrics)
+
+# (Opcional) Mostrar formateado en RMarkdown/Markdown
+# library(knitr)
+# kable(df_metrics, digits = 3,
+#       col.names = c("Modelo", "RMSE", "MAE", "MSE", "R²"))
+
+
+
