@@ -21,6 +21,7 @@ Este proyecto utiliza técnicas avanzadas de análisis predictivo y clasificaci�
 
 - **Regresión Logistica**
 - **SVM**
+- **RNA**
 
 
 ### Modelos de Clasificación
@@ -30,10 +31,11 @@ Este proyecto utiliza técnicas avanzadas de análisis predictivo y clasificaci�
 - **knn para Clasificación**
 - **Regresión Logistica**
 - **SVM**
+- **RNA**
 
 
 
-### Navegación en el protyecto
+### Navegación en el proyecto
 
 Para ver el reporte del proyecto navegar a :
 -  **reports/pdtest.pdf -> Modelos Lineales , arboles y Random Forest**
@@ -41,7 +43,8 @@ Para ver el reporte del proyecto navegar a :
 -  **reports/KNN -> Modelo de knn**
 -  **reports/LogRegression -> Regresión logistica**
 -  **reports/SVM -> SVM**
--  
+-  **reports/RNA -> RNA**
+-  -  **reports/FinalReport -> Reporte Final de la consultoria**
 
 
 Los scripts de cada etapa estan documentados en carpetas dentro de /Scripts/modelo
