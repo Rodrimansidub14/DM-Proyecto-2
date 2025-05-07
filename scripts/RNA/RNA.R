@@ -564,25 +564,34 @@ mae_nb     <- best_nb$MAE
 mse_nb     <- best_nb$MSE
 r2_nb      <- best_nb$R2
 
-# 5) SVM Radial
+# —————————————————————
+# 5) SVM Radial (regresión) con datos preprocesados
+# —————————————————————
 ctrl_svm <- trainControl(method = "cv", number = 10)
-svm_grid <- expand.grid(sigma = c(0.001, 0.01, 0.1),
-                        C     = c(0.1, 1, 10))
+svm_grid <- expand.grid(
+  sigma = c(0.001, 0.01, 0.1),
+  C     = c(0.1, 1, 10)
+)
+
 set.seed(123)
 svm_model <- train(
-  SalePrice ~ .,
-  data      = train_reg,
+  x         = train_pp_r,     # matriz numérica ya imputada y escalada
+  y         = y_train,        # vector de SalePrice
   method    = "svmRadial",
   trControl = ctrl_svm,
   tuneGrid  = svm_grid,
   metric    = "RMSE"
 )
-pred_svm   <- predict(svm_model, newdata = test_reg)
-res_svm    <- postResample(pred_svm, test_reg$SalePrice)
-rmse_svm   <- res_svm["RMSE"]
-mae_svm    <- res_svm["MAE"]
-r2_svm     <- res_svm["Rsquared"]
-mse_svm    <- rmse_svm^2
+
+# predicción y métricas
+pred_svm <- predict(svm_model, newdata = test_pp_r)
+res_svm  <- postResample(pred_svm, y_test)
+
+rmse_svm <- res_svm["RMSE"]
+mae_svm  <- res_svm["MAE"]
+r2_svm   <- res_svm["Rsquared"]
+mse_svm  <- as.numeric(rmse_svm)^2
+
 
 # 6) RNA Tuned (nnet)
 grid_nnet <- expand.grid(size  = c(3, 5, 7),
@@ -607,28 +616,19 @@ mse_rna    <- mean((y_test - pred_rna)^2)
 r2_rna     <- cor(y_test, pred_rna)^2
 
 # 7) Construcción de la tabla comparativa
-df_metrics <- data.frame(
-  Model        = c(
-    "KNN Tuned",
-    "Random Forest Tuned",
-    "Tree Tuned",
-    "Naive Bayes Tuned",
-    "SVM Radial",
-    "RNA Tuned"
-  ),
-  RMSE         = c(rmse_knn, rmse_rf, rmse_tree, rmse_nb, rmse_svm, rmse_rna),
-  MAE          = c(mae_knn,  mae_rf,  mae_tree,  mae_nb,  mae_svm,  mae_rna),
-  MSE          = c(mse_knn,  mse_rf,  mse_tree,  mse_nb,  mse_svm,  mse_rna),
-  R2           = c(r2_knn,   r2_rf,   r2_tree,   r2_nb,   r2_svm,   r2_rna)
+# ————————————————————————
+# 7) Reconstruir df_metrics
+# ————————————————————————
+df_metrics <- bind_rows(
+  df_metrics,  # tu tabla previa con KNN, RF, Tree, NB
+  tibble(
+    Model = c("SVM Radial", "RNA Tuned"),
+    RMSE  = c(rmse_svm, rmse_rna),
+    MAE   = c(mae_svm,  mae_rna),
+    MSE   = c(mse_svm,  mse_rna),
+    R2    = c(r2_svm,   r2_rna)
+  )
 )
 
-# Imprimir resultados
 print(df_metrics)
-
-# (Opcional) Mostrar formateado en RMarkdown/Markdown
-# library(knitr)
-# kable(df_metrics, digits = 3,
-#       col.names = c("Modelo", "RMSE", "MAE", "MSE", "R²"))
-
-
 

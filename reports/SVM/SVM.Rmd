@@ -218,7 +218,78 @@ dim_df %>%
 ```{r svm-entrenamiento, echo=FALSE, warning=FALSE, message=FALSE}
 
 # 1. Definir fórmula y datos
-formula_svm <- PriceCat ~ .
+#===============================================================
+# Comparación de Tiempos de Ejecución para Modelos de Clasificación
+#===============================================================
+
+# Cargar las librerías necesarias para los modelos
+library(rpart)         # Árboles
+library(randomForest)  # Random Forest
+library(e1071)         # Naive Bayes
+library(class)         # KNN
+library(nnet)          # multinom() para Regresión Logística Multinomial
+library(knitr)         # Para usar kable
+
+#-------------------------------------------
+# Definir fórmulas y preparar los datos
+#-------------------------------------------
+# Fórmula para el árbol y Random Forest
+formula_class <- PriceCat ~ . - SalePrice
+
+# Fórmula para la Regresión Logística (multinomial)
+model_formula <- PriceCat ~ OverallQual + GrLivArea + YearBuilt
+
+# Para KNN: seleccionar las variables numéricas y escalarlas (no se requiere entrenamiento, se mide la predicción)
+# Se excluye SalePrice
+numeric_predictors <- setdiff(names(train_data)[sapply(train_data, is.numeric)], c("SalePrice"))
+x_train <- scale(train_data[, numeric_predictors])
+x_test  <- scale(test_data[, numeric_predictors])
+y_train <- train_data$PriceCat
+# Usamos k basado en la raíz del número de observaciones
+k_simple <- round(sqrt(nrow(train_data)), 0)
+
+#-------------------------------------------
+# Medir el tiempo de ejecución de cada modelo
+#-------------------------------------------
+
+# 1. Modelo de Árbol (rpart)
+time_tree <- system.time({
+  modelo_class_base <- rpart(formula_class, data = train_data, method = "class")
+})
+
+# 2. Random Forest
+time_rf <- system.time({
+  modelo_rf <- randomForest(PriceCat ~ . - SalePrice, data = train_data, na.action = na.omit)
+})
+
+# 3. Naive Bayes
+time_nb <- system.time({
+  nb_model_class <- naiveBayes(PriceCat ~ . - SalePrice, data = train_data)
+})
+
+# 4. KNN: Se mide el tiempo de predicción (ya que KNN no tiene fase de entrenamiento explícita)
+time_knn <- system.time({
+  pred_knn <- knn(x_train, x_test, y_train, k = k_simple)
+})
+
+# 5. Regresión Logística Multinomial (multinom)
+time_logistic <- system.time({
+  logistic_model <- multinom(model_formula, data = train_data)
+})
+
+#-------------------------------------------
+# Compilar los resultados en una tabla
+#-------------------------------------------
+times_df <- data.frame(
+  Model = c("Tree (rpart)", "Random Forest", "Naive Bayes", "KNN (Prediction)", "Logistic Regression"),
+  Elapsed_Time_sec = c(time_tree["elapsed"], time_rf["elapsed"], time_nb["elapsed"],
+                       time_knn["elapsed"], time_logistic["elapsed"])
+)
+
+# Formatear la columna de tiempo a 4 decimales y mostrar la tabla con kable
+times_df$Elapsed_Time_sec <- sprintf("%.4f", times_df$Elapsed_Time_sec)
+kable(times_df, caption = "Comparación de Tiempos de Ejecución de Modelos de Clasificación (en segundos)")
+
 
 # 2. Ajustar modelos SVM
 

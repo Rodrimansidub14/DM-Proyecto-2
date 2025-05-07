@@ -465,12 +465,35 @@ byClass_df %>%
 
 -   **Caras**: Sensibilidad 0.843 y especificidad 0.915 (Balanced Acc 0.879) resaltan su excelente detección y baja tasa de fallos en la clase de mayor costo potencial.
 
-
 ## Modelos de regresión
+
 ### Modelo 1
 
 Se ajusta un perceptrón multicapa usando caret::train con validación cruzada a 10 pliegues. Se mide el tiempo de ajuste.
 
+```{r prep-regresion, message=FALSE, warning=FALSE}
+# Quitar Id y PriceCat de los datos crudos
+drop_cols   <- c("Id", "PriceCat")
+train_reg   <- train_raw %>% select(-all_of(drop_cols))
+test_reg    <- test_raw  %>% select(-all_of(drop_cols))
+
+# Alinear niveles de factores en test
+test_reg <- auto_align_factors(train_reg, test_reg)
+
+# One-hot encoding
+dummies_reg    <- caret::dummyVars(SalePrice ~ ., data = train_reg, fullRank = TRUE)
+train_dummy_r  <- predict(dummies_reg, newdata = train_reg) %>% as.data.frame()
+test_dummy_r   <- predict(dummies_reg, newdata = test_reg)  %>% as.data.frame()
+
+# Escalado e imputación
+preproc_r   <- caret::preProcess(train_dummy_r, method = c("medianImpute","center","scale"))
+train_pp_r  <- predict(preproc_r, train_dummy_r)
+test_pp_r   <- predict(preproc_r, test_dummy_r)
+
+# Variables respuesta
+y_train <- train_raw$SalePrice
+y_test  <- test_raw$SalePrice
+```
 
 ```{r modeloreg1a, message=FALSE, warning=FALSE}
 # Control y grilla
@@ -505,7 +528,8 @@ time_r1 %>%
 ```
 
 ### Modelo 2
-Se entrena  con neuralnet, una sola capa oculta de 3 neuronas y función de activación tanh. Ajustamos stepmax y threshold, y medimos el tiempo.
+
+Se entrena con neuralnet, una sola capa oculta de 3 neuronas y función de activación tanh. Ajustamos stepmax y threshold, y medimos el tiempo.
 
 ```{r modeloreg2a, message=FALSE, warning=FALSE}
 
@@ -545,6 +569,7 @@ time_r2_adj %>%
 
 
 ```
+
 nnet muestra un gap amplio (p. ej. Accuracy train ≈0.999 vs. test ≈0.787) → fuerte varianza.
 
 neuralnet reduce ese gap (≈0.946 vs. ≈0.782) → más estable.
@@ -588,14 +613,9 @@ comparacion %>%
 
 ```
 
-
-
-
-
-
 ## Sobreajuste
-Se compara el desempeño de ambos modelos en entrenamiento y en prueba para detectar posibles indicios de sobreajuste. Luego, se generan curvas de aprendizaje variando el tamaño del subconjunto de entrenamiento y se grafica el MAE para Train y Test.
 
+Se compara el desempeño de ambos modelos en entrenamiento y en prueba para detectar posibles indicios de sobreajuste. Luego, se generan curvas de aprendizaje variando el tamaño del subconjunto de entrenamiento y se grafica el MAE para Train y Test.
 
 ```{r sobreajuste_reg, message=FALSE, warning=FALSE}
 
@@ -647,27 +667,25 @@ comparacion_sobreajuste %>%
 
 
 ```
-- El modelo **nnet** reduce el MAE en un 39 % y el RMSE en un 34 % frente a **neuralnet**, mostrando predicciones más ajustadas.  
-- Con un R² de 0.836 frente a 0.660, **nnet** explica significativamente más varianza.
 
+-   El modelo **nnet** reduce el MAE en un 39 % y el RMSE en un 34 % frente a **neuralnet**, mostrando predicciones más ajustadas.\
+-   Con un R² de 0.836 frente a 0.660, **nnet** explica significativamente más varianza.
 
 **Desempeño**
 
-- nnet: MAE 0.287, RMSE 0.402, R² 0.836
+-   nnet: MAE 0.287, RMSE 0.402, R² 0.836
 
-- neuralnet: MAE 0.470, RMSE 0.610, R² 0.660
+-   neuralnet: MAE 0.470, RMSE 0.610, R² 0.660
 
 ⇒ nnet supera claramente en precisión y varianza explicada.
 
-**Tiempo de cómputo**
-- nnet: ~62 s
+**Tiempo de cómputo** - nnet: \~62 s
 
-- neuralnet: ~217 s
+-   neuralnet: \~217 s
 
 ⇒ nnet es 3.5× más rápido, importante si se reentrena frecuentemente.
 
 ### Curvas de aprendizaje
-
 
 ```{r curvas_aprendizaje, message=FALSE, warning=FALSE}
 library(ggplot2)
@@ -746,24 +764,23 @@ ggplot(resultados, aes(x = Frac, y = MAE, linetype = Set)) +
 
 ```
 
-Hay sobreajuste, especialmente en el modelo neuralnet (3)
-- **neuralnet (3)**  
-  - Gran brecha inicial: MAE train ≈0.18 vs. MAE test ≈0.60 en 10 % datos → alta varianza.  
-  - Con más datos, MAE test baja hasta ≈0.45 pero sigue notablemente por encima de train (~0.08) → sobreajuste persistente.  
+Hay sobreajuste, especialmente en el modelo neuralnet (3) - **neuralnet (3)**\
+- Gran brecha inicial: MAE train ≈0.18 vs. MAE test ≈0.60 en 10 % datos → alta varianza.\
+- Con más datos, MAE test baja hasta ≈0.45 pero sigue notablemente por encima de train (\~0.08) → sobreajuste persistente.
 
-- **nnet (5)**  
-  - Brecha menor desde el inicio: MAE train ≈0.05 vs. MAE test ≈0.30 → mejor generalización.  
-  - Curvas más paralelas y convergentes indican baja varianza y estabilidad al variar tamaño de entrenamiento.  
-  
-  
-  
-  - **nnet (5)** es más robusto ante sobreajuste.  
-  - **neuralnet (3)** mejora con más datos pero requiere más regularización (aumentar decay o early stopping) para cerrar el gap.  
-  
-  
+-   **nnet (5)**
+    -   Brecha menor desde el inicio: MAE train ≈0.05 vs. MAE test ≈0.30 → mejor generalización.\
+
+    -   Curvas más paralelas y convergentes indican baja varianza y estabilidad al variar tamaño de entrenamiento.
+
+    -   **nnet (5)** es más robusto ante sobreajuste.\
+
+    -   **neuralnet (3)** mejora con más datos pero requiere más regularización (aumentar decay o early stopping) para cerrar el gap.
+
 nnet es más robusto ante sobreajuste; neuralnet requeriría más regularización.
 
 ## Tuneo del Modelo
+
 Se ajusta un modelo de perceptrón multicapa con una grilla más pequeña para acelerar la búsqueda, se extraen los mejores parámetros, se calculan las métricas en Train y Test, y finalmente se evalua el posible sobreajuste mediante la diferencia de dichas métricas.
 
 ```{r tuneo, message=FALSE, warning=FALSE}
@@ -816,6 +833,7 @@ best_tune %>%
 ```
 
 ### Métricas de desempeño
+
 ```{r metricas_tuneo, message=FALSE, warning=FALSE}
 # Predicciones
 pred_train <- predict(tune_model, newdata = train_pp_r)
@@ -852,6 +870,7 @@ metrics_df %>%
 ```
 
 ### Sobreajuste
+
 ```{r sobreajuste_tuneo, message=FALSE, warning=FALSE}
 
 # Calcular diferencias (Train – Test)
@@ -875,20 +894,66 @@ differences_df %>%
 
 
 ```
-- R² casi perfecto en train vs. moderado en test → sobreajuste marcado.  
-- El gap de errores (MAE/RMSE) confirma alta varianza con esta configuración.
 
-**Recomendaciones para mejorar sin sobreajustar**  
-1. **Reducir complejidad**: bajar `size` a 4–5 neuronas.  
-2. **Aumentar regularización**: subir `decay` (0.01–0.1) o incorporar dropout ligero.  
-3. **Early stopping**: detener entrenamiento al mínimo de validación.  
-4. **Verificar curvas de aprendizaje**: asegurar convergencia de MAE/RMSE entre train y test al variar el tamaño de datos.  
+-   R² casi perfecto en train vs. moderado en test → sobreajuste marcado.\
+-   El gap de errores (MAE/RMSE) confirma alta varianza con esta configuración.
 
+**Recomendaciones para mejorar sin sobreajustar**\
+1. **Reducir complejidad**: bajar `size` a 4–5 neuronas.\
+2. **Aumentar regularización**: subir `decay` (0.01–0.1) o incorporar dropout ligero.\
+3. **Early stopping**: detener entrenamiento al mínimo de validación.\
+4. **Verificar curvas de aprendizaje**: asegurar convergencia de MAE/RMSE entre train y test al variar el tamaño de datos.
 
-## Comparación de modelos 
+## Comparación de modelos
+
 ## Clasificación
 
 ## Regresión
 
-```{r comparacion_modelos, message=FALSE, warning=FALSE}
+A continuación se comparan distintos modelos de regresión sobre `SalePrice`..
 
+1.  **Mejor error absoluto y cuadrático**
+    -   **Random Forest Tuned** domina en RMSE (0.146) y MAE (0.102), indicando el ajuste más preciso en promedio.\
+    -   **Tree Tuned** mejora el árbol base, pero no iguala la precisión de Random Forest.
+2.  **Mayor varianza explicada (R²)**
+    -   **SVM Radial** alcanza el R² más alto (0.899), sugiriendo que captura muy bien la estructura global de la relación precio-predictores.\
+    -   **Lasso Regression** también ofrece un R² elevado (0.893) con la ventaja de un modelo lineal más interpretable.
+3.  **Trade-off RMSE vs. R²**
+    -   Aunque **SVM Radial** explica más varianza, su RMSE (0.308) es más de doble que el de Random Forest, lo que puede traducirse en errores puntuales mayores.\
+    -   **Random Forest** sacrifica algo de R² (0.849) para minimizar el error absoluto y cuadrático.
+4.  **Modelos de bajo rendimiento**
+    -   **RNA Tuned** y **KNN Tuned** quedan por debajo en R² (≈0.79–0.84) y presentan errores mayores, señalando que su capacidad para capturar no linealidades complejas es inferior a SVM y bosques aleatorios.\
+    -   **Naive Bayes** no aplicó métricas útiles en regresión; no es adecuado para este problema continuo.
+5.  **Recomendación de selección**
+    -   Si el objetivo es **minimizar el error de predicción**, elegir **Random Forest Tuned**.\
+    -   Si se valora **explicación de varianza** y se toleran errores absolutos mayores, considerar **SVM Radial** o **Lasso** por su simplicidad.
+
+### Comparación de modelos de Clasificación
+
+| Modelo              | Accuracy | Kappa | F1    |
+|---------------------|----------|-------|-------|
+| **SVM Radial**      | 0.856    | 0.759 | 0.848 |
+| **GLMNet**          | 0.851    | 0.755 | 0.847 |
+| Random Forest       | 0.839    | 0.728 | 0.828 |
+| SVM Tuned           | 0.826    | 0.714 | 0.820 |
+| KNN                 | 0.798    | 0.654 | 0.782 |
+| RNA Tuned           | 0.806    | 0.690 | 0.805 |
+| Logistic Regression | 0.776    | 0.642 | 0.771 |
+| Tree                | 0.778    | 0.630 | 0.764 |
+| Naive Bayes         | 0.519    | 0.351 | 0.508 |
+
+-   **Líderes en desempeño**
+    -   *SVM Radial* y *GLMNet* alcanzan las métricas más altas (Accuracy ≈0.85, Kappa ≈0.76, F1 ≈0.85), indicando excelente balance entre precisión, consistencia y captura de clases.\
+    -   *Random Forest* también rinde muy bien (Accuracy 0.84, F1 0.83), con la ventaja de interpretabilidad de importancia de variables.
+-   **Modelos de complejidad moderada**
+    -   *SVM Tuned* mejora sobre la versión no ajustada, pero no iguala a *SVM Radial*.\
+    -   *KNN* y *RNA Tuned* ofrecen desempeño decente (Accuracy \~0.80), útiles si se busca simplicidad o escenarios sin tuning intensivo.
+-   **Modelos lineales vs. no lineales**
+    -   *GLMNet* (modelo lineal regularizado) casi iguala a *SVM*, ofreciendo interpretabilidad de coeficientes y velocidad de entrenamiento.\
+    -   *Logistic Regression* vanilla y *Tree* simple quedan en rango medio (Accuracy \~0.77–0.78).
+-   **Peor desempeño**
+    -   *Naive Bayes* no captura bien las relaciones entre características y categoría, con Accuracy \~0.52 y F1 \~0.51; no es recomendable para este caso.
+-   **Recomendación**
+    -   Para **máxima precisión**, elegir *SVM Radial* o *GLMNet*.\
+    -   Si se prioriza **interpretabilidad**, optar por *GLMNet* o *Random Forest*.\
+    -   Para **rapidez** en inferencia y entrenamiento ligero, *GLMNet* es la mejor opción.
